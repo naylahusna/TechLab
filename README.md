@@ -61,6 +61,54 @@ Programmer yang menangani fondasi bertanggung jawab untuk:
 
 Seluruh anggota menggunakan proyek EAS yang sama. Pergantian PM tidak memerlukan pembuatan proyek EAS baru.
 
+## Software Requirements Specification
+
+SRS berikut menjadi acuan pengembangan Sprint 1. Seluruh kebutuhan menggunakan data dummy dan state lokal, tanpa backend atau sinkronisasi antarperangkat.
+
+| Kode SRS | Kebutuhan | Deskripsi dan Hasil yang Diharapkan |
+|---|---|---|
+| SRS-01 | Pemilihan peran | Pengguna dapat memilih peran Praktikan atau Asisten untuk mengakses tampilan yang sesuai. |
+| SRS-02 | Pemilihan identitas | Pengguna dapat memilih identitas dummy sesuai peran. Tombol masuk hanya aktif setelah identitas dipilih. Nama dan peran aktif ditampilkan pada halaman utama. |
+| SRS-03 | Pergantian pengguna | Pengguna dapat berganti peran atau identitas tanpa menghapus perubahan status sesi dan catatan presensi selama aplikasi berjalan. |
+| SRS-04 | Navigasi sesuai peran | Praktikan dapat mengakses jadwal, detail sesi, dan riwayat pribadi. Asisten dapat mengakses jadwal, detail sesi, dan rekap. Navigasi kembali tidak mengubah data. |
+| SRS-05 | Jadwal praktikan | Praktikan dapat melihat sesi yang diikutinya, meliputi nama praktikum, kelas, lab, tanggal, waktu, dan status sesi. |
+| SRS-06 | Jadwal asisten | Asisten dapat melihat sesi yang ditanganinya, meliputi nama praktikum, kelas, lab, tanggal, waktu, dan status sesi. |
+| SRS-07 | Detail sesi praktikan | Praktikan dapat melihat nama praktikum, pertemuan, kelas, lab, tanggal, waktu, status sesi, dan status presensi pribadinya. |
+| SRS-08 | Detail sesi asisten | Asisten dapat melihat informasi lengkap sesi, ringkasan kehadiran, tombol pengelolaan sesuai status, dan akses menuju rekap. |
+| SRS-09 | Pembukaan sesi | Asisten yang menangani sesi dapat mengubah status Belum Dibuka menjadi Dibuka setelah konfirmasi. Sesi yang dibuka dapat menerima presensi. |
+| SRS-10 | Penutupan sesi | Asisten dapat mengubah status Dibuka menjadi Ditutup setelah konfirmasi. Presensi baru dinonaktifkan, sedangkan catatan sebelumnya tetap tersedia. |
+| SRS-11 | Konfirmasi pengelolaan sesi | Pembukaan dan penutupan sesi menggunakan modal atau bottom sheet yang menampilkan informasi tindakan, tombol konfirmasi, dan tombol batal. Pembatalan tidak mengubah data. |
+| SRS-12 | Pelaksanaan presensi | Praktikan terdaftar dapat melakukan presensi ketika sesi Dibuka dan dirinya belum tercatat hadir pada sesi tersebut. |
+| SRS-13 | Konfirmasi presensi | Sebelum pencatatan, modal atau bottom sheet menampilkan identitas praktikan dan sesi. Kehadiran hanya dicatat setelah konfirmasi. Pembatalan tidak mencatat kehadiran. |
+| SRS-14 | Feedback presensi | Presensi berhasil menampilkan pesan keberhasilan, status Sudah Presensi, dan waktu kehadiran tanpa refresh manual. |
+| SRS-15 | Pencegahan presensi ganda | Setiap praktikan hanya memiliki satu catatan kehadiran pada satu sesi. Klik berulang, kunjungan ulang, atau pergantian pengguna tidak menghasilkan duplikasi. |
+| SRS-16 | Kondisi tombol presensi | Tombol hanya aktif saat memenuhi syarat. Kondisi lainnya menampilkan Sesi Belum Dibuka, Sudah Presensi, atau Sesi Telah Ditutup dengan aksi nonaktif. |
+| SRS-17 | Ringkasan kehadiran | Asisten dapat melihat jumlah seluruh peserta, peserta sudah hadir, dan peserta belum hadir. Total peserta harus sama dengan jumlah hadir ditambah belum hadir. |
+| SRS-18 | Daftar kehadiran | Asisten dapat melihat nama, NIM, status kehadiran, dan waktu hadir peserta. Rekap tetap tersedia setelah sesi ditutup. |
+| SRS-19 | Filter rekap | Asisten dapat memfilter daftar menjadi Semua, Sudah Hadir, dan Belum Hadir. Filter tidak mengubah data kehadiran. |
+| SRS-20 | Riwayat pribadi | Praktikan dapat melihat catatan miliknya sendiri berupa nama sesi, tanggal, status kehadiran, dan waktu hadir jika tersedia. Catatan peserta lain tidak ditampilkan. |
+| SRS-21 | Data dummy | Aplikasi menyediakan identitas kedua peran, jadwal, daftar peserta, sesi dengan tiga status, dan contoh catatan kehadiran secara lokal. |
+| SRS-22 | State bersama | Kedua peran menggunakan satu sumber state. Perubahan status sesi dan presensi tetap konsisten ketika berganti pengguna dalam aplikasi yang sama. |
+| SRS-23 | Kondisi kosong praktikan | Halaman menampilkan pesan yang sesuai ketika praktikan tidak memiliki jadwal atau catatan kehadiran, tanpa menyebabkan error. |
+| SRS-24 | Kondisi kosong asisten | Halaman menampilkan pesan ketika asisten tidak memiliki jadwal, sesi tidak memiliki peserta, belum ada peserta hadir, atau filter tidak menghasilkan data. |
+| SRS-25 | Validasi perubahan data | Operasi state memeriksa identitas aktif, peran, keterkaitan dengan sesi, status terbaru, dan duplikasi. Tindakan tidak valid ditolak tanpa mengubah data serta memberikan feedback yang jelas. |
+
+### Aturan Status Sesi dan Kehadiran
+
+| Bagian | Aturan |
+|---|---|
+| Urutan status sesi | Belum Dibuka → Dibuka → Ditutup. |
+| Perubahan status | Dilakukan manual oleh asisten yang menangani sesi, bukan otomatis berdasarkan jam. |
+| Sesi ditutup | Tidak dapat dibuka kembali pada Sprint 1. |
+| Syarat presensi | Praktikan terdaftar, sesi Dibuka, dan belum memiliki catatan pada sesi tersebut. |
+| Sudah memiliki catatan | Ditampilkan sebagai Hadir beserta waktu kehadiran, termasuk setelah sesi ditutup. |
+| Belum memiliki catatan | Ditampilkan sebagai Belum Presensi selama sesi belum ditutup. |
+| Tidak hadir | Setelah sesi ditutup, peserta tanpa catatan ditampilkan sebagai Tidak Hadir pada riwayat. |
+| Waktu kehadiran | Menggunakan waktu perangkat saat presensi berhasil dicatat. |
+| Pergantian pengguna | Mempertahankan perubahan data selama aplikasi berjalan. |
+| Reload penuh | Mengembalikan data dummy ke kondisi awal. |
+
+
 ## Pembagian Tugas
 
 | Programmer | Tanggung Jawab | Kode SRS |
