@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Animated, Easing, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '../../../components/Text';
@@ -33,18 +34,74 @@ export function ConfirmAttendanceSheet({
   onConfirm,
 }: ConfirmAttendanceSheetProps) {
   const insets = useSafeAreaInsets();
+  const [backdropOpacity] = useState(() => new Animated.Value(0));
+  const [translateY] = useState(() => new Animated.Value(120));
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    backdropOpacity.setValue(0);
+    translateY.setValue(120);
+
+    const animation = Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]);
+
+    animation.start();
+
+    return () => animation.stop();
+  }, [backdropOpacity, translateY, visible]);
+
+  function handleCancel() {
+    if (isSubmitting) {
+      return;
+    }
+
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 120,
+        duration: 220,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) {
+        onCancel();
+      }
+    });
+  }
 
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="none"
       statusBarTranslucent
-      onRequestClose={onCancel}
+      onRequestClose={handleCancel}
     >
       {visible ? <StatusBar style="light" /> : null}
-      <View style={styles.overlay}>
-        <View style={styles.sheet} accessibilityViewIsModal>
+      <Animated.View style={[styles.overlay, { opacity: backdropOpacity }]}>
+        <Animated.View
+          style={[styles.sheet, { transform: [{ translateY }] }]}
+          accessibilityViewIsModal
+        >
           <View style={styles.handle} />
 
           <ScrollView
@@ -86,7 +143,7 @@ export function ConfirmAttendanceSheet({
                 <Button
                   label="Batal"
                   variant="secondary"
-                  onPress={onCancel}
+                  onPress={handleCancel}
                   disabled={isSubmitting}
                 />
               </View>
@@ -99,8 +156,8 @@ export function ConfirmAttendanceSheet({
               </View>
             </View>
           </ScrollView>
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 }
