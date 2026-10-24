@@ -38,10 +38,22 @@ Entri berbentuk `{ session, student, status, record }`. Status presensi
 ditutup, `absent` jika tanpa record setelah ditutup. Gunakan
 `attendanceStatusLabels`. Riwayat pribadi memakai `selectMyAttendance`.
 
-## Tahap berikutnya
+## Validasi dan aksi sesi (SRS-25)
 
-SRS-25 menambahkan `openSession`, `closeSession`, serta validasi syarat
-presensi. SRS-15 menambahkan `recordAttendance` dengan penolakan duplikasi
+SRS-25 sudah menyediakan `openSession(sessionId)`, `closeSession(sessionId)`,
+`validateSessionAction(demo, sessionId, 'open' | 'close')`, dan
+`validateAttendance(demo, sessionId, studentId)`. Hasilnya
+`{ ok: true, message }` atau `{ ok: false, code, message }`.
+Penolakan tidak mengubah snapshot. UI memanggil aksi hanya saat konfirmasi,
+bukan ketika membuka atau membatalkan modal.
+
+Validasi saat render membantu kondisi tombol; aksi tetap memeriksa state
+terbaru ketika dipanggil. Hanya asisten yang ditugaskan dapat membuka/menutup
+sesi. Aksi transisi selalu upcoming → open → closed, tanpa buka ulang.
+
+## Pencatatan presensi (SRS-15, tahap berikutnya)
+
+SRS-15 menambahkan `recordAttendance` dengan penolakan duplikasi
 secara atomik. Caller tidak menulis sesi/record langsung. UI modal,
 feedback, dan daftar tetap dikerjakan owner fitur.
 
