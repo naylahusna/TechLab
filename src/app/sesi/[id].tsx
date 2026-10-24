@@ -2,18 +2,8 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '../../components/Text';
-import {
-  useDemo,
-  selectAttendanceRecord,
-  selectAttendanceSummary,
-  selectMySession,
-  selectSessionParticipants,
-} from '../../core';
-import {
-  AssistantSessionDetailScreen,
-  toAssistantSessionItem,
-  toParticipantItem,
-} from '../../features/assistant';
+import { AssistantSessionDetailScreen } from '../../features/assistant/AssistantSessionDetailScreen';
+import { useDemo, selectAttendanceRecord, selectMySession } from '../../core';
 import { SessionDetailScreen } from '../../features/practitioner';
 import {
   formatTimeLabel,
@@ -27,12 +17,12 @@ import type {
 import { colors } from '../../theme/tokens';
 
 export default function SesiRoute() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const demo = useDemo();
   const router = useRouter();
 
   if (!demo.currentUser) return <Redirect href="/" />;
-  if (!id) return <Redirect href="/jadwal" />;
+  if (typeof id !== 'string' || !id) return <Redirect href="/jadwal" />;
 
   const session = selectMySession(demo, id);
   if (!session) {
@@ -43,47 +33,16 @@ export default function SesiRoute() {
     );
   }
 
-  const handleBack = () =>
-    router.canGoBack() ? router.back() : router.replace('/jadwal');
-
   if (demo.currentUser.role === 'asisten') {
-    const assistantSession = toAssistantSessionItem(session);
-    const rawSummary = selectAttendanceSummary(demo, session.id);
-    const summary = rawSummary ?? {
-      total: session.studentIds.length,
-      present: 0,
-      notPresent: session.studentIds.length,
-    };
-    const participantEntries = selectSessionParticipants(demo, session.id);
-    const participants = participantEntries.map(toParticipantItem);
-
-    function handleOpenSession() {
-      if (!session) {
-        return { ok: false, message: 'Sesi tidak ditemukan.' };
-      }
-      return demo.openSession(session.id);
-    }
-
-    function handleCloseSession() {
-      if (!session) {
-        return { ok: false, message: 'Sesi tidak ditemukan.' };
-      }
-      return demo.closeSession(session.id);
-    }
-
     return (
       <AssistantSessionDetailScreen
-        session={assistantSession}
-        summary={summary}
-        participants={participants}
-        onBack={handleBack}
-        onOpenSession={handleOpenSession}
-        onCloseSession={handleCloseSession}
+        key={`${demo.currentUser.id}:${session.id}`}
+        sessionId={session.id}
+        onBack={() => (router.canGoBack() ? router.back() : router.replace('/jadwal'))}
       />
     );
   }
 
-  // Praktikan Role
   const record = selectAttendanceRecord(demo, id, demo.currentUser.id);
 
   const myAttendance: AttendanceInfo = record
@@ -122,7 +81,7 @@ export default function SesiRoute() {
         name: demo.currentUser.name,
         nim: demo.currentUser.number,
       }}
-      onBack={handleBack}
+      onBack={() => (router.canGoBack() ? router.back() : router.replace('/jadwal'))}
       onConfirmAttendance={handleConfirmAttendance}
     />
   );
