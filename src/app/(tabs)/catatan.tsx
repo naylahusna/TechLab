@@ -1,5 +1,6 @@
 import { useDemo, selectMyAttendance } from '../../core';
 import { NavigationLandingScreen } from '../../features/navigation/NavigationLandingScreen';
+import { AssistantScheduleScreen } from '../../features/assistant/AssistantScheduleScreen';
 import { RiwayatScreen } from '../../features/practitioner';
 import {
   formatDateLabel,
@@ -10,6 +11,8 @@ import type { RiwayatItem } from '../../features/practitioner';
 
 export default function RecordsRoute() {
   const demo = useDemo();
+
+  if (demo.currentUser?.role === 'asisten') return <AssistantScheduleScreen page="catatan" />;
 
   if (demo.currentUser?.role !== 'praktikan') {
     return <NavigationLandingScreen page="catatan" />;
