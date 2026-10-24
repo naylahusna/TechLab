@@ -26,7 +26,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <RoleContext.Provider value={{ ...identity, currentUser: findUser(identity.currentUserId), users, selectUser }}>
+    <RoleContext.Provider
+      value={{ ...identity, currentUser: findUser(identity.currentUserId), users, selectUser }}
+    >
       {children}
     </RoleContext.Provider>
   );

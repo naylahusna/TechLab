@@ -29,6 +29,16 @@ src/
   folder fitur dan lakukan wiring route dalam satu pull request integrasi.
 - Setiap PR harus menyebutkan SRS yang selesai dan hasil lint/typecheck.
 
+## Kerapian kode
+
+- Konfigurasi format bersama ada di `.prettierrc.json`. Jalankan
+  `npx prettier@3 --write src tests` untuk merapikan TypeScript dan TSX.
+- Gunakan token warna dari `src/theme/tokens.ts` dan komponen `Text` bersama
+  agar gaya tiap fitur tetap konsisten.
+- `AGENTS.md`, `AGENTS.local.md`, dan `.codex/` adalah konfigurasi lokal yang
+  diabaikan Git. Jangan menambahkannya menggunakan `git add -f`.
+- Hasil build, cache, dan dependency sudah diabaikan lewat `.gitignore`.
+
 ## Urutan integrasi yang disarankan
 
 1. Arga membuat tipe, data dummy, dan state bersama.

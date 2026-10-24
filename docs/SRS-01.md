@@ -9,7 +9,9 @@ Pengguna memilih Praktikan atau Asisten agar mendapatkan tampilan yang sesuai.
 
 ## Implementasi
 
-- `App.tsx` memasang `RoleProvider` dan layar pemilihan peran.
+- Pada implementasi awal, `App.tsx` memasang `RoleProvider` dan layar pemilihan
+  peran. Setelah migrasi Expo Router, provider berada di `src/app/_layout.tsx`
+  dan entry point lama sudah dihapus.
 - `src/core/roles.ts` mendefinisikan nilai role yang valid.
 - `src/core/role-context.tsx` menyimpan `currentRole` selama aplikasi berjalan.
 - `src/features/auth/RoleSelectionScreen.tsx` mengelola pilihan sementara dan UI.
