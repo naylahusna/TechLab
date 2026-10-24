@@ -1,8 +1,10 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { Alert, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { ActionButton } from '../../components/ActionButton';
 import { AppPage } from '../../components/AppPage';
+import { ConfirmationModal } from '../../components/ConfirmationModal';
 import { Text } from '../../components/Text';
 import { useRole } from '../../core/role-context';
 import { colors } from '../../theme/tokens';
@@ -10,7 +12,8 @@ import { findAssistantSession } from '../../features/assistant/assistant-session
 
 export default function AssistantSessionDetailRoute() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
-  const { currentUser, sessionStatuses, openSession } = useRole();
+  const { currentUser, sessionStatuses, openSession, closeSession } = useRole();
+  const [closeConfirmationVisible, setCloseConfirmationVisible] = useState(false);
 
   if (!currentUser) return <Redirect href="/" />;
   if (currentUser.role !== 'asisten') return <Redirect href="/jadwal" />;
@@ -21,11 +24,16 @@ export default function AssistantSessionDetailRoute() {
   const status = sessionStatuses[activeSession.id] ?? activeSession.status;
 
   function handleOpenSession() {
-    if (openSession(activeSession.id)) {
-      Alert.alert('Sesi dibuka', 'Praktikan sekarang dapat melakukan presensi untuk sesi ini.');
-    } else {
-      Alert.alert('Sesi tidak dapat dibuka', 'Sesi ini sudah dibuka atau sudah selesai.');
-    }
+    openSession(activeSession.id);
+  }
+
+  function handleCloseSession() {
+    setCloseConfirmationVisible(true);
+  }
+
+  function confirmCloseSession() {
+    closeSession(activeSession.id);
+    setCloseConfirmationVisible(false);
   }
 
   return (
@@ -57,13 +65,24 @@ export default function AssistantSessionDetailRoute() {
       </View>
 
       <ActionButton
-        title={status === 'Sedang berlangsung' ? 'Sesi sudah dibuka' : 'Buka sesi untuk presensi'}
+        title={status === 'Sedang berlangsung' ? 'Sesi sedang berlangsung' : status === 'Selesai' ? 'Sesi sudah ditutup' : 'Buka sesi untuk presensi'}
         onPress={handleOpenSession}
         disabled={status !== 'Akan datang'}
         testID="open-session"
       />
+      {status === 'Sedang berlangsung' ? (
+        <ActionButton title="Tutup sesi" onPress={handleCloseSession} testID="close-session" />
+      ) : null}
 
       <ActionButton title="Kembali ke jadwal" onPress={() => router.back()} secondary />
+      <ConfirmationModal
+        visible={closeConfirmationVisible}
+        title="Tutup sesi praktikum?"
+        description="Praktikan tidak dapat melakukan presensi baru setelah sesi ditutup. Sesi yang sudah ditutup tidak dapat dibuka kembali."
+        confirmLabel="Ya, tutup sesi"
+        onConfirm={confirmCloseSession}
+        onCancel={() => setCloseConfirmationVisible(false)}
+      />
     </AppPage>
   );
 }

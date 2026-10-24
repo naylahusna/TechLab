@@ -3,7 +3,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 import { initialIdentity, selectIdentity, type IdentityState } from './identity-state';
 import type { Role } from './roles';
 import { findUser, users, type DemoUser } from './users';
-import { initialSessionState, openSession, type SessionState } from './session-state';
+import { closeSession, initialSessionState, openSession, type SessionState } from './session-state';
 
 type RoleContextValue = {
   currentRole: Role | null;
@@ -13,6 +13,7 @@ type RoleContextValue = {
   selectUser: (userId: string, role: Role) => boolean;
   sessionStatuses: SessionState;
   openSession: (sessionId: string) => boolean;
+  closeSession: (sessionId: string) => boolean;
 };
 
 const RoleContext = createContext<RoleContextValue | null>(null);
@@ -36,6 +37,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     return true;
   }
 
+  function closeSessionAction(sessionId: string) {
+    const next = closeSession(sessionStatuses, sessionId);
+    if (next === sessionStatuses) return false;
+    setSessionStatuses(next);
+    return true;
+  }
+
   return (
     <RoleContext.Provider
       value={{
@@ -45,6 +53,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         selectUser,
         sessionStatuses,
         openSession: openSessionAction,
+        closeSession: closeSessionAction,
       }}
     >
       {children}

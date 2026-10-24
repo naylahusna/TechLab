@@ -12,3 +12,9 @@ export function openSession(state: SessionState, sessionId: string): SessionStat
   if (!Object.hasOwn(state, sessionId) || state[sessionId] !== 'Akan datang') return state;
   return { ...state, [sessionId]: 'Sedang berlangsung' };
 }
+
+/** Close an active session so no later attendance can be recorded. */
+export function closeSession(state: SessionState, sessionId: string): SessionState {
+  if (!Object.hasOwn(state, sessionId) || state[sessionId] !== 'Sedang berlangsung') return state;
+  return { ...state, [sessionId]: 'Selesai' };
+}
