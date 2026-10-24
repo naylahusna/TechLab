@@ -10,7 +10,7 @@ type HistoryCardProps = {
   item: RiwayatItem;
 };
 
-function getTimeLabel(item: RiwayatItem): string {
+function getAttendanceLabel(item: RiwayatItem): string {
   if (item.attendedAtLabel) {
     return `Hadir pukul ${item.attendedAtLabel}`;
   }
@@ -20,23 +20,39 @@ function getTimeLabel(item: RiwayatItem): string {
 
 export function HistoryCard({ item }: HistoryCardProps) {
   const status = ATTENDANCE_STATUS_META[item.status];
-  const timeLabel = getTimeLabel(item);
+  const attendanceLabel = getAttendanceLabel(item);
+  const isPresent = item.status === 'hadir';
 
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <View style={styles.titleGroup}>
-          <Text style={styles.title} numberOfLines={2}>
-            {item.practicalName}
-          </Text>
-          <Text style={styles.meeting}>{item.meetingLabel}</Text>
+        <View style={styles.identity}>
+          <View
+            style={[styles.mark, isPresent ? styles.markPresent : styles.markAbsent]}
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
+          >
+            <Text
+              style={[styles.markText, isPresent ? styles.markPresentText : styles.markAbsentText]}
+            >
+              {isPresent ? '✓' : '!'}
+            </Text>
+          </View>
+
+          <View style={styles.titleGroup}>
+            <Text style={styles.title} numberOfLines={2}>
+              {item.practicalName}
+            </Text>
+            <Text style={styles.meeting}>{item.meetingLabel}</Text>
+          </View>
         </View>
+
         <Badge label={status.label} tone={status.tone} />
       </View>
 
       <View style={styles.footer}>
         <Text style={styles.date}>{item.dateLabel}</Text>
-        <Text style={item.attendedAtLabel ? styles.time : styles.timeMuted}>{timeLabel}</Text>
+        <Text style={item.attendedAtLabel ? styles.time : styles.timeMuted}>{attendanceLabel}</Text>
       </View>
     </View>
   );
@@ -50,12 +66,46 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.lg,
     gap: spacing.sm,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
+  },
+  identity: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  mark: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markPresent: {
+    backgroundColor: colors.successSoft,
+  },
+  markAbsent: {
+    backgroundColor: colors.dangerSoft,
+  },
+  markText: {
+    fontSize: typography.bodyLarge,
+    fontWeight: fontWeights.bold,
+  },
+  markPresentText: {
+    color: colors.success,
+  },
+  markAbsentText: {
+    color: colors.danger,
   },
   titleGroup: {
     flex: 1,
@@ -85,12 +135,12 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   time: {
-    fontSize: typography.body,
+    fontSize: typography.secondary,
     fontWeight: fontWeights.semibold,
     color: colors.textBody,
   },
   timeMuted: {
-    fontSize: typography.body,
+    fontSize: typography.secondary,
     color: colors.textMuted,
   },
 });

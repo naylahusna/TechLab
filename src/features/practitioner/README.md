@@ -26,7 +26,7 @@ menampilkan alasan; validasi akhir wajib dilakukan store.
 ```text
 src/features/practitioner/
   components/       komponen presentasional
-  lib/              aturan tombol dan label status
+  lib/              aturan tombol, label status, mapper, dan sorting
   screens/          layar praktikan
   theme.ts          alias semantik token dari src/theme
   types.ts          view model / kontrak props
@@ -35,8 +35,9 @@ src/features/practitioner/
 
 ## Kontrak data
 
-- Semua label tanggal dan waktu (`dateLabel`, `timeLabel`, `attendedAtLabel`)
-  sudah berupa string siap tampil. Mapper/store yang memformat.
+- Semua label tanggal dan waktu (`dateLabel`, `timeRangeLabel`,
+  `attendedAtLabel`) sudah berupa string siap tampil. Mapper/store yang
+  memformat.
 - `onConfirmAttendance` mengembalikan:
   - `{ ok: true }`
   - `{ ok: false, reason: string }`

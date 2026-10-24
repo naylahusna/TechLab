@@ -1,19 +1,24 @@
 import { StyleSheet, View } from 'react-native';
 
+import { TabIcon } from '../../../components/TabIcon';
 import { Text } from '../../../components/Text';
 import { colors, fontWeights, lineHeights, radius, spacing, typography } from '../theme';
 
 type EmptyStateProps = {
   title: string;
   message: string;
+  icon?: 'jadwal' | 'catatan';
 };
 
-export function EmptyState({ title, message }: EmptyStateProps) {
+export function EmptyState({ title, message, icon = 'jadwal' }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      <View style={styles.icon} accessibilityElementsHidden importantForAccessibility="no">
-        <View style={styles.iconLine} />
-        <View style={[styles.iconLine, styles.iconLineShort]} />
+      <View
+        style={[styles.icon, icon === 'catatan' ? styles.iconHistory : null]}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
+        <TabIcon kind={icon} color={colors.primary} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
@@ -34,23 +39,16 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   icon: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
     backgroundColor: colors.primaryBackground,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
     marginBottom: spacing.md,
   },
-  iconLine: {
-    width: 20,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
-  },
-  iconLineShort: {
-    width: 12,
+  iconHistory: {
+    backgroundColor: colors.warningSoft,
   },
   title: {
     fontSize: typography.bodyLarge,

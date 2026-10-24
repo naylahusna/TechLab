@@ -15,6 +15,11 @@ import {
   toSessionListItem,
 } from '../src/features/practitioner/lib/argamapping';
 import { getAttendanceAction } from '../src/features/practitioner/lib/attendance-action';
+import {
+  sortHistoryByDate,
+  sortSessionsForSchedule,
+} from '../src/features/practitioner/lib/session-sort';
+import type { RiwayatItem, SessionListItem } from '../src/features/practitioner/types';
 
 test('practitioner maps core statuses to view models', () => {
   assert.equal(mapSessionStatus('upcoming'), 'belum-dibuka');
@@ -36,8 +41,9 @@ test('practitioner builds schedule cards from core sessions', () => {
   assert.equal(item.className, session.className);
   assert.equal(item.lab, session.lab);
   assert.equal(item.status, 'dibuka');
+  assert.equal(item.meetingLabel, `Pertemuan ${session.meeting}`);
   assert.ok(item.dateLabel.length > 0);
-  assert.match(item.timeLabel, /^\d{2}\.\d{2}$/);
+  assert.match(item.timeRangeLabel, /^\d{2}\.\d{2} - \d{2}\.\d{2}$/);
 });
 
 test('attendance action follows session and attendance state', () => {
@@ -70,6 +76,53 @@ test('detail and history derive the same time from the stored record', () => {
   const historyEntry = selectMyAttendance(state).find((entry) => entry.session.id === 'sesi-02');
   assert.ok(historyEntry?.record);
   assert.equal(formatTimeLabel(historyEntry.record.recordedAt), formatTimeLabel(record.recordedAt));
+});
+
+const sessionItem = (id: string, status: SessionListItem['status']): SessionListItem => ({
+  id,
+  practicalName: 'Praktikum',
+  meetingLabel: 'Pertemuan 1',
+  className: 'Informatika A',
+  lab: 'Lab 1',
+  dateLabel: '24 Okt 2026',
+  timeRangeLabel: '10.00 - 12.00',
+  status,
+});
+
+const historyItem = (id: string, startsAt: string): RiwayatItem => ({
+  id,
+  sessionId: id,
+  practicalName: 'Praktikum',
+  meetingLabel: 'Pertemuan 1',
+  dateLabel: '24 Okt 2026',
+  startsAt,
+  status: 'hadir',
+  attendedAtLabel: '10.00',
+});
+
+test('schedule puts open sessions before upcoming and closed', () => {
+  const sorted = sortSessionsForSchedule([
+    sessionItem('closed', 'ditutup'),
+    sessionItem('upcoming', 'belum-dibuka'),
+    sessionItem('open', 'dibuka'),
+  ]);
+
+  assert.deepEqual(
+    sorted.map((item) => item.id),
+    ['open', 'upcoming', 'closed'],
+  );
+});
+
+test('history shows the newest session first', () => {
+  const sorted = sortHistoryByDate([
+    historyItem('old', '2026-10-20T08:00:00+07:00'),
+    historyItem('new', '2026-10-24T10:00:00+07:00'),
+  ]);
+
+  assert.deepEqual(
+    sorted.map((item) => item.id),
+    ['new', 'old'],
+  );
 });
 
 test('Alya can attend, Raka gets an empty state, and Bima cannot inherit Alya feedback', () => {

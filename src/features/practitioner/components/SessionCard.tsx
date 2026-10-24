@@ -19,6 +19,7 @@ export function SessionCard({ session, onPress }: SessionCardProps) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Buka detail ${session.practicalName}`}
+      accessibilityHint="Membuka halaman detail sesi"
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
@@ -29,22 +30,30 @@ export function SessionCard({ session, onPress }: SessionCardProps) {
       {({ pressed }) => (
         <>
           <View style={styles.header}>
-            <Text style={styles.title} numberOfLines={2}>
-              {session.practicalName}
-            </Text>
+            <View style={styles.titleGroup}>
+              <Text style={styles.meeting}>{session.meetingLabel}</Text>
+              <Text style={styles.title} numberOfLines={2}>
+                {session.practicalName}
+              </Text>
+            </View>
             <Badge label={status.label} tone={status.tone} />
           </View>
 
           <Text style={styles.meta}>
-            {session.className} - {session.lab}
+            {session.className} · {session.lab}
           </Text>
 
           <View style={styles.footer}>
             <Text style={styles.date}>{session.dateLabel}</Text>
-            <Text style={styles.time}>{session.timeLabel}</Text>
+            <Text style={styles.time}>{session.timeRangeLabel}</Text>
           </View>
 
-          <Text style={[styles.hint, pressed ? styles.hintPressed : null]}>Lihat detail sesi</Text>
+          <View style={styles.hintRow}>
+            <Text style={[styles.hint, pressed ? styles.hintPressed : null]}>
+              Lihat detail sesi
+            </Text>
+            <Text style={[styles.arrow, pressed ? styles.hintPressed : null]}>→</Text>
+          </View>
         </>
       )}
     </Pressable>
@@ -78,8 +87,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  title: {
+  titleGroup: {
     flex: 1,
+    gap: 2,
+  },
+  meeting: {
+    fontSize: typography.caption,
+    fontWeight: fontWeights.semibold,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: colors.primary,
+  },
+  title: {
     fontSize: typography.bodyLarge,
     fontWeight: fontWeights.semibold,
     color: colors.text,
@@ -103,13 +122,24 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   time: {
-    fontSize: typography.body,
+    fontSize: typography.secondary,
     fontWeight: fontWeights.semibold,
     color: colors.textBody,
   },
-  hint: {
+  hintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
     marginTop: spacing.xs,
+  },
+  hint: {
     fontSize: typography.secondary,
+    fontWeight: fontWeights.semibold,
+    color: colors.link,
+  },
+  arrow: {
+    fontSize: typography.bodyLarge,
     fontWeight: fontWeights.semibold,
     color: colors.link,
   },

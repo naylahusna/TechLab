@@ -56,10 +56,11 @@ export function toSessionListItem(session: ArgaSession): SessionListItem {
   return {
     id: session.id,
     practicalName: session.practicumName,
+    meetingLabel: `Pertemuan ${session.meeting}`,
     className: session.className,
     lab: session.lab,
     dateLabel: formatDateLabel(session.startsAt),
-    timeLabel: formatTimeLabel(session.startsAt),
+    timeRangeLabel: `${formatTimeLabel(session.startsAt)} - ${formatTimeLabel(session.endsAt)}`,
     status: mapSessionStatus(session.status),
   };
 }

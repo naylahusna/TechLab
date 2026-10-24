@@ -18,6 +18,8 @@ export default function ScheduleRoute() {
   return (
     <JadwalScreen
       sessions={sessions}
+      praktikanName={demo.currentUser.name}
+      praktikanInitials={demo.currentUser.initials}
       onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
     />
   );

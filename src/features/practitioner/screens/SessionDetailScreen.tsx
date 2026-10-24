@@ -1,3 +1,4 @@
+import { StatusBar } from 'expo-status-bar';
 import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -127,6 +128,7 @@ function SessionDetailContent({
 
   return (
     <>
+      <StatusBar style="dark" />
       <ScrollView
         style={styles.screen}
         contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.lg }]}
@@ -156,7 +158,7 @@ function SessionDetailContent({
           <InfoRow label="Kelas" value={session.className} />
           <InfoRow label="Lab" value={session.lab} />
           <InfoRow label="Tanggal" value={session.dateLabel} />
-          <InfoRow label="Waktu" value={session.timeLabel} />
+          <InfoRow label="Waktu" value={session.timeRangeLabel} />
           <InfoRow label="Status Sesi" value={sessionStatus.label} last />
         </View>
 

@@ -11,10 +11,11 @@ export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 export type SessionListItem = {
   id: string;
   practicalName: string;
+  meetingLabel: string;
   className: string;
   lab: string;
   dateLabel: string;
-  timeLabel: string;
+  timeRangeLabel: string;
   status: SessionStatus;
 };
 
@@ -25,7 +26,6 @@ export type AttendanceInfo = {
 
 /** View model untuk detail sesi praktikan (SRS-07). */
 export type SessionDetail = SessionListItem & {
-  meetingLabel: string;
   myAttendance: AttendanceInfo;
 };
 
@@ -42,6 +42,7 @@ export type RiwayatItem = {
   practicalName: string;
   meetingLabel: string;
   dateLabel: string;
+  startsAt: string;
   status: AttendanceStatus;
   attendedAtLabel: string | null;
 };

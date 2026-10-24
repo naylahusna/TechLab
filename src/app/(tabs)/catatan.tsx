@@ -23,9 +23,16 @@ export default function RecordsRoute() {
       practicalName: entry.session.practicumName,
       meetingLabel: `Pertemuan ${entry.session.meeting}`,
       dateLabel: formatDateLabel(entry.session.startsAt),
+      startsAt: entry.session.startsAt,
       status: mapAttendanceStatus(entry.status),
       attendedAtLabel: entry.record ? formatTimeLabel(entry.record.recordedAt) : null,
     }));
 
-  return <RiwayatScreen items={items} />;
+  return (
+    <RiwayatScreen
+      items={items}
+      praktikanName={demo.currentUser.name}
+      praktikanInitials={demo.currentUser.initials}
+    />
+  );
 }

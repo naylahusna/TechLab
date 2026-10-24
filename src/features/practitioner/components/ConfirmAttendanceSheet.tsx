@@ -1,3 +1,4 @@
+import { StatusBar } from 'expo-status-bar';
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -41,6 +42,7 @@ export function ConfirmAttendanceSheet({
       statusBarTranslucent
       onRequestClose={onCancel}
     >
+      {visible ? <StatusBar style="light" /> : null}
       <View style={styles.overlay}>
         <View style={styles.sheet} accessibilityViewIsModal>
           <View style={styles.handle} />
@@ -72,7 +74,7 @@ export function ConfirmAttendanceSheet({
               <InfoRow label="Kelas" value={session.className} />
               <InfoRow label="Lab" value={session.lab} />
               <InfoRow label="Tanggal" value={session.dateLabel} />
-              <InfoRow label="Waktu" value={session.timeLabel} last />
+              <InfoRow label="Waktu" value={session.timeRangeLabel} last />
             </View>
 
             {errorMessage ? (

@@ -4,11 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '../../components/Text';
 import { useDemo, selectAttendanceRecord, selectMySession } from '../../core';
 import { SessionDetailScreen } from '../../features/practitioner';
-import {
-  formatDateLabel,
-  formatTimeLabel,
-  mapSessionStatus,
-} from '../../features/practitioner/lib/argamapping';
+import { formatTimeLabel, toSessionListItem } from '../../features/practitioner/lib/argamapping';
 import type {
   AttendanceActionResult,
   AttendanceInfo,
@@ -43,14 +39,7 @@ export default function SesiRoute() {
       : { status: 'belum-presensi', attendedAtLabel: null };
 
   const sessionDetail: SessionDetail = {
-    id: session.id,
-    practicalName: session.practicumName,
-    className: session.className,
-    lab: session.lab,
-    dateLabel: formatDateLabel(session.startsAt),
-    timeLabel: formatTimeLabel(session.startsAt),
-    status: mapSessionStatus(session.status),
-    meetingLabel: `Pertemuan ${session.meeting}`,
+    ...toSessionListItem(session),
     myAttendance,
   };
 
