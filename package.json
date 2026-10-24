@@ -27,7 +27,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "tsc -p tsconfig.test.json && node --test dist/tests/tests/*.test.js"
+    "test": "node scripts/test.mjs"
   },
   "private": true
 }

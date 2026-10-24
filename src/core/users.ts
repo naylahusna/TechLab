@@ -51,6 +51,22 @@ const seedUsers: DemoUser[] = [
     group: 'Asisten · Lab Komputasi',
     initials: 'NS',
   },
+  {
+    id: 'praktikan-04',
+    name: 'Raka Wijaya',
+    role: 'praktikan',
+    number: '240101004',
+    group: 'Informatika · Kelas C',
+    initials: 'RW',
+  },
+  {
+    id: 'asisten-03',
+    name: 'Sinta Maharani',
+    role: 'asisten',
+    number: 'AS-003',
+    group: 'Asisten · Belum ada penugasan',
+    initials: 'SM',
+  },
 ];
 
 export const users: readonly DemoUser[] = Object.freeze(
