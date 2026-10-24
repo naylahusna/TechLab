@@ -13,7 +13,7 @@ import { findAssistantSession } from '../../features/assistant/assistant-session
 export default function AssistantSessionDetailRoute() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const { currentUser, sessionStatuses, openSession, closeSession } = useRole();
-  const [closeConfirmationVisible, setCloseConfirmationVisible] = useState(false);
+  const [confirmation, setConfirmation] = useState<'open' | 'close' | null>(null);
 
   if (!currentUser) return <Redirect href="/" />;
   if (currentUser.role !== 'asisten') return <Redirect href="/jadwal" />;
@@ -24,16 +24,17 @@ export default function AssistantSessionDetailRoute() {
   const status = sessionStatuses[activeSession.id] ?? activeSession.status;
 
   function handleOpenSession() {
-    openSession(activeSession.id);
+    setConfirmation('open');
   }
 
   function handleCloseSession() {
-    setCloseConfirmationVisible(true);
+    setConfirmation('close');
   }
 
-  function confirmCloseSession() {
-    closeSession(activeSession.id);
-    setCloseConfirmationVisible(false);
+  function confirmTransition() {
+    if (confirmation === 'open') openSession(activeSession.id);
+    if (confirmation === 'close') closeSession(activeSession.id);
+    setConfirmation(null);
   }
 
   return (
@@ -76,12 +77,12 @@ export default function AssistantSessionDetailRoute() {
 
       <ActionButton title="Kembali ke jadwal" onPress={() => router.back()} secondary />
       <ConfirmationModal
-        visible={closeConfirmationVisible}
-        title="Tutup sesi praktikum?"
-        description="Praktikan tidak dapat melakukan presensi baru setelah sesi ditutup. Sesi yang sudah ditutup tidak dapat dibuka kembali."
-        confirmLabel="Ya, tutup sesi"
-        onConfirm={confirmCloseSession}
-        onCancel={() => setCloseConfirmationVisible(false)}
+        visible={confirmation !== null}
+        title={confirmation === 'open' ? 'Buka sesi praktikum?' : 'Tutup sesi praktikum?'}
+        description={confirmation === 'open' ? 'Praktikan akan dapat melakukan presensi setelah sesi dibuka.' : 'Praktikan tidak dapat melakukan presensi baru setelah sesi ditutup. Sesi yang sudah ditutup tidak dapat dibuka kembali.'}
+        confirmLabel={confirmation === 'open' ? 'Ya, buka sesi' : 'Ya, tutup sesi'}
+        onConfirm={confirmTransition}
+        onCancel={() => setConfirmation(null)}
       />
     </AppPage>
   );
