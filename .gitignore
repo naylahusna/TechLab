@@ -3,6 +3,11 @@
 # dependencies
 node_modules/
 
+# local agent instructions and workspace metadata
+AGENTS.md
+AGENTS.local.md
+.codex/
+
 # Expo
 .expo/
 dist/
@@ -22,16 +27,26 @@ expo-env.d.ts
 .metro-health-check*
 
 # debug
+*.log
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+
+# generated reports and mobile build artifacts
+coverage/
+*.apk
+*.aab
+*.ipa
 
 # macOS
 .DS_Store
 *.pem
 
 # local env files
-.env*.local
+.env
+.env.*
+!.env.example
+!.env.sample
 
 # typescript
 *.tsbuildinfo
