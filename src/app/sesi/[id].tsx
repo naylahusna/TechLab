@@ -2,8 +2,18 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '../../components/Text';
-import { AssistantSessionDetailScreen } from '../../features/assistant/AssistantSessionDetailScreen';
-import { useDemo, selectAttendanceRecord, selectMySession } from '../../core';
+import {
+  AssistantSessionDetailScreen,
+  toAssistantSessionItem,
+  toParticipantItem,
+} from '../../features/assistant';
+import {
+  useDemo,
+  selectAttendanceRecord,
+  selectAttendanceSummary,
+  selectMySession,
+  selectSessionParticipants,
+} from '../../core';
 import { SessionDetailScreen } from '../../features/practitioner';
 import {
   formatTimeLabel,
@@ -34,11 +44,24 @@ export default function SesiRoute() {
   }
 
   if (demo.currentUser.role === 'asisten') {
+    const summary = selectAttendanceSummary(demo, session.id);
+    if (!summary) {
+      return (
+        <View style={styles.screen}>
+          <Text style={styles.errorText}>Rekap sesi tidak tersedia.</Text>
+        </View>
+      );
+    }
+
     return (
       <AssistantSessionDetailScreen
         key={`${demo.currentUser.id}:${session.id}`}
-        sessionId={session.id}
+        session={toAssistantSessionItem(session)}
+        summary={summary}
+        participants={selectSessionParticipants(demo, session.id).map(toParticipantItem)}
         onBack={() => (router.canGoBack() ? router.back() : router.replace('/jadwal'))}
+        onOpenSession={() => demo.openSession(session.id)}
+        onCloseSession={() => demo.closeSession(session.id)}
       />
     );
   }

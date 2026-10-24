@@ -42,6 +42,7 @@ export function AssistantRekapScreen({
       <ScreenHeader
         title="Rekap Kehadiran"
         subtitle="Pantau kehadiran praktikan pada seluruh sesi praktikum penugasanmu."
+        roleLabel="Asisten"
         greeting={assistantName}
         initials={assistantInitials}
         summary={summary}
@@ -51,7 +52,7 @@ export function AssistantRekapScreen({
         data={items}
         keyExtractor={(item) => item.session.id}
         contentContainerStyle={isEmpty ? styles.emptyContent : styles.listContent}
-        ListEmptyComponent={<AssistantEmptyState kind="jadwal" />}
+        ListEmptyComponent={<AssistantEmptyState kind="rekap" />}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         renderItem={({ item }) => {
           const tone = getSessionStatusTone(item.session.status);

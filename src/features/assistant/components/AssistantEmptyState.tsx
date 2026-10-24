@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '../../../components/Text';
 import { colors, fontWeights, lineHeights, radius, spacing, typography } from '../theme';
 
-export type EmptyStateKind = 'jadwal' | 'peserta' | 'filter';
+export type EmptyStateKind = 'jadwal' | 'rekap' | 'peserta' | 'filter';
 
 type AssistantEmptyStateProps = {
   kind: EmptyStateKind;
@@ -19,6 +19,11 @@ const EMPTY_STATE_CONFIG: Record<
     title: 'Belum Ada Jadwal Penugasan',
     message: 'Saat ini belum ada sesi praktikum yang ditugaskan kepadamu.',
     badge: 'JADWAL KOSONG',
+  },
+  rekap: {
+    title: 'Belum Ada Rekap Sesi',
+    message: 'Rekap kehadiran akan tampil setelah ada sesi yang ditugaskan kepadamu.',
+    badge: 'REKAP KOSONG',
   },
   peserta: {
     title: 'Belum Ada Peserta Terdaftar',

@@ -1,5 +1,8 @@
+import { useRouter } from 'expo-router';
+
 import { useDemo, selectMyAttendance } from '../../core';
-import { AssistantScheduleScreen } from '../../features/assistant/AssistantScheduleScreen';
+import { AssistantRekapScreen, toAssistantSessionItem } from '../../features/assistant';
+import { selectAssistantSessions } from '../../features/assistant/session-view';
 import { NavigationLandingScreen } from '../../features/navigation/NavigationLandingScreen';
 import { RiwayatScreen } from '../../features/practitioner';
 import {
@@ -11,8 +14,23 @@ import type { RiwayatItem } from '../../features/practitioner';
 
 export default function RecordsRoute() {
   const demo = useDemo();
+  const router = useRouter();
 
-  if (demo.currentUser?.role === 'asisten') return <AssistantScheduleScreen page="catatan" />;
+  if (demo.currentUser?.role === 'asisten') {
+    const items = selectAssistantSessions(demo).map(({ session, summary }) => ({
+      session: toAssistantSessionItem(session),
+      summary,
+    }));
+
+    return (
+      <AssistantRekapScreen
+        items={items}
+        assistantName={demo.currentUser.name}
+        assistantInitials={demo.currentUser.initials}
+        onSelectSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
+      />
+    );
+  }
 
   if (demo.currentUser?.role !== 'praktikan') {
     return <NavigationLandingScreen page="catatan" />;

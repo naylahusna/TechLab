@@ -38,6 +38,7 @@ export function AssistantJadwalScreen({
       <ScreenHeader
         title="Sesi Praktikum"
         subtitle="Pilih sesi untuk membuka presensi, menutup sesi, atau melihat rekap."
+        roleLabel="Asisten"
         greeting={assistantName}
         initials={assistantInitials}
         summary={summary}
