@@ -1,73 +1,15 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
 
 import { AppPage } from '../../components/AppPage';
 import { Text } from '../../components/Text';
 import { useRole } from '../../core/role-context';
 import { colors } from '../../theme/tokens';
-
-type ScheduleItem = {
-  id: string;
-  assistantId: string;
-  day: string;
-  date: string;
-  time: string;
-  course: string;
-  group: string;
-  room: string;
-  status: 'Akan datang' | 'Selesai';
-};
-
-// Jadwal demo milik masing-masing asisten sampai data sesi bersama tersedia.
-const schedules: readonly ScheduleItem[] = [
-  {
-    id: 'session-01',
-    assistantId: 'asisten-01',
-    day: 'Senin',
-    date: '26 Okt 2026',
-    time: '09.00–11.00',
-    course: 'Praktikum Algoritma dan Pemrograman',
-    group: 'Informatika · Kelas A',
-    room: 'Lab Komputasi 1',
-    status: 'Akan datang',
-  },
-  {
-    id: 'session-02',
-    assistantId: 'asisten-01',
-    day: 'Rabu',
-    date: '28 Okt 2026',
-    time: '13.00–15.00',
-    course: 'Praktikum Basis Data',
-    group: 'Informatika · Kelas B',
-    room: 'Lab Komputasi 2',
-    status: 'Akan datang',
-  },
-  {
-    id: 'session-03',
-    assistantId: 'asisten-02',
-    day: 'Selasa',
-    date: '27 Okt 2026',
-    time: '10.00–12.00',
-    course: 'Praktikum Jaringan Komputer',
-    group: 'Informatika · Kelas A',
-    room: 'Lab Jaringan',
-    status: 'Akan datang',
-  },
-  {
-    id: 'session-04',
-    assistantId: 'asisten-02',
-    day: 'Kamis',
-    date: '29 Okt 2026',
-    time: '13.00–15.00',
-    course: 'Praktikum Sistem Operasi',
-    group: 'Informatika · Kelas B',
-    room: 'Lab Komputasi 1',
-    status: 'Akan datang',
-  },
-];
+import { assistantSessions } from './assistant-sessions';
 
 export function AssistantScheduleScreen() {
   const { currentUser } = useRole();
-  const items = schedules
+  const items = assistantSessions
     .filter((session) => session.assistantId === currentUser?.id)
     .sort((left, right) => left.date.localeCompare(right.date));
 
@@ -90,7 +32,13 @@ export function AssistantScheduleScreen() {
       {items.length > 0 ? (
         <View style={styles.list}>
           {items.map((session, index) => (
-            <View key={session.id} style={styles.card}>
+            <Pressable
+              key={session.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Lihat detail ${session.course}`}
+              onPress={() => router.push({ pathname: '/sesi/[sessionId]', params: { sessionId: session.id } })}
+              style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+            >
               <View style={styles.dateColumn}>
                 <Text style={styles.day}>{session.day}</Text>
                 <Text style={styles.date}>{session.date}</Text>
@@ -108,7 +56,7 @@ export function AssistantScheduleScreen() {
                 <Text style={styles.room}>{session.room}</Text>
               </View>
               {index < items.length - 1 ? <View style={styles.cardSpacer} /> : null}
-            </View>
+            </Pressable>
           ))}
         </View>
       ) : (
@@ -148,6 +96,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 14,
   },
+  pressed: { opacity: 0.76 },
   dateColumn: { width: 72, gap: 5, paddingTop: 2 },
   day: { color: colors.navy, fontSize: 13, fontWeight: '800' },
   date: { color: colors.muted, fontSize: 11, lineHeight: 16 },
