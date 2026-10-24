@@ -1,0 +1,68 @@
+import { colors as sharedColors } from '../../theme/tokens';
+
+export const colors = {
+  background: sharedColors.background,
+  surface: sharedColors.white,
+  surfaceMuted: sharedColors.background,
+  primary: sharedColors.blue,
+  primaryPressed: sharedColors.blue,
+  primarySoft: sharedColors.paleBlue,
+  border: sharedColors.line,
+  text: sharedColors.navy,
+  textMuted: sharedColors.muted,
+  link: sharedColors.blue,
+  success: sharedColors.success,
+  successSoft: sharedColors.lime,
+  danger: sharedColors.danger,
+  dangerSoft: sharedColors.peach,
+  warning: sharedColors.navy,
+  warningSoft: sharedColors.lavender,
+  neutral: sharedColors.muted,
+  neutralSoft: sharedColors.line,
+  white: sharedColors.white,
+  onBlue: sharedColors.onBlue,
+  disabled: sharedColors.disabled,
+  overlay: '#20251F80',
+} as const;
+
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32,
+} as const;
+
+export const radius = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  pill: 999,
+} as const;
+
+export const typography = {
+  caption: 12,
+  secondary: 13,
+  body: 14,
+  bodyLarge: 16,
+  title: 20,
+  screenTitle: 24,
+} as const;
+
+export const lineHeights = {
+  caption: 16,
+  body: 20,
+  bodyLarge: 22,
+  title: 28,
+  screenTitle: 32,
+} as const;
+
+export const fontWeights = {
+  regular: '400',
+  medium: '500',
+  semibold: '600',
+  bold: '700',
+} as const;

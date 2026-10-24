@@ -1,4 +1,16 @@
-import { useDemo, selectMyAttendance } from '../../core';
+import { useRouter } from 'expo-router';
+
+import {
+  useDemo,
+  selectAttendanceSummary,
+  selectMyAttendance,
+  selectMySessions,
+} from '../../core';
+import {
+  AssistantRekapScreen,
+  toAssistantSessionItem,
+  type SessionWithSummary,
+} from '../../features/assistant';
 import { NavigationLandingScreen } from '../../features/navigation/NavigationLandingScreen';
 import { RiwayatScreen } from '../../features/practitioner';
 import {
@@ -10,9 +22,35 @@ import type { RiwayatItem } from '../../features/practitioner';
 
 export default function RecordsRoute() {
   const demo = useDemo();
+  const router = useRouter();
 
-  if (demo.currentUser?.role !== 'praktikan') {
+  if (!demo.currentUser) {
     return <NavigationLandingScreen page="catatan" />;
+  }
+
+  if (demo.currentUser.role === 'asisten') {
+    const sessions = selectMySessions(demo);
+    const items: SessionWithSummary[] = sessions.map((session) => {
+      const summary = selectAttendanceSummary(demo, session.id) ?? {
+        total: session.studentIds.length,
+        present: 0,
+        notPresent: session.studentIds.length,
+      };
+
+      return {
+        session: toAssistantSessionItem(session),
+        summary,
+      };
+    });
+
+    return (
+      <AssistantRekapScreen
+        items={items}
+        assistantName={demo.currentUser.name}
+        assistantInitials={demo.currentUser.initials}
+        onSelectSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
+      />
+    );
   }
 
   const items: RiwayatItem[] = selectMyAttendance(demo)
