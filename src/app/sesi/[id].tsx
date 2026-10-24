@@ -2,6 +2,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '../../components/Text';
+import { AssistantSessionDetailScreen } from '../../features/assistant/AssistantSessionDetailScreen';
 import { useDemo, selectAttendanceRecord, selectMySession } from '../../core';
 import { SessionDetailScreen } from '../../features/practitioner';
 import { formatTimeLabel, toSessionListItem } from '../../features/practitioner/lib/argamapping';
@@ -13,13 +14,12 @@ import type {
 import { colors } from '../../theme/tokens';
 
 export default function SesiRoute() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const demo = useDemo();
   const router = useRouter();
 
   if (!demo.currentUser) return <Redirect href="/" />;
-  if (demo.currentUser.role !== 'praktikan') return <Redirect href="/jadwal" />;
-  if (!id) return <Redirect href="/jadwal" />;
+  if (typeof id !== 'string' || !id) return <Redirect href="/jadwal" />;
 
   const session = selectMySession(demo, id);
   if (!session) {
@@ -27,6 +27,16 @@ export default function SesiRoute() {
       <View style={styles.screen}>
         <Text style={styles.errorText}>Sesi tidak ditemukan.</Text>
       </View>
+    );
+  }
+
+  if (demo.currentUser.role === 'asisten') {
+    return (
+      <AssistantSessionDetailScreen
+        key={`${demo.currentUser.id}:${session.id}`}
+        sessionId={session.id}
+        onBack={() => (router.canGoBack() ? router.back() : router.replace('/jadwal'))}
+      />
     );
   }
 

@@ -9,6 +9,9 @@ type Props = {
   title: string;
   description: string;
   confirmLabel: string;
+  eyebrow?: string;
+  confirmTestID?: string;
+  cancelTestID?: string;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -18,6 +21,9 @@ export function ConfirmationModal({
   title,
   description,
   confirmLabel,
+  eyebrow = 'KONFIRMASI PENGGUNA',
+  confirmTestID = 'confirm-switch',
+  cancelTestID = 'cancel-switch',
   onConfirm,
   onCancel,
 }: Props) {
@@ -32,13 +38,13 @@ export function ConfirmationModal({
       <View style={styles.overlay}>
         <View accessibilityViewIsModal style={styles.dialog}>
           <ScrollView contentContainerStyle={styles.sheet}>
-            <Text style={styles.label}>KONFIRMASI PENGGUNA</Text>
+            <Text style={styles.label}>{eyebrow}</Text>
             <Text accessibilityRole="header" style={styles.title}>
               {title}
             </Text>
             <Text style={styles.description}>{description}</Text>
-            <ActionButton title={confirmLabel} onPress={onConfirm} testID="confirm-switch" />
-            <ActionButton title="Batal" secondary onPress={onCancel} testID="cancel-switch" />
+            <ActionButton title={confirmLabel} onPress={onConfirm} testID={confirmTestID} />
+            <ActionButton title="Batal" secondary onPress={onCancel} testID={cancelTestID} />
           </ScrollView>
         </View>
       </View>
