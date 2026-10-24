@@ -4,7 +4,7 @@ Folder ini adalah sumber tunggal state demo dan aturan bisnis aplikasi.
 
 Sudah tersedia pada SRS-02–04:
 
-- `users.ts`: lima identitas dummy bersama.
+- `users.ts`: tujuh identitas dummy bersama.
 - `identity-state.ts`: perubahan role/user secara atomik dan validasi pilihan.
 - `role-context.tsx`: provider root dan hook `useRole()`; tidak dipasang ulang
   saat berganti halaman/pengguna.
@@ -13,10 +13,11 @@ Sudah tersedia pada SRS-02–04:
 API saat ini: `users`, `currentRole`, `currentUserId`, `currentUser`, dan
 `selectUser(userId, role)`. Jangan membuat state identitas kedua.
 
+SRS-21 menambahkan `types.ts` dan `demo-data.ts` untuk kontrak readonly dan
+factory snapshot awal. Integrasi ke provider dilakukan pada SRS-22.
+
 Rencana file untuk SRS berikutnya (belum diimplementasikan):
 
-- `types.ts` — tipe `User`, `Role`, `Session`, `AttendanceRecord`, dan status.
-- `demo-data.ts` — seluruh data dummy awal.
 - `demo-store.tsx` — provider/context dan aksi state bersama.
 - `rules.ts` — validasi transisi sesi dan presensi.
 
