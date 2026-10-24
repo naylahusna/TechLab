@@ -9,7 +9,7 @@ import { Text } from '../../components/Text';
 import { useRole } from '../../core/role-context';
 import { colors } from '../../theme/tokens';
 import { findAssistantSession } from '../../features/assistant/assistant-sessions';
-import { attendanceCounts } from '../../core/session-state';
+import { attendanceCounts, attendanceRoster } from '../../core/session-state';
 
 export default function AssistantSessionDetailRoute() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
@@ -24,6 +24,7 @@ export default function AssistantSessionDetailRoute() {
   const activeSession = session;
   const status = sessionStatuses[activeSession.id] ?? activeSession.status;
   const attendance = attendanceCounts(activeSession.id, attendanceRecords);
+  const participants = attendanceRoster(activeSession.id, attendanceRecords);
 
   function handleOpenSession() {
     setConfirmation('open');
@@ -68,6 +69,25 @@ export default function AssistantSessionDetailRoute() {
           <AttendanceTile count={attendance.total} label="Total" color={colors.navy} />
         </View>
         <Text style={styles.attendanceHint}>Jumlah hadir dihitung dari presensi yang tercatat untuk sesi ini.</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Daftar peserta</Text>
+        {participants.length > 0 ? participants.map(({ student, attendedAt }) => (
+          <View key={student.id} style={styles.participantRow}>
+            <View style={styles.avatar}><Text style={styles.avatarText}>{student.initials}</Text></View>
+            <View style={styles.participantInfo}>
+              <Text style={styles.participantName}>{student.name}</Text>
+              <Text style={styles.participantNumber}>{student.number}</Text>
+            </View>
+            <View style={styles.attendanceInfo}>
+              <Text style={[styles.participantStatus, { color: attendedAt ? colors.success : colors.danger }]}>
+                {attendedAt ? 'Hadir' : 'Belum hadir'}
+              </Text>
+              <Text style={styles.attendanceTime}>{attendedAt ? formatAttendanceTime(attendedAt) : 'Waktu —'}</Text>
+            </View>
+          </View>
+        )) : <Text style={styles.attendanceHint}>Belum ada peserta terdaftar untuk kelas ini.</Text>}
       </View>
 
       <View style={styles.note}>
@@ -118,6 +138,12 @@ function AttendanceTile({ count, label, color }: { count: number; label: string;
   );
 }
 
+function formatAttendanceTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return `Pukul ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
 const styles = StyleSheet.create({
   statusCard: {
     flexDirection: 'row',
@@ -160,4 +186,13 @@ const styles = StyleSheet.create({
   attendanceCount: { fontSize: 23, fontWeight: '800' },
   attendanceLabel: { color: colors.muted, fontSize: 10, fontWeight: '700', textAlign: 'center' },
   attendanceHint: { color: colors.muted, fontSize: 11, lineHeight: 16 },
+  participantRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomColor: colors.line, borderBottomWidth: 1 },
+  avatar: { width: 38, height: 38, borderRadius: 14, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: colors.navy, fontSize: 11, fontWeight: '800' },
+  participantInfo: { flex: 1, gap: 3 },
+  participantName: { color: colors.navy, fontSize: 13, fontWeight: '800' },
+  participantNumber: { color: colors.muted, fontSize: 10 },
+  attendanceInfo: { alignItems: 'flex-end', gap: 3 },
+  participantStatus: { fontSize: 11, fontWeight: '800' },
+  attendanceTime: { color: colors.muted, fontSize: 10 },
 });
