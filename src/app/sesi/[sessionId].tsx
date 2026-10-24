@@ -1,6 +1,6 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ActionButton } from '../../components/ActionButton';
 import { AppPage } from '../../components/AppPage';
@@ -15,6 +15,7 @@ export default function AssistantSessionDetailRoute() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const { currentUser, sessionStatuses, openSession, closeSession, attendanceRecords } = useRole();
   const [confirmation, setConfirmation] = useState<'open' | 'close' | null>(null);
+  const [attendanceFilter, setAttendanceFilter] = useState<'semua' | 'hadir' | 'belum'>('semua');
 
   if (!currentUser) return <Redirect href="/" />;
   if (currentUser.role !== 'asisten') return <Redirect href="/jadwal" />;
@@ -25,6 +26,9 @@ export default function AssistantSessionDetailRoute() {
   const status = sessionStatuses[activeSession.id] ?? activeSession.status;
   const attendance = attendanceCounts(activeSession.id, attendanceRecords);
   const participants = attendanceRoster(activeSession.id, attendanceRecords);
+  const filteredParticipants = participants.filter(({ attendedAt }) =>
+    attendanceFilter === 'semua' || (attendanceFilter === 'hadir' ? Boolean(attendedAt) : !attendedAt),
+  );
 
   function handleOpenSession() {
     setConfirmation('open');
@@ -73,7 +77,12 @@ export default function AssistantSessionDetailRoute() {
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Daftar peserta</Text>
-        {participants.length > 0 ? participants.map(({ student, attendedAt }) => (
+        <View style={styles.filterRow}>
+          <AttendanceFilter label={`Semua (${participants.length})`} selected={attendanceFilter === 'semua'} onPress={() => setAttendanceFilter('semua')} />
+          <AttendanceFilter label={`Hadir (${attendance.present})`} selected={attendanceFilter === 'hadir'} onPress={() => setAttendanceFilter('hadir')} />
+          <AttendanceFilter label={`Belum (${attendance.absent})`} selected={attendanceFilter === 'belum'} onPress={() => setAttendanceFilter('belum')} />
+        </View>
+        {filteredParticipants.length > 0 ? filteredParticipants.map(({ student, attendedAt }) => (
           <View key={student.id} style={styles.participantRow}>
             <View style={styles.avatar}><Text style={styles.avatarText}>{student.initials}</Text></View>
             <View style={styles.participantInfo}>
@@ -87,7 +96,7 @@ export default function AssistantSessionDetailRoute() {
               <Text style={styles.attendanceTime}>{attendedAt ? formatAttendanceTime(attendedAt) : 'Waktu —'}</Text>
             </View>
           </View>
-        )) : <Text style={styles.attendanceHint}>Belum ada peserta terdaftar untuk kelas ini.</Text>}
+        )) : <Text style={styles.attendanceHint}>{participants.length === 0 ? 'Belum ada peserta terdaftar untuk kelas ini.' : 'Tidak ada peserta dengan status ini.'}</Text>}
       </View>
 
       <View style={styles.note}>
@@ -135,6 +144,19 @@ function AttendanceTile({ count, label, color }: { count: number; label: string;
       <Text style={[styles.attendanceCount, { color }]}>{count}</Text>
       <Text style={styles.attendanceLabel}>{label}</Text>
     </View>
+  );
+}
+
+function AttendanceFilter({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.filterChip, selected && styles.filterChipSelected, pressed && styles.filterPressed]}
+    >
+      <Text style={[styles.filterText, selected && styles.filterTextSelected]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -195,4 +217,10 @@ const styles = StyleSheet.create({
   attendanceInfo: { alignItems: 'flex-end', gap: 3 },
   participantStatus: { fontSize: 11, fontWeight: '800' },
   attendanceTime: { color: colors.muted, fontSize: 10 },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  filterChip: { borderRadius: 18, backgroundColor: colors.background, paddingHorizontal: 11, paddingVertical: 8 },
+  filterChipSelected: { backgroundColor: colors.navy },
+  filterPressed: { opacity: 0.75 },
+  filterText: { color: colors.muted, fontSize: 10, fontWeight: '700' },
+  filterTextSelected: { color: colors.white },
 });
