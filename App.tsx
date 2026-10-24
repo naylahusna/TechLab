@@ -1,10 +1,2 @@
-import { RoleProvider } from './src/core/role-context';
-import { RoleSelectionScreen } from './src/features/auth/RoleSelectionScreen';
-
-export default function App() {
-  return (
-    <RoleProvider>
-      <RoleSelectionScreen />
-    </RoleProvider>
-  );
-}
+// Legacy source entry retained for reference. Expo Router registers the app via index.ts.
+export { default } from './src/app/_layout';
