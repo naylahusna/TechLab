@@ -9,11 +9,12 @@ export const navigationFor = (role: Role) => ({
       role === 'praktikan'
         ? 'Ruang untuk aktivitas praktikum yang kamu ikuti.'
         : 'Ruang untuk sesi praktikum yang kamu dampingi.',
-    emptyTitle: 'Jadwal akan tampil di sini',
+    emptyTitle:
+      role === 'praktikan' ? 'Jadwal akan tampil di sini' : 'Belum ada sesi yang ditugaskan',
     emptyDescription:
       role === 'praktikan'
         ? 'Informasi pelaksanaan dan detail sesi praktikum akan tersedia di halaman ini.'
-        : 'Informasi sesi dan pengelolaan pelaksanaan praktikum akan tersedia di halaman ini.',
+        : 'Saat ini belum ada jadwal praktikum yang ditugaskan kepadamu. Sesi akan muncul di sini setelah jadwal tersedia.',
   },
   catatan: {
     label: role === 'praktikan' ? 'Riwayat' : 'Rekap',
@@ -22,11 +23,11 @@ export const navigationFor = (role: Role) => ({
       role === 'praktikan'
         ? 'Ruang untuk catatan kehadiran pribadimu.'
         : 'Ruang untuk memantau kehadiran peserta praktikum.',
-    emptyTitle: role === 'praktikan' ? 'Belum ada catatan kehadiran' : 'Belum ada rekap peserta',
+    emptyTitle: role === 'praktikan' ? 'Belum ada catatan kehadiran' : 'Rekap peserta masih kosong',
     emptyDescription:
       role === 'praktikan'
         ? 'Catatan kehadiranmu akan tampil di sini setelah presensi dicatat.'
-        : 'Ringkasan dan daftar kehadiran peserta akan tampil di sini setelah sesi tersedia.',
+        : 'Belum ada data presensi untuk direkap. Ringkasan dan status peserta akan tampil setelah presensi tercatat pada sesi praktikum.',
   },
   profil: { label: 'Profil', title: 'Profil pengguna' },
 });
