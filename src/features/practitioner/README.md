@@ -38,8 +38,10 @@ src/features/practitioner/
 - Semua label tanggal dan waktu (`dateLabel`, `timeLabel`, `attendedAtLabel`)
   sudah berupa string siap tampil. Mapper/store yang memformat.
 - `onConfirmAttendance` mengembalikan:
-  - `{ ok: true, attendedAtLabel: string }`
+  - `{ ok: true }`
   - `{ ok: false, reason: string }`
+- Waktu hadir tidak dikirim oleh aksi. Layar membaca `attendedAtLabel` dari
+  record store pada render berikutnya agar sama dengan rekap asisten.
 - `SessionDetail.myAttendance.status` mengikuti aturan:
   - `belum-presensi` selama sesi belum ditutup dan belum ada catatan.
   - `hadir` jika ada catatan, termasuk setelah sesi ditutup.
@@ -63,17 +65,18 @@ Untuk detail sesi, panggil aksi store dari tombol konfirmasi:
 
 ```tsx
 const result = demo.recordAttendance(session.id, demo.currentUser.id);
-return result.ok
-  ? { ok: true, attendedAtLabel: formatTimeLabel(new Date().toISOString()) }
-  : { ok: false, reason: result.message };
+return result.ok ? { ok: true } : { ok: false, reason: result.message };
 ```
 
-Wiring route final berada di PR integrasi bersama Arga.
+Wiring route ada di `src/app/(tabs)/jadwal.tsx`, `src/app/(tabs)/catatan.tsx`,
+dan `src/app/sesi/[id].tsx`. Mapper core ke view model ada di
+`lib/argamapping.ts`.
 
 ## Verifikasi
 
 ```bash
 npx tsc --noEmit
 npx expo lint
-npx prettier@3 --check src/features/practitioner
+npm test
+npx prettier@3 --check src/features/practitioner src/app
 ```

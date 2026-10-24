@@ -49,6 +49,6 @@ export type RiwayatItem = {
 /**
  * Hasil aksi presensi. Implementasi store milik Arga yang menjadi sumber
  * kebenaran; layar hanya menampilkan hasilnya (SRS-14, SRS-25).
+ * Waktu hadir dibaca dari record tersimpan agar sama dengan rekap asisten.
  */
-export type AttendanceActionResult =
-  { ok: true; attendedAtLabel: string } | { ok: false; reason: string };
+export type AttendanceActionResult = { ok: true } | { ok: false; reason: string };

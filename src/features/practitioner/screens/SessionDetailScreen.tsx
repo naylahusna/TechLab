@@ -25,28 +25,23 @@ type SessionDetailScreenProps = {
   onConfirmAttendance: () => AttendanceActionResult | Promise<AttendanceActionResult>;
 };
 
-type SuccessInfo = {
-  attendedAtLabel: string;
-};
-
-function resolveAttendance(
-  attendance: AttendanceInfo,
-  success: SuccessInfo | null,
-): AttendanceInfo {
+function resolveAttendance(attendance: AttendanceInfo, success: boolean): AttendanceInfo {
   if (attendance.status === 'hadir') {
     return attendance;
   }
 
   if (success) {
-    return { status: 'hadir', attendedAtLabel: success.attendedAtLabel };
+    return { status: 'hadir', attendedAtLabel: null };
   }
 
   return attendance;
 }
 
 function getAttendanceHint(attendance: AttendanceInfo): string {
-  if (attendance.status === 'hadir' && attendance.attendedAtLabel) {
-    return `Tercatat hadir pukul ${attendance.attendedAtLabel}.`;
+  if (attendance.status === 'hadir') {
+    return attendance.attendedAtLabel
+      ? `Tercatat hadir pukul ${attendance.attendedAtLabel}.`
+      : 'Kehadiranmu berhasil dicatat.';
   }
 
   if (attendance.status === 'tidak-hadir') {
@@ -57,8 +52,8 @@ function getAttendanceHint(attendance: AttendanceInfo): string {
 }
 
 export function SessionDetailScreen(props: SessionDetailScreenProps) {
-  // Key membuat state lokal (modal, error, feedback) ikut reset saat sesi berganti.
-  return <SessionDetailContent key={props.session.id} {...props} />;
+  // Key membuat modal, error, dan feedback reset saat sesi atau pengguna berganti.
+  return <SessionDetailContent key={`${props.praktikan.id}:${props.session.id}`} {...props} />;
 }
 
 function SessionDetailContent({
@@ -71,7 +66,7 @@ function SessionDetailContent({
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<SuccessInfo | null>(null);
+  const [success, setSuccess] = useState(false);
   const submittingRef = useRef(false);
 
   const effectiveAttendance = resolveAttendance(session.myAttendance, success);
@@ -115,7 +110,7 @@ function SessionDetailContent({
       const result = await onConfirmAttendance();
 
       if (result.ok) {
-        setSuccess({ attendedAtLabel: result.attendedAtLabel });
+        setSuccess(true);
         setConfirmVisible(false);
       } else {
         setSubmitError(result.reason);
@@ -169,7 +164,11 @@ function SessionDetailContent({
           <FeedbackBanner
             tone="success"
             title="Presensi berhasil"
-            message={`Kehadiranmu tercatat pukul ${success.attendedAtLabel}.`}
+            message={
+              effectiveAttendance.attendedAtLabel
+                ? `Kehadiranmu tercatat pukul ${effectiveAttendance.attendedAtLabel}.`
+                : 'Kehadiranmu berhasil dicatat.'
+            }
           />
         ) : null}
 
