@@ -22,6 +22,8 @@ src/
 
 - Kerjakan hanya file pada folder ownership masing-masing.
 - Jangan membuat salinan `sessions`, `attendanceRecords`, atau context sendiri.
+- Integrasi data melalui `useDemo()` dan selector dari `src/core/index.ts`;
+  kontrak dan contoh pemakaian ada di `docs/CORE-API.md`.
 - Jika membutuhkan data baru, ajukan perubahan pada tipe/data di `src/core/`.
 - Jika membutuhkan komponen umum, buat di branch sendiri lalu koordinasikan
   sebelum branch lain mengubah file yang sama.
