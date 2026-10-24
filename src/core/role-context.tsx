@@ -3,7 +3,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 import { initialIdentity, selectIdentity, type IdentityState } from './identity-state';
 import type { Role } from './roles';
 import { findUser, users, type DemoUser } from './users';
-import { closeSession, initialSessionState, openSession, type SessionState } from './session-state';
+import { closeSession, initialAttendanceRecords, initialSessionState, openSession, type AttendanceRecord, type SessionState } from './session-state';
 
 type RoleContextValue = {
   currentRole: Role | null;
@@ -14,6 +14,7 @@ type RoleContextValue = {
   sessionStatuses: SessionState;
   openSession: (sessionId: string) => boolean;
   closeSession: (sessionId: string) => boolean;
+  attendanceRecords: readonly AttendanceRecord[];
 };
 
 const RoleContext = createContext<RoleContextValue | null>(null);
@@ -22,6 +23,7 @@ const RoleContext = createContext<RoleContextValue | null>(null);
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [identity, setIdentity] = useState<IdentityState>(initialIdentity);
   const [sessionStatuses, setSessionStatuses] = useState<SessionState>(initialSessionState);
+  const [attendanceRecords] = useState<readonly AttendanceRecord[]>(initialAttendanceRecords);
 
   function selectUser(userId: string, role: Role) {
     const user = findUser(userId);
@@ -54,6 +56,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         sessionStatuses,
         openSession: openSessionAction,
         closeSession: closeSessionAction,
+        attendanceRecords,
       }}
     >
       {children}

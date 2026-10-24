@@ -9,10 +9,11 @@ import { Text } from '../../components/Text';
 import { useRole } from '../../core/role-context';
 import { colors } from '../../theme/tokens';
 import { findAssistantSession } from '../../features/assistant/assistant-sessions';
+import { attendanceCounts } from '../../core/session-state';
 
 export default function AssistantSessionDetailRoute() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
-  const { currentUser, sessionStatuses, openSession, closeSession } = useRole();
+  const { currentUser, sessionStatuses, openSession, closeSession, attendanceRecords } = useRole();
   const [confirmation, setConfirmation] = useState<'open' | 'close' | null>(null);
 
   if (!currentUser) return <Redirect href="/" />;
@@ -22,6 +23,7 @@ export default function AssistantSessionDetailRoute() {
   if (!session || session.assistantId !== currentUser.id) return <Redirect href="/jadwal" />;
   const activeSession = session;
   const status = sessionStatuses[activeSession.id] ?? activeSession.status;
+  const attendance = attendanceCounts(activeSession.id, attendanceRecords);
 
   function handleOpenSession() {
     setConfirmation('open');
@@ -56,6 +58,16 @@ export default function AssistantSessionDetailRoute() {
         <DetailRow label="Waktu" value={activeSession.time} />
         <DetailRow label="Kelas" value={activeSession.group} />
         <DetailRow label="Ruangan" value={activeSession.room} last />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Ringkasan kehadiran</Text>
+        <View style={styles.attendanceRow}>
+          <AttendanceTile count={attendance.present} label="Hadir" color={colors.success} />
+          <AttendanceTile count={attendance.absent} label="Belum hadir" color={colors.danger} />
+          <AttendanceTile count={attendance.total} label="Total" color={colors.navy} />
+        </View>
+        <Text style={styles.attendanceHint}>Jumlah hadir dihitung dari presensi yang tercatat untuk sesi ini.</Text>
       </View>
 
       <View style={styles.note}>
@@ -97,6 +109,15 @@ function DetailRow({ label, value, last = false }: { label: string; value: strin
   );
 }
 
+function AttendanceTile({ count, label, color }: { count: number; label: string; color: string }) {
+  return (
+    <View style={styles.attendanceTile}>
+      <Text style={[styles.attendanceCount, { color }]}>{count}</Text>
+      <Text style={styles.attendanceLabel}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   statusCard: {
     flexDirection: 'row',
@@ -134,4 +155,9 @@ const styles = StyleSheet.create({
   note: { backgroundColor: colors.lavender, padding: 18, borderRadius: 20, gap: 7 },
   noteTitle: { color: colors.navy, fontSize: 14, fontWeight: '800' },
   noteCopy: { color: colors.muted, fontSize: 12, lineHeight: 20 },
+  attendanceRow: { flexDirection: 'row', gap: 8 },
+  attendanceTile: { flex: 1, backgroundColor: colors.background, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 6, alignItems: 'center', gap: 4 },
+  attendanceCount: { fontSize: 23, fontWeight: '800' },
+  attendanceLabel: { color: colors.muted, fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  attendanceHint: { color: colors.muted, fontSize: 11, lineHeight: 16 },
 });
