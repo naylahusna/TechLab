@@ -56,22 +56,21 @@ Folder utama:
    `src/core/` atau folder fitur, bukan ditulis ulang di route.
 6. `index.ts` adalah entry point Expo Router. `src/app/_layout.tsx` memasang
    provider root. Jangan membuat entry point atau provider alternatif.
-7. SRS-02–04 sudah memakai Expo Router. Root `RoleProvider` menyediakan
-   `users`, `currentRole`, `currentUserId`, `currentUser`, dan
-   `selectUser(userId, role)`. Jangan memasang provider baru di fitur/route.
-   Sesi/presensi dan aksi lainnya pada kontrak di bawah masih direncanakan.
+7. Root `RoleProvider` adalah alias provider demo bersama. `useRole()` lama dan
+   `useDemo()` membaca instance yang sama. Jangan memasang provider baru di
+   fitur/route. API data, aksi, dan selector tersedia di `src/core/index.ts`.
 
 ## Kontrak state minimum
 
-State bersama harus menyediakan konsep berikut, dengan nama final yang disepakati
-sebelum implementasi:
+Kontrak implementasi tersedia di `docs/CORE-API.md`.
+Urutan branch/base PR ada di `docs/SRS-PR-ORDER.md`:
 
 - `currentUserId`
 - `currentRole`
 - `users`
 - `sessions`
 - `attendanceRecords`
-- `selectUser(userId)`
+- `selectUser(userId, role?)` — boolean, kompatibel dengan SRS-02
 - `openSession(sessionId)`
 - `closeSession(sessionId)`
 - `recordAttendance(sessionId, studentId)`
