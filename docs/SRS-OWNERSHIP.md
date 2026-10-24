@@ -57,22 +57,20 @@ Folder utama:
 6. `index.ts` adalah entry point Expo Router. `src/app/_layout.tsx` memasang
    provider root. Jangan membuat entry point atau provider alternatif.
 7. Root `RoleProvider` adalah alias provider demo bersama. `useRole()` lama dan
-   `useDemo()` membaca instance yang sama. Snapshot sesi/presensi, selector,
-   pemilihan pengguna, dan reset tersedia pada SRS-22. SRS-25 sudah menyediakan
-   mutasi sesi dan validator presensi; pencatatan ditambahkan pada SRS-15.
-   Jangan memasang provider di fitur.
+   `useDemo()` membaca instance yang sama. Jangan memasang provider baru di
+   fitur/route. API data, aksi, dan selector tersedia di `src/core/index.ts`.
 
 ## Kontrak state minimum
 
-Kontrak field dan ketersediaan API per tahap ada di `docs/CORE-API.md`.
-Urutan base/merge PR ada di `docs/SRS-PR-ORDER.md`.
+Kontrak implementasi tersedia di `docs/CORE-API.md`.
+Urutan branch/base PR ada di `docs/SRS-PR-ORDER.md`:
 
 - `currentUserId`
 - `currentRole`
 - `users`
 - `sessions`
 - `attendanceRecords`
-- `selectUser(userId, role?)`
+- `selectUser(userId, role?)` — boolean, kompatibel dengan SRS-02
 - `openSession(sessionId)`
 - `closeSession(sessionId)`
 - `recordAttendance(sessionId, studentId)`

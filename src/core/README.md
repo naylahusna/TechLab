@@ -1,14 +1,27 @@
 # Core
 
-Owner: Arga. `types.ts`, `users.ts`, dan `demo-data.ts` menyediakan data dummy.
-`demo-store.ts` memiliki satu snapshot per provider dan subscription React.
-`demo-context.tsx` menghubungkan store ke React; `role-context.tsx` adalah
-alias kompatibel untuk screen SRS-01–04, tanpa provider atau state kedua.
+Folder ini adalah sumber tunggal state demo dan aturan bisnis aplikasi.
 
-API fitur dibaca dari `src/core/index.ts`. Pada tahap SRS-22 tersedia
-snapshot, selector, pemilihan pengguna, dan reset. SRS-25 menambahkan mutasi
-sesi serta validator presensi. Pencatatan presensi ditambahkan di SRS-15. Jangan mengubah
-array fixture atau memasang provider di screen/tab/komponen pemilihan.
+Tersedia untuk SRS-01–04, SRS-15, SRS-21, SRS-22, dan SRS-25:
 
-Detail field, perilaku selector, dan urutan integrasi tersedia di
-`docs/CORE-API.md` dan `docs/SRS-PR-ORDER.md`.
+- `index.ts`: API publik untuk integrasi fitur; ekspor hook, tipe, selector, dan aturan.
+- `users.ts`: tujuh identitas fiktif; ID lama tetap tersedia.
+- `types.ts`: kontrak readonly sesi, presensi, snapshot, dan hasil aksi.
+- `demo-data.ts`: snapshot awal dengan lima sesi dan dua presensi contoh.
+- `demo-state.ts`: transisi murni; aksi tidak valid mempertahankan state sebelumnya.
+- `demo-store.ts`: satu instance per provider, aksi sinkron, dan subscription React.
+- `demo-context.tsx`: provider root dan hook `useDemo()`.
+- `role-context.tsx`: alias `RoleProvider`/`useRole()` ke provider/hook yang sama.
+- `identity-state.ts`: helper perubahan identitas, tanpa state/provider lain.
+- `action-result.ts`: hasil aksi konsisten untuk feedback dan penolakan.
+- `rules.ts`: validasi aktor, penugasan, pendaftaran, status, dan presensi ganda.
+- `selectors.ts`: pembacaan jadwal, presensi pribadi, peserta, dan jumlah kehadiran.
+- `navigation.ts`: penamaan menu sesuai peran.
+
+Kontrak field, contoh integrasi, prioritas error, serta skenario dummy tersedia
+di `docs/CORE-API.md`. Jangan menyalin data atau memasang provider baru pada tab,
+screen, maupun komponen pemilihan pengguna. Perubahan sesi/presensi hanya melalui
+aksi dari `useDemo()`, bukan dengan memodifikasi array snapshot.
+
+Hanya Arga yang menjadi owner utama folder ini. Programmer lain menggunakan API
+yang tersedia, bukan membuat state paralel.

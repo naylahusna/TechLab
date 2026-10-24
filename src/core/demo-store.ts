@@ -2,8 +2,10 @@ import { createInitialDemoState } from './demo-data';
 import { transitionDemo, type DemoAction } from './demo-state';
 import type { Role } from './roles';
 
-/** Each provider owns one store; identity changes preserve the other snapshot fields. */
-export function createDemoStore() {
+/** A provider owns one instance. Every action synchronously checks the latest snapshot. */
+export function createDemoStore({
+  now = () => new Date().toISOString(),
+}: { now?: () => string } = {}) {
   let state = createInitialDemoState();
   const listeners = new Set<() => void>();
 
@@ -17,9 +19,17 @@ export function createDemoStore() {
   }
 
   const actions = Object.freeze({
+    // Boolean return stays compatible with the SRS-02 identity selection screen.
     selectUser: (userId: string, role?: Role) => dispatch({ type: 'select-user', userId, role }).ok,
     openSession: (sessionId: string) => dispatch({ type: 'open-session', sessionId }),
     closeSession: (sessionId: string) => dispatch({ type: 'close-session', sessionId }),
+    recordAttendance: (sessionId: string, studentId: string) =>
+      dispatch({
+        type: 'record-attendance',
+        sessionId,
+        studentId,
+        recordedAt: now(),
+      }),
     resetDemo: () => dispatch({ type: 'reset-demo' }),
   });
 
