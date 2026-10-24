@@ -1,24 +1,32 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
-import { isRole, type Role } from './roles';
+import { initialIdentity, selectIdentity, type IdentityState } from './identity-state';
+import type { Role } from './roles';
+import { findUser, users, type DemoUser } from './users';
 
 type RoleContextValue = {
   currentRole: Role | null;
-  selectRole: (role: Role) => void;
+  currentUserId: string | null;
+  currentUser: DemoUser | null;
+  users: readonly DemoUser[];
+  selectUser: (userId: string, role: Role) => boolean;
 };
 
 const RoleContext = createContext<RoleContextValue | null>(null);
 
 /** Mount above screens so later screen changes need not reset the role. */
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [currentRole, setCurrentRole] = useState<Role | null>(null);
+  const [identity, setIdentity] = useState<IdentityState>(initialIdentity);
 
-  function selectRole(role: Role) {
-    if (isRole(role)) setCurrentRole(role);
+  function selectUser(userId: string, role: Role) {
+    const user = findUser(userId);
+    if (!user || user.role !== role) return false;
+    setIdentity((previous) => selectIdentity(previous, userId, role));
+    return true;
   }
 
   return (
-    <RoleContext.Provider value={{ currentRole, selectRole }}>
+    <RoleContext.Provider value={{ ...identity, currentUser: findUser(identity.currentUserId), users, selectUser }}>
       {children}
     </RoleContext.Provider>
   );

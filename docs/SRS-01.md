@@ -1,5 +1,10 @@
 # SRS-01 — Pemilihan peran
 
+Catatan integrasi SRS-02: file entry sekarang memakai Expo Router. UI bersama
+dipindahkan ke `SelectionLayout`; Lanjutkan menuju daftar identitas, menggantikan
+panel konfirmasi sementara pada implementasi awal. Dokumentasi di bawah
+mencatat kondisi branch SRS-01 sebelum integrasi tersebut.
+
 Pengguna memilih Praktikan atau Asisten agar mendapatkan tampilan yang sesuai.
 
 ## Implementasi
