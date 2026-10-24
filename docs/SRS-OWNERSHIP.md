@@ -58,8 +58,9 @@ Folder utama:
    provider root. Jangan membuat entry point atau provider alternatif.
 7. Root `RoleProvider` adalah alias provider demo bersama. `useRole()` lama dan
    `useDemo()` membaca instance yang sama. Snapshot sesi/presensi, selector,
-   pemilihan pengguna, dan reset tersedia pada SRS-22. Mutasi sesi ditambahkan
-   di SRS-25 dan pencatatan presensi di SRS-15. Jangan memasang provider di fitur.
+   pemilihan pengguna, dan reset tersedia pada SRS-22. SRS-25 sudah menyediakan
+   mutasi sesi dan validator presensi; pencatatan ditambahkan pada SRS-15.
+   Jangan memasang provider di fitur.
 
 ## Kontrak state minimum
 

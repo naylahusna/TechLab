@@ -18,6 +18,8 @@ export function createDemoStore() {
 
   const actions = Object.freeze({
     selectUser: (userId: string, role?: Role) => dispatch({ type: 'select-user', userId, role }).ok,
+    openSession: (sessionId: string) => dispatch({ type: 'open-session', sessionId }),
+    closeSession: (sessionId: string) => dispatch({ type: 'close-session', sessionId }),
     resetDemo: () => dispatch({ type: 'reset-demo' }),
   });
 
