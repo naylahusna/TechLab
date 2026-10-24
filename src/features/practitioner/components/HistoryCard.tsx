@@ -1,6 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+
+import { Text } from '../../../components/Text';
 import { ATTENDANCE_STATUS_META } from '../lib/status';
-import { colors, radius, spacing, typography } from '../theme';
+import { colors, fontWeights, radius, spacing, typography } from '../theme';
 import type { RiwayatItem } from '../types';
 import { Badge } from './Badge';
 
@@ -61,11 +63,11 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.bodyLarge,
-    fontWeight: '700',
+    fontWeight: fontWeights.semibold,
     color: colors.text,
   },
   meeting: {
-    fontSize: typography.caption,
+    fontSize: typography.secondary,
     color: colors.textMuted,
   },
   footer: {
@@ -75,17 +77,17 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.surfaceMuted,
+    borderTopColor: colors.border,
   },
   date: {
     flex: 1,
-    fontSize: typography.body,
+    fontSize: typography.secondary,
     color: colors.textMuted,
   },
   time: {
     fontSize: typography.body,
-    fontWeight: '600',
-    color: colors.text,
+    fontWeight: fontWeights.semibold,
+    color: colors.textBody,
   },
   timeMuted: {
     fontSize: typography.body,

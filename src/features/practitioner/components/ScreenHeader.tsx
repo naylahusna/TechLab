@@ -1,5 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Text } from '../../../components/Text';
+import { colors, fontWeights, lineHeights, spacing, typography } from '../theme';
 
 type ScreenHeaderProps = {
   title: string;
@@ -7,8 +10,10 @@ type ScreenHeaderProps = {
 };
 
 export function ScreenHeader({ title, subtitle }: ScreenHeaderProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
       <Text style={styles.title}>{title}</Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
@@ -18,18 +23,18 @@ export function ScreenHeader({ title, subtitle }: ScreenHeaderProps) {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
   title: {
     fontSize: typography.screenTitle,
-    fontWeight: '800',
-    color: colors.text,
+    lineHeight: lineHeights.screenTitle,
+    fontWeight: fontWeights.bold,
+    color: colors.primary,
   },
   subtitle: {
     marginTop: spacing.xs,
     fontSize: typography.body,
-    lineHeight: 20,
+    lineHeight: lineHeights.body,
     color: colors.textMuted,
   },
 });

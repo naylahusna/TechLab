@@ -7,16 +7,16 @@ tampil; wiring route dan pemanggilan state bersama dilakukan di PR integrasi.
 
 ## Cakupan SRS
 
-| SRS | Implementasi |
-|---|---|
-| SRS-05 | `JadwalScreen` |
-| SRS-07 | `SessionDetailScreen` |
-| SRS-12 | Alur tombol presensi + pemanggilan `onConfirmAttendance` |
-| SRS-13 | `ConfirmAttendanceSheet` |
+| SRS    | Implementasi                                                      |
+| ------ | ----------------------------------------------------------------- |
+| SRS-05 | `JadwalScreen`                                                    |
+| SRS-07 | `SessionDetailScreen`                                             |
+| SRS-12 | Alur tombol presensi + pemanggilan `onConfirmAttendance`          |
+| SRS-13 | `ConfirmAttendanceSheet`                                          |
 | SRS-14 | `FeedbackBanner` sukses + status dan waktu hadir langsung berubah |
-| SRS-16 | `getAttendanceAction` |
-| SRS-20 | `RiwayatScreen` |
-| SRS-23 | `EmptyState` pada jadwal dan riwayat |
+| SRS-16 | `getAttendanceAction`                                             |
+| SRS-20 | `RiwayatScreen`                                                   |
+| SRS-23 | `EmptyState` pada jadwal dan riwayat                              |
 
 SRS-15 dan SRS-25 tetap milik Arga. Layar ini hanya menonaktifkan tombol dan
 menampilkan alasan; validasi akhir wajib dilakukan store.
@@ -56,12 +56,7 @@ Route hanya menjadi pembungkus tipis. Gunakan `useDemo` dan selector dari
 const demo = useDemo();
 const sessions = selectMySessions(demo).map(toSessionListItem);
 
-return (
-  <JadwalScreen
-    sessions={sessions}
-    onOpenSession={(id) => router.push(`/sesi/${id}`)}
-  />
-);
+return <JadwalScreen sessions={sessions} onOpenSession={(id) => router.push(`/sesi/${id}`)} />;
 ```
 
 Untuk detail sesi, panggil aksi store dari tombol konfirmasi:

@@ -51,5 +51,4 @@ export type RiwayatItem = {
  * kebenaran; layar hanya menampilkan hasilnya (SRS-14, SRS-25).
  */
 export type AttendanceActionResult =
-  | { ok: true; attendedAtLabel: string }
-  | { ok: false; reason: string };
+  { ok: true; attendedAtLabel: string } | { ok: false; reason: string };

@@ -1,5 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { StyleSheet, View } from 'react-native';
+
+import { Text } from '../../../components/Text';
+import { colors, fontWeights, spacing, typography } from '../theme';
 
 type InfoRowProps = {
   label: string;
@@ -25,7 +27,7 @@ const styles = StyleSheet.create({
   },
   border: {
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceMuted,
+    borderBottomColor: colors.border,
   },
   label: {
     flex: 1,
@@ -35,8 +37,8 @@ const styles = StyleSheet.create({
   value: {
     flex: 1.4,
     fontSize: typography.body,
-    fontWeight: '600',
-    color: colors.text,
+    fontWeight: fontWeights.semibold,
+    color: colors.textBody,
     textAlign: 'right',
   },
 });

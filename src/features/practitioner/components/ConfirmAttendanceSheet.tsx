@@ -1,5 +1,8 @@
-import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Text } from '../../../components/Text';
+import { colors, fontWeights, lineHeights, radius, spacing, typography } from '../theme';
 import type { PraktikanIdentity, SessionDetail } from '../types';
 import { Button } from './Button';
 import { FeedbackBanner } from './FeedbackBanner';
@@ -28,6 +31,8 @@ export function ConfirmAttendanceSheet({
   onCancel,
   onConfirm,
 }: ConfirmAttendanceSheetProps) {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       visible={visible}
@@ -42,7 +47,10 @@ export function ConfirmAttendanceSheet({
 
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.content}
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: Math.max(insets.bottom, spacing.xxxl) },
+            ]}
           >
             <View>
               <Text style={styles.title}>Konfirmasi Presensi</Text>
@@ -122,24 +130,24 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxxl,
     gap: spacing.lg,
   },
   title: {
-    fontSize: typography.title,
-    fontWeight: '800',
+    fontSize: typography.screenTitle,
+    lineHeight: lineHeights.screenTitle,
+    fontWeight: fontWeights.bold,
     color: colors.text,
   },
   subtitle: {
     marginTop: spacing.xs,
     fontSize: typography.body,
-    lineHeight: 20,
+    lineHeight: lineHeights.body,
     color: colors.textMuted,
   },
   sectionTitle: {
     marginBottom: spacing.xs,
     fontSize: typography.caption,
-    fontWeight: '700',
+    fontWeight: fontWeights.semibold,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
     color: colors.textMuted,

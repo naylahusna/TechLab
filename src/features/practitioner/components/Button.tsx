@@ -1,5 +1,7 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+
+import { Text } from '../../../components/Text';
+import { colors, fontWeights, radius, spacing, typography } from '../theme';
 
 type ButtonVariant = 'primary' | 'secondary';
 
@@ -74,12 +76,12 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.bodyLarge,
-    fontWeight: '700',
+    fontWeight: fontWeights.semibold,
   },
   primaryLabel: {
     color: colors.white,
   },
   secondaryLabel: {
-    color: colors.text,
+    color: colors.textBody,
   },
 });

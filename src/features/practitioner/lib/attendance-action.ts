@@ -1,11 +1,7 @@
 import type { AttendanceStatus, SessionStatus } from '../types';
 
 export type AttendanceActionKind =
-  | 'available'
-  | 'already-attended'
-  | 'not-open'
-  | 'closed'
-  | 'unavailable';
+  'available' | 'already-attended' | 'not-open' | 'closed' | 'unavailable';
 
 export type AttendanceAction = {
   kind: AttendanceActionKind;

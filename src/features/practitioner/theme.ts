@@ -1,35 +1,41 @@
+import { colors as sharedColors } from '../../theme/tokens';
+
 /**
- * Token sementara untuk fitur praktikan.
- * Pindahkan ke theme bersama setelah design system tim disepakati.
+ * Alias semantik untuk token bersama di src/theme.
+ * Jangan menambah warna baru di sini tanpa koordinasi dengan owner theme.
  */
 export const colors = {
-  background: '#F5F7FB',
-  surface: '#FFFFFF',
-  surfaceMuted: '#F8FAFC',
-  primary: '#2563EB',
-  primaryPressed: '#1D4ED8',
-  primarySoft: '#DBEAFE',
-  text: '#0F172A',
-  textMuted: '#64748B',
-  border: '#E2E8F0',
-  success: '#15803D',
-  successSoft: '#DCFCE7',
-  successBorder: '#BBF7D0',
-  successText: '#166534',
-  warning: '#B45309',
-  warningSoft: '#FEF3C7',
-  danger: '#B91C1C',
-  dangerSoft: '#FEE2E2',
-  dangerBorder: '#FECACA',
-  dangerText: '#991B1B',
-  info: '#1D4ED8',
-  infoSoft: '#DBEAFE',
-  neutral: '#475569',
-  neutralSoft: '#E2E8F0',
-  white: '#FFFFFF',
-  overlay: 'rgba(15, 23, 42, 0.45)',
-  shadow: '#0F172A',
-  disabled: '#CBD5E1',
+  background: sharedColors.background,
+  surface: sharedColors.white,
+  surfaceMuted: sharedColors.background,
+  primary: sharedColors.blue,
+  primaryPressed: sharedColors.blue,
+  primaryBackground: sharedColors.paleBlue,
+  primarySoft: sharedColors.paleBlue,
+  border: sharedColors.line,
+  borderHighlight: sharedColors.paleBlue,
+  text: sharedColors.navy,
+  textBody: sharedColors.navy,
+  textMuted: sharedColors.muted,
+  link: sharedColors.blue,
+  success: sharedColors.success,
+  successSoft: sharedColors.lime,
+  successBorder: sharedColors.lime,
+  successText: sharedColors.success,
+  warning: sharedColors.navy,
+  warningSoft: sharedColors.lavender,
+  danger: sharedColors.danger,
+  dangerSoft: sharedColors.peach,
+  dangerBorder: sharedColors.peach,
+  dangerText: sharedColors.danger,
+  info: sharedColors.blue,
+  infoSoft: sharedColors.paleBlue,
+  neutral: sharedColors.muted,
+  neutralSoft: sharedColors.line,
+  white: sharedColors.white,
+  overlay: 'rgba(32, 37, 31, 0.45)',
+  shadow: sharedColors.navy,
+  disabled: sharedColors.disabled,
 } as const;
 
 export const spacing = {
@@ -52,8 +58,24 @@ export const radius = {
 
 export const typography = {
   caption: 12,
+  secondary: 13,
   body: 14,
   bodyLarge: 16,
   title: 20,
   screenTitle: 24,
+} as const;
+
+export const lineHeights = {
+  caption: 16,
+  body: 20,
+  bodyLarge: 22,
+  title: 28,
+  screenTitle: 32,
+} as const;
+
+export const fontWeights = {
+  regular: '400',
+  medium: '500',
+  semibold: '600',
+  bold: '700',
 } as const;

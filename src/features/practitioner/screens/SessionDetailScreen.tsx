@@ -1,5 +1,8 @@
 import { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Text } from '../../../components/Text';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { ConfirmAttendanceSheet } from '../components/ConfirmAttendanceSheet';
@@ -7,7 +10,7 @@ import { FeedbackBanner } from '../components/FeedbackBanner';
 import { InfoRow } from '../components/InfoRow';
 import { getAttendanceAction } from '../lib/attendance-action';
 import { ATTENDANCE_STATUS_META, SESSION_STATUS_META } from '../lib/status';
-import { colors, radius, spacing, typography } from '../theme';
+import { colors, fontWeights, lineHeights, radius, spacing, typography } from '../theme';
 import type {
   AttendanceActionResult,
   AttendanceInfo,
@@ -64,6 +67,7 @@ function SessionDetailContent({
   onBack,
   onConfirmAttendance,
 }: SessionDetailScreenProps) {
+  const insets = useSafeAreaInsets();
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -130,7 +134,7 @@ function SessionDetailContent({
     <>
       <ScrollView
         style={styles.screen}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.lg }]}
         showsVerticalScrollIndicator={false}
       >
         <Pressable
@@ -139,7 +143,9 @@ function SessionDetailContent({
           onPress={handleBack}
           style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : null]}
         >
-          <Text style={styles.backLabel}>Kembali</Text>
+          {({ pressed }) => (
+            <Text style={[styles.backLabel, pressed ? styles.linkPressed : null]}>Kembali</Text>
+          )}
         </Pressable>
 
         <View>
@@ -207,7 +213,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxxl,
     gap: spacing.lg,
   },
@@ -221,12 +227,15 @@ const styles = StyleSheet.create({
   },
   backLabel: {
     fontSize: typography.body,
-    fontWeight: '700',
-    color: colors.primary,
+    fontWeight: fontWeights.semibold,
+    color: colors.link,
+  },
+  linkPressed: {
+    textDecorationLine: 'underline',
   },
   meeting: {
-    fontSize: typography.caption,
-    fontWeight: '700',
+    fontSize: typography.secondary,
+    fontWeight: fontWeights.semibold,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
     color: colors.primary,
@@ -234,8 +243,9 @@ const styles = StyleSheet.create({
   title: {
     marginTop: spacing.xs,
     fontSize: typography.screenTitle,
-    fontWeight: '800',
-    color: colors.text,
+    lineHeight: lineHeights.screenTitle,
+    fontWeight: fontWeights.bold,
+    color: colors.primary,
   },
   badgeRow: {
     marginTop: spacing.sm,
@@ -250,7 +260,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     marginBottom: spacing.xs,
     fontSize: typography.bodyLarge,
-    fontWeight: '700',
+    fontWeight: fontWeights.semibold,
     color: colors.text,
   },
   attendanceRow: {
@@ -267,7 +277,7 @@ const styles = StyleSheet.create({
   attendanceHint: {
     marginTop: spacing.sm,
     fontSize: typography.body,
-    lineHeight: 20,
+    lineHeight: lineHeights.body,
     color: colors.textMuted,
   },
   cta: {
@@ -275,7 +285,7 @@ const styles = StyleSheet.create({
   },
   reason: {
     fontSize: typography.body,
-    lineHeight: 20,
+    lineHeight: lineHeights.body,
     color: colors.textMuted,
     textAlign: 'center',
   },

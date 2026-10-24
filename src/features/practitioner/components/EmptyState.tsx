@@ -1,5 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { StyleSheet, View } from 'react-native';
+
+import { Text } from '../../../components/Text';
+import { colors, fontWeights, lineHeights, radius, spacing, typography } from '../theme';
 
 type EmptyStateProps = {
   title: string;
@@ -35,7 +37,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: radius.md,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.primaryBackground,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
@@ -52,14 +54,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.bodyLarge,
-    fontWeight: '700',
+    fontWeight: fontWeights.semibold,
     color: colors.text,
     textAlign: 'center',
   },
   message: {
     marginTop: spacing.xs,
     fontSize: typography.body,
-    lineHeight: 20,
+    lineHeight: lineHeights.body,
     color: colors.textMuted,
     textAlign: 'center',
   },

@@ -1,5 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { StyleSheet, View } from 'react-native';
+
+import { Text } from '../../../components/Text';
+import { colors, fontWeights, lineHeights, radius, spacing, typography } from '../theme';
 
 type FeedbackTone = 'success' | 'error';
 
@@ -53,11 +55,11 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.body,
-    fontWeight: '700',
+    fontWeight: fontWeights.semibold,
   },
   message: {
     marginTop: spacing.xs,
     fontSize: typography.body,
-    lineHeight: 20,
+    lineHeight: lineHeights.body,
   },
 });

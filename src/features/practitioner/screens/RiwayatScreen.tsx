@@ -54,6 +54,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxxl,
   },
   separator: {
-    height: spacing.md,
+    height: spacing.lg,
   },
 });

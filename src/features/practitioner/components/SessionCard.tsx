@@ -1,6 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+
+import { Text } from '../../../components/Text';
 import { SESSION_STATUS_META } from '../lib/status';
-import { colors, radius, spacing, typography } from '../theme';
+import { colors, fontWeights, radius, spacing, typography } from '../theme';
 import type { SessionListItem } from '../types';
 import { Badge } from './Badge';
 
@@ -11,31 +13,40 @@ type SessionCardProps = {
 
 export function SessionCard({ session, onPress }: SessionCardProps) {
   const status = SESSION_STATUS_META[session.status];
+  const isOpen = session.status === 'dibuka';
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Buka detail ${session.practicalName}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
+      style={({ pressed }) => [
+        styles.card,
+        isOpen ? styles.cardHighlight : null,
+        pressed ? styles.pressed : null,
+      ]}
     >
-      <View style={styles.header}>
-        <Text style={styles.title} numberOfLines={2}>
-          {session.practicalName}
-        </Text>
-        <Badge label={status.label} tone={status.tone} />
-      </View>
+      {({ pressed }) => (
+        <>
+          <View style={styles.header}>
+            <Text style={styles.title} numberOfLines={2}>
+              {session.practicalName}
+            </Text>
+            <Badge label={status.label} tone={status.tone} />
+          </View>
 
-      <Text style={styles.meta}>
-        {session.className} - {session.lab}
-      </Text>
+          <Text style={styles.meta}>
+            {session.className} - {session.lab}
+          </Text>
 
-      <View style={styles.footer}>
-        <Text style={styles.date}>{session.dateLabel}</Text>
-        <Text style={styles.time}>{session.timeLabel}</Text>
-      </View>
+          <View style={styles.footer}>
+            <Text style={styles.date}>{session.dateLabel}</Text>
+            <Text style={styles.time}>{session.timeLabel}</Text>
+          </View>
 
-      <Text style={styles.hint}>Lihat detail sesi</Text>
+          <Text style={[styles.hint, pressed ? styles.hintPressed : null]}>Lihat detail sesi</Text>
+        </>
+      )}
     </Pressable>
   );
 }
@@ -54,6 +65,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  cardHighlight: {
+    borderWidth: 1.5,
+    borderColor: colors.borderHighlight,
+  },
   pressed: {
     opacity: 0.88,
   },
@@ -66,11 +81,11 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     fontSize: typography.bodyLarge,
-    fontWeight: '700',
+    fontWeight: fontWeights.semibold,
     color: colors.text,
   },
   meta: {
-    fontSize: typography.body,
+    fontSize: typography.secondary,
     color: colors.textMuted,
   },
   footer: {
@@ -80,22 +95,25 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.surfaceMuted,
+    borderTopColor: colors.border,
   },
   date: {
     flex: 1,
-    fontSize: typography.body,
+    fontSize: typography.secondary,
     color: colors.textMuted,
   },
   time: {
     fontSize: typography.body,
-    fontWeight: '600',
-    color: colors.text,
+    fontWeight: fontWeights.semibold,
+    color: colors.textBody,
   },
   hint: {
     marginTop: spacing.xs,
-    fontSize: typography.caption,
-    fontWeight: '700',
-    color: colors.primary,
+    fontSize: typography.secondary,
+    fontWeight: fontWeights.semibold,
+    color: colors.link,
+  },
+  hintPressed: {
+    textDecorationLine: 'underline',
   },
 });

@@ -1,5 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { StyleSheet, View } from 'react-native';
+
+import { Text } from '../../../components/Text';
+import { colors, fontWeights, radius, spacing, typography } from '../theme';
 import type { BadgeTone } from '../types';
 
 const TONE: Record<BadgeTone, { backgroundColor: string; color: string }> = {
@@ -28,12 +30,12 @@ export function Badge({ label, tone = 'neutral' }: BadgeProps) {
 const styles = StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: radius.pill,
   },
   label: {
     fontSize: typography.caption,
-    fontWeight: '700',
+    fontWeight: fontWeights.semibold,
   },
 });
