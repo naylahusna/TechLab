@@ -22,6 +22,7 @@ Folder utama:
 - `src/features/auth/` — pemilihan peran/identitas
 - `src/features/profile/` — ganti pengguna
 - `src/app/_layout.tsx`, `src/app/index.tsx` — routing/root flow
+- `src/app/(tabs)/` dan `src/features/navigation/` — menu dan tempat integrasi screen
 
 ### Muhammad Zaidaan Ardiyansyah — fitur praktikan
 
@@ -30,9 +31,8 @@ Folder utama:
 Folder utama:
 
 - `src/features/practitioner/`
-- `src/app/(tabs)/jadwal.tsx`
-- `src/app/(tabs)/catatan.tsx`
-- `src/app/sesi/[sessionId].tsx` untuk tampilan yang khusus praktikan
+- Ekspor screen dari folder fitur; route jadwal/catatan bersama dirangkai Arga.
+- Detail praktikan nantinya dipasang pada route sesi melalui PR integrasi.
 
 ### Muhammad Fahri — fitur asisten
 
@@ -41,8 +41,8 @@ Folder utama:
 Folder utama:
 
 - `src/features/assistant/`
-- `src/app/(tabs)/jadwal-asisten.tsx` atau route jadwal yang disepakati
-- `src/app/sesi/[sessionId]/rekap.tsx` untuk rekap peserta
+- Ekspor screen dari folder fitur; route jadwal/catatan bersama dirangkai Arga.
+- Detail dan rekap asisten nantinya dipasang melalui PR integrasi.
 
 ## Aturan file bersama
 
@@ -56,6 +56,10 @@ Folder utama:
    `src/core/` atau folder fitur, bukan ditulis ulang di route.
 6. Jangan mengubah `App.tsx` dan `index.ts` setelah migrasi ke Expo Router kecuali
    perubahan entry point memang diperlukan dan sudah disepakati.
+7. SRS-02–04 sudah memakai Expo Router. Root `RoleProvider` menyediakan
+   `users`, `currentRole`, `currentUserId`, `currentUser`, dan
+   `selectUser(userId, role)`. Jangan memasang provider baru di fitur/route.
+   Sesi/presensi dan aksi lainnya pada kontrak di bawah masih direncanakan.
 
 ## Kontrak state minimum
 

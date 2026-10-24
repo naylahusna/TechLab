@@ -12,6 +12,7 @@ src/
 ├── features/
 │   ├── auth/             # Arga: pilih peran dan identitas
 │   ├── profile/          # Arga: ganti pengguna/reset demo
+│   ├── navigation/       # Arga: tempat integrasi screen peran
 │   ├── practitioner/     # Zaidaan: alur praktikan
 │   └── assistant/        # Fahri: alur asisten
 └── theme/                # token warna, spacing, typography
