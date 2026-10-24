@@ -1,7 +1,7 @@
 import { createInitialDemoState } from './demo-data';
 import { selectIdentity } from './identity-state';
 import { failure, success } from './action-result';
-import { validateSessionAction } from './rules';
+import { validateAttendance, validateSessionAction } from './rules';
 import type { Role } from './roles';
 import type { ActionResult, DemoState, SessionStatus } from './types';
 
@@ -9,6 +9,12 @@ export type DemoAction =
   | Readonly<{ type: 'select-user'; userId: string; role?: Role }>
   | Readonly<{ type: 'open-session'; sessionId: string }>
   | Readonly<{ type: 'close-session'; sessionId: string }>
+  | Readonly<{
+      type: 'record-attendance';
+      sessionId: string;
+      studentId: string;
+      recordedAt: string;
+    }>
   | Readonly<{ type: 'reset-demo' }>;
 
 type Transition = Readonly<{ state: DemoState; result: ActionResult }>;
@@ -45,6 +51,29 @@ export function transitionDemo(state: DemoState, action: DemoAction): Transition
           ),
         }),
         result: success(opening ? 'Sesi berhasil dibuka.' : 'Sesi berhasil ditutup.'),
+      };
+    }
+    case 'record-attendance': {
+      const result = validateAttendance(state, action.sessionId, action.studentId);
+      if (!result.ok) return { state, result };
+      if (
+        typeof action.recordedAt !== 'string' ||
+        !Number.isFinite(Date.parse(action.recordedAt))
+      ) {
+        return { state, result: failure('INVALID_TIME', 'Waktu kehadiran tidak valid.') };
+      }
+      const record = Object.freeze({
+        id: `${action.sessionId}:${action.studentId}`,
+        sessionId: action.sessionId,
+        studentId: action.studentId,
+        recordedAt: action.recordedAt,
+      });
+      return {
+        state: Object.freeze({
+          ...state,
+          attendanceRecords: Object.freeze([...state.attendanceRecords, record]),
+        }),
+        result: success('Presensi berhasil dicatat.'),
       };
     }
     case 'reset-demo':
