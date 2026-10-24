@@ -1,24 +1,14 @@
 # Core
 
-Folder ini adalah sumber tunggal state demo dan aturan bisnis aplikasi.
+Owner: Arga. `types.ts`, `users.ts`, dan `demo-data.ts` menyediakan data dummy.
+`demo-store.ts` memiliki satu snapshot per provider dan subscription React.
+`demo-context.tsx` menghubungkan store ke React; `role-context.tsx` adalah
+alias kompatibel untuk screen SRS-01–04, tanpa provider atau state kedua.
 
-Sudah tersedia pada SRS-02–04:
+API fitur dibaca dari `src/core/index.ts`. Pada tahap SRS-22 tersedia
+snapshot, selector, pemilihan pengguna, dan reset. SRS-25 menambahkan mutasi
+sesi serta validator presensi. Pencatatan presensi ditambahkan di SRS-15. Jangan mengubah
+array fixture atau memasang provider di screen/tab/komponen pemilihan.
 
-- `users.ts`: lima identitas dummy bersama.
-- `identity-state.ts`: perubahan role/user secara atomik dan validasi pilihan.
-- `role-context.tsx`: provider root dan hook `useRole()`; tidak dipasang ulang
-  saat berganti halaman/pengguna.
-- `navigation.ts`: penamaan menu dan isi pengantar sesuai role.
-
-API saat ini: `users`, `currentRole`, `currentUserId`, `currentUser`, dan
-`selectUser(userId, role)`. Jangan membuat state identitas kedua.
-
-Rencana file untuk SRS berikutnya (belum diimplementasikan):
-
-- `types.ts` — tipe `User`, `Role`, `Session`, `AttendanceRecord`, dan status.
-- `demo-data.ts` — seluruh data dummy awal.
-- `demo-store.tsx` — provider/context dan aksi state bersama.
-- `rules.ts` — validasi transisi sesi dan presensi.
-
-Hanya Arga yang menjadi owner utama folder ini. Programmer lain menggunakan API
-yang tersedia, bukan membuat state paralel.
+Detail field, perilaku selector, dan urutan integrasi tersedia di
+`docs/CORE-API.md` dan `docs/SRS-PR-ORDER.md`.
