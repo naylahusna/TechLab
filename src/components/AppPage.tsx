@@ -15,6 +15,15 @@ export function AppPage({ title, subtitle, children }: { title: string; subtitle
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={[styles.hero, { paddingTop: insets.top + 22 }]}>
+          <View pointerEvents="none" style={styles.heroAccent}>
+            <View style={styles.accentOrb} />
+            <View style={styles.accentRingLarge} />
+            <View style={styles.accentRingSmall} />
+            <View style={styles.accentArc} />
+            <View style={styles.accentDots}>
+              {Array.from({ length: 12 }).map((_, index) => <View key={index} style={styles.accentDot} />)}
+            </View>
+          </View>
           <View style={styles.headerInner}>
             <View style={styles.topRow}>
               <View style={styles.brandRow}>
@@ -39,7 +48,14 @@ export function AppPage({ title, subtitle, children }: { title: string; subtitle
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.blue },
   scroll: { flexGrow: 1, backgroundColor: colors.background, paddingBottom: 28 },
-  hero: { backgroundColor: colors.blue, paddingBottom: 38, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+  hero: { backgroundColor: colors.blue, paddingBottom: 38, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, overflow: 'hidden' },
+  heroAccent: { position: 'absolute', width: 210, height: 190, top: -32, right: -20, opacity: 0.9 },
+  accentOrb: { position: 'absolute', width: 126, height: 126, top: 8, right: 18, borderRadius: 63, backgroundColor: '#FFFFFF12' },
+  accentRingLarge: { position: 'absolute', width: 174, height: 174, top: -16, right: -6, borderRadius: 87, borderWidth: 1, borderColor: '#FFFFFF28' },
+  accentRingSmall: { position: 'absolute', width: 88, height: 88, top: 27, right: 37, borderRadius: 44, borderWidth: 1, borderColor: '#80E5DC66' },
+  accentArc: { position: 'absolute', width: 196, height: 196, top: -76, right: 46, borderRadius: 98, borderWidth: 2, borderColor: '#80E5DC80', borderLeftColor: 'transparent', borderBottomColor: 'transparent', transform: [{ rotate: '24deg' }] },
+  accentDots: { position: 'absolute', top: 68, right: 12, width: 48, height: 42, flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  accentDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF80' },
   headerInner: { width: '100%', maxWidth: 720, paddingHorizontal: 24, alignSelf: 'center' },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   brandRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12, flex: 1 },
