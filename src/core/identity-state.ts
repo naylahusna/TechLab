@@ -6,7 +6,10 @@ export type IdentityState = Readonly<{
   currentUserId: string | null;
 }>;
 
-export const initialIdentity: IdentityState = Object.freeze({ currentRole: null, currentUserId: null });
+export const initialIdentity: IdentityState = Object.freeze({
+  currentRole: null,
+  currentUserId: null,
+});
 
 /** The role and identity are committed together, only after confirmation. */
 export function selectIdentity(state: IdentityState, userId: string, role: Role): IdentityState {

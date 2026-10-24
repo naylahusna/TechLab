@@ -54,8 +54,8 @@ Folder utama:
    letakkan komponen tersebut di folder fitur terkait.
 5. Route hanya mengatur navigasi dan menyusun screen. Logika bisnis diletakkan di
    `src/core/` atau folder fitur, bukan ditulis ulang di route.
-6. Jangan mengubah `App.tsx` dan `index.ts` setelah migrasi ke Expo Router kecuali
-   perubahan entry point memang diperlukan dan sudah disepakati.
+6. `index.ts` adalah entry point Expo Router. `src/app/_layout.tsx` memasang
+   provider root. Jangan membuat entry point atau provider alternatif.
 7. SRS-02–04 sudah memakai Expo Router. Root `RoleProvider` menyediakan
    `users`, `currentRole`, `currentUserId`, `currentUser`, dan
    `selectUser(userId, role)`. Jangan memasang provider baru di fitur/route.
