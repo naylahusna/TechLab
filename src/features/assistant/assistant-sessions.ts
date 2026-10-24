@@ -7,7 +7,7 @@ export type AssistantSession = Readonly<{
   course: string;
   group: string;
   room: string;
-  status: 'Akan datang' | 'Selesai';
+  status: 'Akan datang' | 'Sedang berlangsung' | 'Selesai';
   description: string;
 }>;
 

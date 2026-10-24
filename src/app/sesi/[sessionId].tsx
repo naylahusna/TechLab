@@ -1,5 +1,5 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import { ActionButton } from '../../components/ActionButton';
 import { AppPage } from '../../components/AppPage';
@@ -10,33 +10,43 @@ import { findAssistantSession } from '../../features/assistant/assistant-session
 
 export default function AssistantSessionDetailRoute() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
-  const { currentUser } = useRole();
+  const { currentUser, sessionStatuses, openSession } = useRole();
 
   if (!currentUser) return <Redirect href="/" />;
   if (currentUser.role !== 'asisten') return <Redirect href="/jadwal" />;
 
   const session = typeof sessionId === 'string' ? findAssistantSession(sessionId) : null;
   if (!session || session.assistantId !== currentUser.id) return <Redirect href="/jadwal" />;
+  const activeSession = session;
+  const status = sessionStatuses[activeSession.id] ?? activeSession.status;
+
+  function handleOpenSession() {
+    if (openSession(activeSession.id)) {
+      Alert.alert('Sesi dibuka', 'Praktikan sekarang dapat melakukan presensi untuk sesi ini.');
+    } else {
+      Alert.alert('Sesi tidak dapat dibuka', 'Sesi ini sudah dibuka atau sudah selesai.');
+    }
+  }
 
   return (
     <AppPage title="Detail sesi" subtitle="Informasi pelaksanaan praktikum yang kamu tangani.">
       <View style={styles.statusCard}>
         <View style={styles.statusDot} />
-        <Text style={styles.statusText}>{session.status}</Text>
+        <Text style={styles.statusText}>{status}</Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.label}>MATA PRAKTIKUM</Text>
-        <Text accessibilityRole="header" style={styles.course}>{session.course}</Text>
-        <Text style={styles.description}>{session.description}</Text>
+        <Text accessibilityRole="header" style={styles.course}>{activeSession.course}</Text>
+        <Text style={styles.description}>{activeSession.description}</Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Informasi pelaksanaan</Text>
         <DetailRow label="Hari dan tanggal" value={`${session.day}, ${session.date}`} />
-        <DetailRow label="Waktu" value={session.time} />
-        <DetailRow label="Kelas" value={session.group} />
-        <DetailRow label="Ruangan" value={session.room} last />
+        <DetailRow label="Waktu" value={activeSession.time} />
+        <DetailRow label="Kelas" value={activeSession.group} />
+        <DetailRow label="Ruangan" value={activeSession.room} last />
       </View>
 
       <View style={styles.note}>
@@ -45,6 +55,13 @@ export default function AssistantSessionDetailRoute() {
           Dampingi praktikan selama sesi dan pastikan kegiatan berjalan sesuai materi praktikum.
         </Text>
       </View>
+
+      <ActionButton
+        title={status === 'Sedang berlangsung' ? 'Sesi sudah dibuka' : 'Buka sesi untuk presensi'}
+        onPress={handleOpenSession}
+        disabled={status !== 'Akan datang'}
+        testID="open-session"
+      />
 
       <ActionButton title="Kembali ke jadwal" onPress={() => router.back()} secondary />
     </AppPage>

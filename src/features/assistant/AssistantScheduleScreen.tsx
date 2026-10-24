@@ -8,7 +8,7 @@ import { colors } from '../../theme/tokens';
 import { assistantSessions } from './assistant-sessions';
 
 export function AssistantScheduleScreen() {
-  const { currentUser } = useRole();
+  const { currentUser, sessionStatuses } = useRole();
   const items = assistantSessions
     .filter((session) => session.assistantId === currentUser?.id)
     .sort((left, right) => left.date.localeCompare(right.date));
@@ -48,7 +48,7 @@ export function AssistantScheduleScreen() {
                 <View style={styles.cardTop}>
                   <Text style={styles.time}>{session.time}</Text>
                   <View style={styles.status}>
-                    <Text style={styles.statusText}>{session.status}</Text>
+                    <Text style={styles.statusText}>{sessionStatuses[session.id] ?? session.status}</Text>
                   </View>
                 </View>
                 <Text style={styles.course}>{session.course}</Text>
