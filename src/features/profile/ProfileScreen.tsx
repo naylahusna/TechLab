@@ -2,7 +2,7 @@ import { Redirect, router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '../../components/ActionButton';
-import { SelectionLayout } from '../../components/SelectionLayout';
+import { AppPage } from '../../components/AppPage';
 import { useRole } from '../../core/role-context';
 import { colors } from '../../theme/tokens';
 
@@ -11,7 +11,7 @@ export function ProfileScreen() {
   if (!currentUser) return <Redirect href="/" />;
   const student = currentUser.role === 'praktikan';
   return (
-    <SelectionLayout title="Profil pengguna" subtitle="Lihat identitas aktif atau coba sudut pandang pengguna lain." eyebrow="AKUN DEMO" storyTitle={'Peran berbeda.\nPengalaman terhubung.'}>
+    <AppPage title="Profil pengguna" subtitle="Lihat identitas aktif atau coba sudut pandang pengguna lain.">
       <View style={styles.profile}>
         <View style={styles.avatar}><Text style={styles.initials}>{currentUser.initials}</Text></View>
         <Text style={styles.name}>{currentUser.name}</Text>
@@ -23,8 +23,8 @@ export function ProfileScreen() {
       <ActionButton title="Ganti identitas" onPress={() => router.navigate({ pathname: '/pilih-identitas', params: { role: currentUser.role, mode: 'switch' } })} testID="switch-identity" />
       <ActionButton title="Ganti peran" secondary onPress={() => router.navigate({ pathname: '/', params: { mode: 'switch' } })} testID="switch-role" />
       <Text style={styles.note}>Pilihan baru digunakan setelah kamu mengonfirmasi. Membatalkan pilihan akan mempertahankan pengguna aktif.</Text>
-      <ActionButton title="Kembali ke beranda" secondary onPress={() => router.replace('/beranda')} />
-    </SelectionLayout>
+      <ActionButton title="Kembali ke jadwal" secondary onPress={() => router.navigate('/jadwal')} />
+    </AppPage>
   );
 }
 
