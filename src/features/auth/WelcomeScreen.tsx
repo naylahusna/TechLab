@@ -1,7 +1,8 @@
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { SelectionLayout } from '../../components/SelectionLayout';
+import { ActionButton } from '../../components/ActionButton';
 import { useRole } from '../../core/role-context';
 import { colors } from '../../theme/tokens';
 import { RoleIcon } from './RoleIcon';
@@ -20,6 +21,7 @@ export function WelcomeScreen() {
         <Text style={styles.detail}>{currentUser.group}</Text>
       </View>
       <Text style={styles.description}>{student ? 'Jadwal, presensi, dan catatan kehadiran akan menjadi bagian aktivitasmu sebagai praktikan.' : 'Pengelolaan sesi dan pemantauan kehadiran akan menjadi bagian aktivitasmu sebagai asisten.'}</Text>
+      <ActionButton title="Profil & ganti pengguna" onPress={() => router.navigate('/profil')} />
     </SelectionLayout>
   );
 }

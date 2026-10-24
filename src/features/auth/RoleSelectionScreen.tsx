@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '../../components/ActionButton';
 import { SelectionLayout } from '../../components/SelectionLayout';
 import type { Role } from '../../core/roles';
+import { useRole } from '../../core/role-context';
 import { RoleIcon } from './RoleIcon';
 
 const roles = [
@@ -18,16 +19,18 @@ const roles = [
   },
 ] as const;
 
-export function RoleSelectionScreen() {
+export function RoleSelectionScreen({ switching = false }: { switching?: boolean }) {
+  const { currentUser } = useRole();
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
   function confirmRole() {
     if (!selectedRole) return;
-    router.navigate({ pathname: '/pilih-identitas', params: { role: selectedRole } });
+    router.navigate({ pathname: '/pilih-identitas', params: { role: selectedRole, ...(switching ? { mode: 'switch' } : {}) } });
   }
 
   return (
     <SelectionLayout title="Masuk sebagai siapa?" subtitle="Pilih peranmu untuk memulai aktivitas praktikum.">
+            {switching && currentUser && <Text style={styles.activeUser}>Pengguna aktif: {currentUser.name}. Peran berubah setelah identitas baru dikonfirmasi.</Text>}
             <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel="Pilihan peran">
               {roles.map((role) => {
                 const selected = selectedRole === role.id;
@@ -54,11 +57,13 @@ export function RoleSelectionScreen() {
               })}
             </View>
             <ActionButton title="Lanjutkan →" disabled={!selectedRole} onPress={confirmRole} testID="continue-button" />
+            {switching && <ActionButton title="Batal, kembali ke profil" secondary onPress={() => router.dismissTo('/profil')} />}
     </SelectionLayout>
   );
 }
 
 const styles = StyleSheet.create({
+  activeUser: { color: '#64748B', fontSize: 12, lineHeight: 20, backgroundColor: '#F0F5FF', padding: 14, borderRadius: 14 },
   choices: { gap: 12, marginBottom: 12 },
   card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 15, minHeight: 104, borderWidth: 1.5, borderColor: '#E5EAF2', borderRadius: 18, backgroundColor: '#FFFFFF' },
   cardSelected: { borderColor: '#1459D9', backgroundColor: '#F0F5FF' },
