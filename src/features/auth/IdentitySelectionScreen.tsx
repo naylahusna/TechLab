@@ -3,17 +3,21 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '../../components/ActionButton';
+import { ConfirmationModal } from '../../components/ConfirmationModal';
 import { SelectionLayout } from '../../components/SelectionLayout';
 import { useRole } from '../../core/role-context';
 import type { Role } from '../../core/roles';
-import { usersForRole } from '../../core/users';
+import { findUser, usersForRole } from '../../core/users';
 import { colors } from '../../theme/tokens';
 
-export function IdentitySelectionScreen({ role }: { role: Role }) {
-  const { selectUser } = useRole();
+export function IdentitySelectionScreen({ role, switching = false }: { role: Role; switching?: boolean }) {
+  const { selectUser, currentUser } = useRole();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const label = role === 'praktikan' ? 'Praktikan' : 'Asisten';
+  const selectedUser = findUser(selectedId);
+  const unchanged = switching && selectedId === currentUser?.id;
 
   function confirmIdentity() {
     if (!selectedId) return;
@@ -21,6 +25,7 @@ export function IdentitySelectionScreen({ role }: { role: Role }) {
       setError('Identitas tidak sesuai dengan peran yang dipilih. Silakan pilih lagi.');
       return;
     }
+    setShowConfirmation(false);
     router.replace('/beranda');
   }
 
@@ -34,7 +39,7 @@ export function IdentitySelectionScreen({ role }: { role: Role }) {
             <Pressable key={user.id} testID={`identity-${user.id}`} accessibilityRole="radio" accessibilityLabel={`${user.name}, ${user.number}, ${user.group}`} accessibilityState={{ checked: selected }} onPress={() => { setSelectedId(user.id); setError(''); }} style={({ pressed }) => [styles.card, selected && styles.selected, pressed && styles.pressed]}>
               <View style={styles.avatar}><Text style={styles.initials}>{user.initials}</Text></View>
               <View style={styles.copy}>
-                <Text style={styles.name}>{user.name}</Text>
+                <Text style={styles.name}>{user.name}{user.id === currentUser?.id ? ' · Aktif' : ''}</Text>
                 <Text style={styles.number}>{role === 'praktikan' ? 'NIM' : 'ID'} {user.number}</Text>
                 <Text style={styles.group}>{user.group}</Text>
               </View>
@@ -44,8 +49,9 @@ export function IdentitySelectionScreen({ role }: { role: Role }) {
         })}
       </View>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-      <ActionButton title="Gunakan identitas" disabled={!selectedId} onPress={confirmIdentity} testID="confirm-identity" />
-      <ActionButton title="Kembali ke pilihan peran" secondary onPress={() => router.canGoBack() ? router.back() : router.replace('/')} />
+      <ActionButton title={unchanged ? 'Identitas sedang digunakan' : 'Gunakan identitas'} disabled={!selectedId || unchanged} onPress={() => switching ? setShowConfirmation(true) : confirmIdentity()} testID="confirm-identity" />
+      <ActionButton title={switching ? 'Batal, kembali ke profil' : 'Kembali ke pilihan peran'} secondary onPress={() => switching ? router.dismissTo('/profil') : router.canGoBack() ? router.back() : router.replace('/')} />
+      <ConfirmationModal visible={showConfirmation} title="Ganti pengguna aktif?" description={`Dari ${currentUser?.name ?? ''} ke ${selectedUser?.name ?? ''} sebagai ${label}. Pilihan ini akan memperbarui tampilan pengguna aktif.`} confirmLabel="Ya, ganti pengguna" onConfirm={confirmIdentity} onCancel={() => setShowConfirmation(false)} />
     </SelectionLayout>
   );
 }

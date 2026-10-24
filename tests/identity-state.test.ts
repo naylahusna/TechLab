@@ -24,3 +24,15 @@ test('an unknown identity or mismatched role cannot replace the selected identit
   assert.equal(selectIdentity(active, 'praktikan-02', 'admin' as Role), active);
   assert.deepEqual(initialIdentity, { currentUserId: null, currentRole: null });
 });
+
+test('switching changes user and role together and leaves the previous selection intact', () => {
+  const alya = selectIdentity(initialIdentity, 'praktikan-01', 'praktikan');
+  const bima = selectIdentity(alya, 'praktikan-02', 'praktikan');
+  const assistant = selectIdentity(bima, 'asisten-01', 'asisten');
+  const returned = selectIdentity(assistant, 'praktikan-01', 'praktikan');
+  assert.deepEqual(bima, { currentUserId: 'praktikan-02', currentRole: 'praktikan' });
+  assert.deepEqual(assistant, { currentUserId: 'asisten-01', currentRole: 'asisten' });
+  assert.deepEqual(returned, alya);
+  assert.deepEqual(alya, { currentUserId: 'praktikan-01', currentRole: 'praktikan' });
+  assert.equal(selectIdentity(alya, 'praktikan-01', 'praktikan'), alya);
+});
