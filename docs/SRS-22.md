@@ -29,7 +29,10 @@ Seluruh layar membaca `useDemo()` yang sama dengan praktikan. Tidak ada
 
 - `src/features/assistant/session-view.ts` membentuk view dari selector core;
   objek sesi dan record tetap berasal dari snapshot yang sama.
-- Route tunggal `src/app/sesi/[id].tsx` memilih layar sesuai peran dan penugasan.
+- Route tab jadwal menggunakan `AssistantJadwalScreen`, tab catatan menggunakan
+  `AssistantRekapScreen`, dan route tunggal `src/app/sesi/[id].tsx` memilih
+  `AssistantSessionDetailScreen` atau layar praktikan sesuai peran dan penugasan.
+  Props jadwal, rekap, roster, dan waktu presensi dipetakan dari selector core.
   Jangan menambah `[sessionId].tsx` dengan pola URL yang sama.
 - Buka/tutup menggunakan `ActionResult` dari `demo.openSession()` dan
   `demo.closeSession()`. Konfirmasi yang dibatalkan tidak memanggil aksi store.

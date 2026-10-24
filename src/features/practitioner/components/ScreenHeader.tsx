@@ -16,10 +16,18 @@ type ScreenHeaderProps = {
   subtitle?: string;
   greeting?: string;
   initials?: string;
+  roleLabel?: string;
   summary?: ScreenSummaryItem[];
 };
 
-export function ScreenHeader({ title, subtitle, greeting, initials, summary }: ScreenHeaderProps) {
+export function ScreenHeader({
+  title,
+  subtitle,
+  greeting,
+  initials,
+  roleLabel = 'Praktikan',
+  summary,
+}: ScreenHeaderProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -43,7 +51,7 @@ export function ScreenHeader({ title, subtitle, greeting, initials, summary }: S
             TechLab<Text style={styles.brandDot}>.</Text>
           </Text>
           <View style={styles.rolePill}>
-            <Text style={styles.roleText}>Praktikan</Text>
+            <Text style={styles.roleText}>{roleLabel}</Text>
           </View>
         </View>
 
