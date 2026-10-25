@@ -53,6 +53,8 @@ export function ConfirmAttendanceSheet({
   const [backdropOpacity] = useState(() => new Animated.Value(0));
   const [translateY] = useState(() => new Animated.Value(windowHeight));
   const scrollOffset = useRef(0);
+  const dragEnabled = useRef(false);
+  const sheetDragDistance = useRef(0);
 
   useEffect(() => {
     if (!visible) {
@@ -130,23 +132,42 @@ export function ConfirmAttendanceSheet({
     minDistance: 8,
     simultaneousWith: nativeScrollGesture,
     onBegin: () => {
-      translateY.stopAnimation();
+      dragEnabled.current = scrollOffset.current <= 0;
+      sheetDragDistance.current = 0;
+
+      if (dragEnabled.current) {
+        translateY.stopAnimation();
+      }
     },
     onUpdate: (event) => {
-      if (scrollOffset.current > 0 || event.translationY <= 0) {
+      if (!dragEnabled.current) {
+        return;
+      }
+
+      if (scrollOffset.current > 0) {
+        dragEnabled.current = false;
+        sheetDragDistance.current = 0;
         return;
       }
 
       const next = Math.min(windowHeight, Math.max(0, event.translationY));
+      sheetDragDistance.current = next;
       translateY.setValue(next);
       backdropOpacity.setValue(Math.max(0, 1 - next / windowHeight));
     },
     onDeactivate: (event) => {
-      if (event.canceled) {
+      const wasDragging = dragEnabled.current;
+      const dragDistance = sheetDragDistance.current;
+
+      dragEnabled.current = false;
+      sheetDragDistance.current = 0;
+
+      if (event.canceled || !wasDragging) {
+        springBack();
         return;
       }
 
-      if (scrollOffset.current <= 0 && (event.translationY > 100 || event.velocityY > 800)) {
+      if (dragDistance > 100 || event.velocityY > 800) {
         handleCancel();
         return;
       }
@@ -154,6 +175,9 @@ export function ConfirmAttendanceSheet({
       springBack();
     },
     onFinalize: (event) => {
+      dragEnabled.current = false;
+      sheetDragDistance.current = 0;
+
       if (event.canceled) {
         springBack();
       }
