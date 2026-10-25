@@ -1,6 +1,15 @@
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import {
   GestureDetector,
   GestureHandlerRootView,
@@ -40,8 +49,9 @@ export function ConfirmAttendanceSheet({
   onConfirm,
 }: ConfirmAttendanceSheetProps) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [backdropOpacity] = useState(() => new Animated.Value(0));
-  const [translateY] = useState(() => new Animated.Value(120));
+  const [translateY] = useState(() => new Animated.Value(windowHeight));
   const scrollOffset = useRef(0);
 
   useEffect(() => {
@@ -51,7 +61,7 @@ export function ConfirmAttendanceSheet({
 
     scrollOffset.current = 0;
     backdropOpacity.setValue(0);
-    translateY.setValue(120);
+    translateY.setValue(windowHeight);
 
     const animation = Animated.parallel([
       Animated.timing(backdropOpacity, {
@@ -70,7 +80,7 @@ export function ConfirmAttendanceSheet({
     animation.start();
 
     return () => animation.stop();
-  }, [backdropOpacity, translateY, visible]);
+  }, [backdropOpacity, translateY, visible, windowHeight]);
 
   const handleCancel = useCallback(() => {
     if (isSubmitting) {
@@ -84,8 +94,8 @@ export function ConfirmAttendanceSheet({
         useNativeDriver: true,
       }),
       Animated.timing(translateY, {
-        toValue: 120,
-        duration: 220,
+        toValue: windowHeight,
+        duration: 260,
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -94,7 +104,7 @@ export function ConfirmAttendanceSheet({
         onCancel();
       }
     });
-  }, [backdropOpacity, isSubmitting, onCancel, translateY]);
+  }, [backdropOpacity, isSubmitting, onCancel, translateY, windowHeight]);
 
   const springBack = useCallback(() => {
     Animated.parallel([
@@ -127,9 +137,9 @@ export function ConfirmAttendanceSheet({
         return;
       }
 
-      const next = Math.min(120, event.translationY);
+      const next = Math.min(windowHeight, Math.max(0, event.translationY));
       translateY.setValue(next);
-      backdropOpacity.setValue(Math.max(0.35, 1 - next / 360));
+      backdropOpacity.setValue(Math.max(0, 1 - next / windowHeight));
     },
     onDeactivate: (event) => {
       if (event.canceled) {
