@@ -1,6 +1,15 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { Animated, Easing, Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  Modal,
+  PanResponder,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '../../../components/Text';
@@ -36,12 +45,15 @@ export function ConfirmAttendanceSheet({
   const insets = useSafeAreaInsets();
   const [backdropOpacity] = useState(() => new Animated.Value(0));
   const [translateY] = useState(() => new Animated.Value(120));
+  const scrollOffset = useRef(0);
+  const dragStart = useRef(0);
 
   useEffect(() => {
     if (!visible) {
       return;
     }
 
+    scrollOffset.current = 0;
     backdropOpacity.setValue(0);
     translateY.setValue(120);
 
@@ -64,7 +76,7 @@ export function ConfirmAttendanceSheet({
     return () => animation.stop();
   }, [backdropOpacity, translateY, visible]);
 
-  function handleCancel() {
+  const handleCancel = useCallback(() => {
     if (isSubmitting) {
       return;
     }
@@ -86,7 +98,58 @@ export function ConfirmAttendanceSheet({
         onCancel();
       }
     });
-  }
+  }, [backdropOpacity, isSubmitting, onCancel, translateY]);
+
+  const panResponder = useMemo(() => {
+    function springBack() {
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          bounciness: 4,
+          speed: 20,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+
+    // Refs are only read from gesture callbacks, not during render.
+    // eslint-disable-next-line react-hooks/refs
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponderCapture: (_event, gesture) =>
+        !isSubmitting &&
+        scrollOffset.current <= 0 &&
+        gesture.dy > 6 &&
+        gesture.dy > Math.abs(gesture.dx),
+      onPanResponderGrant: () => {
+        translateY.stopAnimation((value) => {
+          dragStart.current = value;
+        });
+      },
+      onPanResponderMove: (_event, gesture) => {
+        const next = Math.min(120, Math.max(0, dragStart.current + gesture.dy));
+        translateY.setValue(next);
+        backdropOpacity.setValue(Math.max(0.35, 1 - next / 360));
+      },
+      onPanResponderRelease: (_event, gesture) => {
+        if (gesture.dy > 100 || gesture.vy > 0.8) {
+          handleCancel();
+          return;
+        }
+
+        springBack();
+      },
+      onPanResponderTerminate: () => {
+        springBack();
+      },
+      onPanResponderTerminationRequest: () => false,
+    });
+  }, [backdropOpacity, handleCancel, isSubmitting, translateY]);
 
   return (
     <Modal
@@ -98,14 +161,25 @@ export function ConfirmAttendanceSheet({
     >
       {visible ? <StatusBar style="light" /> : null}
       <Animated.View style={[styles.overlay, { opacity: backdropOpacity }]}>
+        <Pressable
+          style={styles.backdrop}
+          onPress={handleCancel}
+          accessible={false}
+          importantForAccessibility="no"
+        />
         <Animated.View
           style={[styles.sheet, { transform: [{ translateY }] }]}
           accessibilityViewIsModal
+          {...panResponder.panHandlers}
         >
           <View style={styles.handle} />
 
           <ScrollView
             showsVerticalScrollIndicator={false}
+            onScroll={(event) => {
+              scrollOffset.current = event.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
             contentContainerStyle={[
               styles.content,
               { paddingBottom: Math.max(insets.bottom, spacing.xxxl) },
@@ -167,6 +241,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
   sheet: {
     width: '100%',
