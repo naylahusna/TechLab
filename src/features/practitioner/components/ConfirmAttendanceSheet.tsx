@@ -1,6 +1,21 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { Animated, Easing, Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import {
+  GestureDetector,
+  GestureHandlerRootView,
+  useNativeGesture,
+  usePanGesture,
+} from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '../../../components/Text';
@@ -34,16 +49,21 @@ export function ConfirmAttendanceSheet({
   onConfirm,
 }: ConfirmAttendanceSheetProps) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [backdropOpacity] = useState(() => new Animated.Value(0));
-  const [translateY] = useState(() => new Animated.Value(120));
+  const [translateY] = useState(() => new Animated.Value(windowHeight));
+  const scrollOffset = useRef(0);
+  const dragEnabled = useRef(false);
+  const sheetDragDistance = useRef(0);
 
   useEffect(() => {
     if (!visible) {
       return;
     }
 
+    scrollOffset.current = 0;
     backdropOpacity.setValue(0);
-    translateY.setValue(120);
+    translateY.setValue(windowHeight);
 
     const animation = Animated.parallel([
       Animated.timing(backdropOpacity, {
@@ -62,9 +82,9 @@ export function ConfirmAttendanceSheet({
     animation.start();
 
     return () => animation.stop();
-  }, [backdropOpacity, translateY, visible]);
+  }, [backdropOpacity, translateY, visible, windowHeight]);
 
-  function handleCancel() {
+  const handleCancel = useCallback(() => {
     if (isSubmitting) {
       return;
     }
@@ -76,8 +96,8 @@ export function ConfirmAttendanceSheet({
         useNativeDriver: true,
       }),
       Animated.timing(translateY, {
-        toValue: 120,
-        duration: 220,
+        toValue: windowHeight,
+        duration: 260,
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -86,7 +106,83 @@ export function ConfirmAttendanceSheet({
         onCancel();
       }
     });
-  }
+  }, [backdropOpacity, isSubmitting, onCancel, translateY, windowHeight]);
+
+  const springBack = useCallback(() => {
+    Animated.parallel([
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        bounciness: 4,
+        speed: 20,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [backdropOpacity, translateY]);
+
+  const nativeScrollGesture = useNativeGesture();
+
+  const panGesture = usePanGesture({
+    enabled: !isSubmitting,
+    runOnJS: true,
+    minDistance: 8,
+    simultaneousWith: nativeScrollGesture,
+    onBegin: () => {
+      dragEnabled.current = scrollOffset.current <= 0;
+      sheetDragDistance.current = 0;
+
+      if (dragEnabled.current) {
+        translateY.stopAnimation();
+      }
+    },
+    onUpdate: (event) => {
+      if (!dragEnabled.current) {
+        return;
+      }
+
+      if (scrollOffset.current > 0) {
+        dragEnabled.current = false;
+        sheetDragDistance.current = 0;
+        return;
+      }
+
+      const next = Math.min(windowHeight, Math.max(0, event.translationY));
+      sheetDragDistance.current = next;
+      translateY.setValue(next);
+      backdropOpacity.setValue(Math.max(0, 1 - next / windowHeight));
+    },
+    onDeactivate: (event) => {
+      const wasDragging = dragEnabled.current;
+      const dragDistance = sheetDragDistance.current;
+
+      dragEnabled.current = false;
+      sheetDragDistance.current = 0;
+
+      if (event.canceled || !wasDragging) {
+        springBack();
+        return;
+      }
+
+      if (dragDistance > 100 || event.velocityY > 800) {
+        handleCancel();
+        return;
+      }
+
+      springBack();
+    },
+    onFinalize: (event) => {
+      dragEnabled.current = false;
+      sheetDragDistance.current = 0;
+
+      if (event.canceled) {
+        springBack();
+      }
+    },
+  });
 
   return (
     <Modal
@@ -97,76 +193,107 @@ export function ConfirmAttendanceSheet({
       onRequestClose={handleCancel}
     >
       {visible ? <StatusBar style="light" /> : null}
-      <Animated.View style={[styles.overlay, { opacity: backdropOpacity }]}>
-        <Animated.View
-          style={[styles.sheet, { transform: [{ translateY }] }]}
-          accessibilityViewIsModal
-        >
-          <View style={styles.handle} />
+      <GestureHandlerRootView style={styles.root}>
+        <Animated.View style={[styles.overlay, { opacity: backdropOpacity }]}>
+          <Pressable
+            style={styles.backdrop}
+            onPress={handleCancel}
+            accessible={false}
+            importantForAccessibility="no"
+          />
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.content,
-              { paddingBottom: Math.max(insets.bottom, spacing.xxxl) },
-            ]}
-          >
-            <View>
-              <Text style={styles.title}>Konfirmasi Presensi</Text>
-              <Text style={styles.subtitle}>
-                Periksa identitas dan sesi sebelum mencatat kehadiran.
-              </Text>
-            </View>
-
-            <View>
-              <Text style={styles.sectionTitle}>Identitas</Text>
-              <InfoRow label="Nama" value={praktikan.name} />
-              <InfoRow label="NIM" value={praktikan.nim} last />
-            </View>
-
-            <View>
-              <Text style={styles.sectionTitle}>Sesi</Text>
-              <InfoRow label="Praktikum" value={session.practicalName} />
-              <InfoRow label="Pertemuan" value={session.meetingLabel} />
-              <InfoRow label="Kelas" value={session.className} />
-              <InfoRow label="Lab" value={session.lab} />
-              <InfoRow label="Tanggal" value={session.dateLabel} />
-              <InfoRow label="Waktu" value={session.timeRangeLabel} last />
-            </View>
-
-            {errorMessage ? (
-              <FeedbackBanner tone="error" title="Presensi gagal" message={errorMessage} />
-            ) : null}
-
-            <View style={styles.actions}>
-              <View style={styles.actionItem}>
-                <Button
-                  label="Batal"
-                  variant="secondary"
-                  onPress={handleCancel}
-                  disabled={isSubmitting}
-                />
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              style={[styles.sheet, { transform: [{ translateY }] }]}
+              accessibilityViewIsModal
+            >
+              <View style={styles.dragArea}>
+                <View style={styles.handle} />
+                <View>
+                  <Text style={styles.title}>Konfirmasi Presensi</Text>
+                  <Text style={styles.subtitle}>
+                    Periksa identitas dan sesi sebelum mencatat kehadiran.
+                  </Text>
+                </View>
               </View>
-              <View style={styles.actionItem}>
-                <Button
-                  label={isSubmitting ? 'Mencatat...' : 'Ya, Catat Presensi'}
-                  onPress={onConfirm}
-                  loading={isSubmitting}
-                />
-              </View>
-            </View>
-          </ScrollView>
+
+              <GestureDetector gesture={nativeScrollGesture}>
+                <ScrollView
+                  style={styles.scroll}
+                  showsVerticalScrollIndicator={false}
+                  bounces={false}
+                  overScrollMode="never"
+                  onScroll={(event) => {
+                    scrollOffset.current = event.nativeEvent.contentOffset.y;
+                  }}
+                  scrollEventThrottle={16}
+                  contentContainerStyle={[
+                    styles.content,
+                    { paddingBottom: Math.max(insets.bottom, spacing.xxxl) },
+                  ]}
+                >
+                  <View>
+                    <Text style={styles.sectionTitle}>Identitas</Text>
+                    <InfoRow label="Nama" value={praktikan.name} />
+                    <InfoRow label="NIM" value={praktikan.nim} last />
+                  </View>
+
+                  <View>
+                    <Text style={styles.sectionTitle}>Sesi</Text>
+                    <InfoRow label="Praktikum" value={session.practicalName} />
+                    <InfoRow label="Pertemuan" value={session.meetingLabel} />
+                    <InfoRow label="Kelas" value={session.className} />
+                    <InfoRow label="Lab" value={session.lab} />
+                    <InfoRow label="Tanggal" value={session.dateLabel} />
+                    <InfoRow label="Waktu" value={session.timeRangeLabel} last />
+                  </View>
+
+                  {errorMessage ? (
+                    <FeedbackBanner tone="error" title="Presensi gagal" message={errorMessage} />
+                  ) : null}
+
+                  <View style={styles.actions}>
+                    <View style={styles.actionItem}>
+                      <Button
+                        label="Batal"
+                        variant="secondary"
+                        onPress={handleCancel}
+                        disabled={isSubmitting}
+                      />
+                    </View>
+                    <View style={styles.actionItem}>
+                      <Button
+                        label={isSubmitting ? 'Mencatat...' : 'Ya, Catat Presensi'}
+                        onPress={onConfirm}
+                        loading={isSubmitting}
+                      />
+                    </View>
+                  </View>
+                </ScrollView>
+              </GestureDetector>
+            </Animated.View>
+          </GestureDetector>
         </Animated.View>
-      </Animated.View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
   sheet: {
     width: '100%',
@@ -176,19 +303,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
+  },
+  dragArea: {
+    paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
   handle: {
-    width: 40,
-    height: 4,
-    borderRadius: radius.pill,
+    width: 48,
+    height: 5,
+    borderRadius: 3,
     backgroundColor: colors.border,
     alignSelf: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  scroll: {
+    flexShrink: 1,
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
     gap: spacing.lg,
   },
   title: {
