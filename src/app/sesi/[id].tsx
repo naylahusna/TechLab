@@ -16,6 +16,7 @@ import {
 } from '../../core';
 import { SessionDetailScreen } from '../../features/practitioner';
 import {
+  formatDateLabel,
   formatTimeLabel,
   toSessionListItem,
 } from '../../features/practitioner/lib/argamapping';
@@ -69,10 +70,14 @@ export default function SesiRoute() {
   const record = selectAttendanceRecord(demo, id, demo.currentUser.id);
 
   const myAttendance: AttendanceInfo = record
-    ? { status: 'hadir', attendedAtLabel: formatTimeLabel(record.recordedAt) }
+    ? {
+        status: 'hadir',
+        attendedAtLabel: formatTimeLabel(record.recordedAt),
+        attendedAtDateLabel: formatDateLabel(record.recordedAt),
+      }
     : session.status === 'closed'
-      ? { status: 'tidak-hadir', attendedAtLabel: null }
-      : { status: 'belum-presensi', attendedAtLabel: null };
+      ? { status: 'tidak-hadir', attendedAtLabel: null, attendedAtDateLabel: null }
+      : { status: 'belum-presensi', attendedAtLabel: null, attendedAtDateLabel: null };
 
   const sessionDetail: SessionDetail = {
     ...toSessionListItem(session),

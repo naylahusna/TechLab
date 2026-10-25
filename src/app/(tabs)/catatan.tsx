@@ -47,6 +47,7 @@ export default function RecordsRoute() {
       startsAt: entry.session.startsAt,
       status: mapAttendanceStatus(entry.status),
       attendedAtLabel: entry.record ? formatTimeLabel(entry.record.recordedAt) : null,
+      attendedAtDateLabel: entry.record ? formatDateLabel(entry.record.recordedAt) : null,
     }));
 
   return (

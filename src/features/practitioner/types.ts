@@ -22,6 +22,7 @@ export type SessionListItem = {
 export type AttendanceInfo = {
   status: AttendanceStatus;
   attendedAtLabel: string | null;
+  attendedAtDateLabel: string | null;
 };
 
 /** View model untuk detail sesi praktikan (SRS-07). */
@@ -45,6 +46,7 @@ export type RiwayatItem = {
   startsAt: string;
   status: AttendanceStatus;
   attendedAtLabel: string | null;
+  attendedAtDateLabel: string | null;
 };
 
 /**

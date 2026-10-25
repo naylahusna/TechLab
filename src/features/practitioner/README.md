@@ -36,13 +36,14 @@ src/features/practitioner/
 ## Kontrak data
 
 - Semua label tanggal dan waktu (`dateLabel`, `timeRangeLabel`,
-  `attendedAtLabel`) sudah berupa string siap tampil. Mapper/store yang
-  memformat.
+  `attendedAtLabel`, `attendedAtDateLabel`) sudah berupa string siap tampil.
+  Mapper/store yang memformat.
 - `onConfirmAttendance` mengembalikan:
   - `{ ok: true }`
   - `{ ok: false, reason: string }`
-- Waktu hadir tidak dikirim oleh aksi. Layar membaca `attendedAtLabel` dari
-  record store pada render berikutnya agar sama dengan rekap asisten.
+- Waktu dan tanggal hadir tidak dikirim oleh aksi. Layar membaca
+  `attendedAtLabel` dan `attendedAtDateLabel` dari record store pada render
+  berikutnya agar sama dengan rekap asisten.
 - `SessionDetail.myAttendance.status` mengikuti aturan:
   - `belum-presensi` selama sesi belum ditutup dan belum ada catatan.
   - `hadir` jika ada catatan, termasuk setelah sesi ditutup.
