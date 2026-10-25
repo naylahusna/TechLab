@@ -1,15 +1,12 @@
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import {
-  Animated,
-  Easing,
-  Modal,
-  PanResponder,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+  GestureDetector,
+  GestureHandlerRootView,
+  useNativeGesture,
+  usePanGesture,
+} from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '../../../components/Text';
@@ -46,8 +43,6 @@ export function ConfirmAttendanceSheet({
   const [backdropOpacity] = useState(() => new Animated.Value(0));
   const [translateY] = useState(() => new Animated.Value(120));
   const scrollOffset = useRef(0);
-  const dragStart = useRef(0);
-  const dragFromHeader = useRef(false);
 
   useEffect(() => {
     if (!visible) {
@@ -101,59 +96,59 @@ export function ConfirmAttendanceSheet({
     });
   }, [backdropOpacity, isSubmitting, onCancel, translateY]);
 
-  const panResponder = useMemo(() => {
-    function springBack() {
-      Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: true,
-          bounciness: 4,
-          speed: 20,
-        }),
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
+  const springBack = useCallback(() => {
+    Animated.parallel([
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        bounciness: 4,
+        speed: 20,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [backdropOpacity, translateY]);
 
-    // Refs are only read from gesture callbacks, not during render.
-    // eslint-disable-next-line react-hooks/refs
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponderCapture: (_event, gesture) =>
-        !isSubmitting &&
-        (dragFromHeader.current || scrollOffset.current <= 0) &&
-        gesture.dy > 6 &&
-        gesture.dy > Math.abs(gesture.dx),
-      onPanResponderGrant: () => {
-        translateY.stopAnimation((value) => {
-          dragStart.current = value;
-        });
-      },
-      onPanResponderMove: (_event, gesture) => {
-        const next = Math.min(120, Math.max(0, dragStart.current + gesture.dy));
-        translateY.setValue(next);
-        backdropOpacity.setValue(Math.max(0.35, 1 - next / 360));
-      },
-      onPanResponderRelease: (_event, gesture) => {
-        dragFromHeader.current = false;
+  const nativeScrollGesture = useNativeGesture();
 
-        if (gesture.dy > 100 || gesture.vy > 0.8) {
-          handleCancel();
-          return;
-        }
+  const panGesture = usePanGesture({
+    enabled: !isSubmitting,
+    runOnJS: true,
+    minDistance: 8,
+    simultaneousWith: nativeScrollGesture,
+    onBegin: () => {
+      translateY.stopAnimation();
+    },
+    onUpdate: (event) => {
+      if (scrollOffset.current > 0 || event.translationY <= 0) {
+        return;
+      }
 
+      const next = Math.min(120, event.translationY);
+      translateY.setValue(next);
+      backdropOpacity.setValue(Math.max(0.35, 1 - next / 360));
+    },
+    onDeactivate: (event) => {
+      if (event.canceled) {
+        return;
+      }
+
+      if (scrollOffset.current <= 0 && (event.translationY > 100 || event.velocityY > 800)) {
+        handleCancel();
+        return;
+      }
+
+      springBack();
+    },
+    onFinalize: (event) => {
+      if (event.canceled) {
         springBack();
-      },
-      onPanResponderTerminate: () => {
-        dragFromHeader.current = false;
-        springBack();
-      },
-      onPanResponderTerminationRequest: () => false,
-    });
-  }, [backdropOpacity, handleCancel, isSubmitting, translateY]);
+      }
+    },
+  });
 
   return (
     <Modal
@@ -164,95 +159,96 @@ export function ConfirmAttendanceSheet({
       onRequestClose={handleCancel}
     >
       {visible ? <StatusBar style="light" /> : null}
-      <Animated.View style={[styles.overlay, { opacity: backdropOpacity }]}>
-        <Pressable
-          style={styles.backdrop}
-          onPress={handleCancel}
-          accessible={false}
-          importantForAccessibility="no"
-        />
-        <Animated.View
-          style={[styles.sheet, { transform: [{ translateY }] }]}
-          accessibilityViewIsModal
-          {...panResponder.panHandlers}
-        >
-          <View
-            style={styles.dragArea}
-            onTouchStart={() => {
-              dragFromHeader.current = true;
-            }}
-            onTouchEnd={() => {
-              dragFromHeader.current = false;
-            }}
-            onTouchCancel={() => {
-              dragFromHeader.current = false;
-            }}
-          >
-            <View style={styles.handle} />
-            <View>
-              <Text style={styles.title}>Konfirmasi Presensi</Text>
-              <Text style={styles.subtitle}>
-                Periksa identitas dan sesi sebelum mencatat kehadiran.
-              </Text>
-            </View>
-          </View>
+      <GestureHandlerRootView style={styles.root}>
+        <Animated.View style={[styles.overlay, { opacity: backdropOpacity }]}>
+          <Pressable
+            style={styles.backdrop}
+            onPress={handleCancel}
+            accessible={false}
+            importantForAccessibility="no"
+          />
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            onScroll={(event) => {
-              scrollOffset.current = event.nativeEvent.contentOffset.y;
-            }}
-            scrollEventThrottle={16}
-            contentContainerStyle={[
-              styles.content,
-              { paddingBottom: Math.max(insets.bottom, spacing.xxxl) },
-            ]}
-          >
-            <View>
-              <Text style={styles.sectionTitle}>Identitas</Text>
-              <InfoRow label="Nama" value={praktikan.name} />
-              <InfoRow label="NIM" value={praktikan.nim} last />
-            </View>
-
-            <View>
-              <Text style={styles.sectionTitle}>Sesi</Text>
-              <InfoRow label="Praktikum" value={session.practicalName} />
-              <InfoRow label="Pertemuan" value={session.meetingLabel} />
-              <InfoRow label="Kelas" value={session.className} />
-              <InfoRow label="Lab" value={session.lab} />
-              <InfoRow label="Tanggal" value={session.dateLabel} />
-              <InfoRow label="Waktu" value={session.timeRangeLabel} last />
-            </View>
-
-            {errorMessage ? (
-              <FeedbackBanner tone="error" title="Presensi gagal" message={errorMessage} />
-            ) : null}
-
-            <View style={styles.actions}>
-              <View style={styles.actionItem}>
-                <Button
-                  label="Batal"
-                  variant="secondary"
-                  onPress={handleCancel}
-                  disabled={isSubmitting}
-                />
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              style={[styles.sheet, { transform: [{ translateY }] }]}
+              accessibilityViewIsModal
+            >
+              <View style={styles.dragArea}>
+                <View style={styles.handle} />
+                <View>
+                  <Text style={styles.title}>Konfirmasi Presensi</Text>
+                  <Text style={styles.subtitle}>
+                    Periksa identitas dan sesi sebelum mencatat kehadiran.
+                  </Text>
+                </View>
               </View>
-              <View style={styles.actionItem}>
-                <Button
-                  label={isSubmitting ? 'Mencatat...' : 'Ya, Catat Presensi'}
-                  onPress={onConfirm}
-                  loading={isSubmitting}
-                />
-              </View>
-            </View>
-          </ScrollView>
+
+              <GestureDetector gesture={nativeScrollGesture}>
+                <ScrollView
+                  style={styles.scroll}
+                  showsVerticalScrollIndicator={false}
+                  bounces={false}
+                  overScrollMode="never"
+                  onScroll={(event) => {
+                    scrollOffset.current = event.nativeEvent.contentOffset.y;
+                  }}
+                  scrollEventThrottle={16}
+                  contentContainerStyle={[
+                    styles.content,
+                    { paddingBottom: Math.max(insets.bottom, spacing.xxxl) },
+                  ]}
+                >
+                  <View>
+                    <Text style={styles.sectionTitle}>Identitas</Text>
+                    <InfoRow label="Nama" value={praktikan.name} />
+                    <InfoRow label="NIM" value={praktikan.nim} last />
+                  </View>
+
+                  <View>
+                    <Text style={styles.sectionTitle}>Sesi</Text>
+                    <InfoRow label="Praktikum" value={session.practicalName} />
+                    <InfoRow label="Pertemuan" value={session.meetingLabel} />
+                    <InfoRow label="Kelas" value={session.className} />
+                    <InfoRow label="Lab" value={session.lab} />
+                    <InfoRow label="Tanggal" value={session.dateLabel} />
+                    <InfoRow label="Waktu" value={session.timeRangeLabel} last />
+                  </View>
+
+                  {errorMessage ? (
+                    <FeedbackBanner tone="error" title="Presensi gagal" message={errorMessage} />
+                  ) : null}
+
+                  <View style={styles.actions}>
+                    <View style={styles.actionItem}>
+                      <Button
+                        label="Batal"
+                        variant="secondary"
+                        onPress={handleCancel}
+                        disabled={isSubmitting}
+                      />
+                    </View>
+                    <View style={styles.actionItem}>
+                      <Button
+                        label={isSubmitting ? 'Mencatat...' : 'Ya, Catat Presensi'}
+                        onPress={onConfirm}
+                        loading={isSubmitting}
+                      />
+                    </View>
+                  </View>
+                </ScrollView>
+              </GestureDetector>
+            </Animated.View>
+          </GestureDetector>
         </Animated.View>
-      </Animated.View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: colors.overlay,
@@ -286,6 +282,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     alignSelf: 'center',
     marginBottom: spacing.sm,
+  },
+  scroll: {
+    flexShrink: 1,
   },
   content: {
     paddingHorizontal: spacing.lg,
