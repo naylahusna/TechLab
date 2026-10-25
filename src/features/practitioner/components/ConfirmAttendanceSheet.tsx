@@ -47,6 +47,7 @@ export function ConfirmAttendanceSheet({
   const [translateY] = useState(() => new Animated.Value(120));
   const scrollOffset = useRef(0);
   const dragStart = useRef(0);
+  const dragFromHeader = useRef(false);
 
   useEffect(() => {
     if (!visible) {
@@ -123,7 +124,7 @@ export function ConfirmAttendanceSheet({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponderCapture: (_event, gesture) =>
         !isSubmitting &&
-        scrollOffset.current <= 0 &&
+        (dragFromHeader.current || scrollOffset.current <= 0) &&
         gesture.dy > 6 &&
         gesture.dy > Math.abs(gesture.dx),
       onPanResponderGrant: () => {
@@ -137,6 +138,8 @@ export function ConfirmAttendanceSheet({
         backdropOpacity.setValue(Math.max(0.35, 1 - next / 360));
       },
       onPanResponderRelease: (_event, gesture) => {
+        dragFromHeader.current = false;
+
         if (gesture.dy > 100 || gesture.vy > 0.8) {
           handleCancel();
           return;
@@ -145,6 +148,7 @@ export function ConfirmAttendanceSheet({
         springBack();
       },
       onPanResponderTerminate: () => {
+        dragFromHeader.current = false;
         springBack();
       },
       onPanResponderTerminationRequest: () => false,
@@ -172,7 +176,26 @@ export function ConfirmAttendanceSheet({
           accessibilityViewIsModal
           {...panResponder.panHandlers}
         >
-          <View style={styles.handle} />
+          <View
+            style={styles.dragArea}
+            onTouchStart={() => {
+              dragFromHeader.current = true;
+            }}
+            onTouchEnd={() => {
+              dragFromHeader.current = false;
+            }}
+            onTouchCancel={() => {
+              dragFromHeader.current = false;
+            }}
+          >
+            <View style={styles.handle} />
+            <View>
+              <Text style={styles.title}>Konfirmasi Presensi</Text>
+              <Text style={styles.subtitle}>
+                Periksa identitas dan sesi sebelum mencatat kehadiran.
+              </Text>
+            </View>
+          </View>
 
           <ScrollView
             showsVerticalScrollIndicator={false}
@@ -185,13 +208,6 @@ export function ConfirmAttendanceSheet({
               { paddingBottom: Math.max(insets.bottom, spacing.xxxl) },
             ]}
           >
-            <View>
-              <Text style={styles.title}>Konfirmasi Presensi</Text>
-              <Text style={styles.subtitle}>
-                Periksa identitas dan sesi sebelum mencatat kehadiran.
-              </Text>
-            </View>
-
             <View>
               <Text style={styles.sectionTitle}>Identitas</Text>
               <InfoRow label="Nama" value={praktikan.name} />
@@ -257,19 +273,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
+  },
+  dragArea: {
+    paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
   handle: {
-    width: 40,
-    height: 4,
-    borderRadius: radius.pill,
+    width: 48,
+    height: 5,
+    borderRadius: 3,
     backgroundColor: colors.border,
     alignSelf: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
     gap: spacing.lg,
   },
   title: {
