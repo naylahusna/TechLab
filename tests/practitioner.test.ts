@@ -9,6 +9,7 @@ import {
   selectMySessions,
 } from '../src/core/selectors';
 import {
+  formatDateLabel,
   formatTimeLabel,
   mapAttendanceStatus,
   mapSessionStatus,
@@ -62,7 +63,7 @@ test('stored attendance record formats to a time label', () => {
   assert.match(formatTimeLabel(record.recordedAt), /^\d{2}\.\d{2}$/);
 });
 
-test('detail and history derive the same time from the stored record', () => {
+test('detail and history derive the same date and time from the stored record', () => {
   const recordedAt = '2026-10-26T01:04:05.000Z';
   const store = createDemoStore({ now: () => recordedAt });
   assert.equal(store.actions.selectUser('praktikan-01', 'praktikan'), true);
@@ -76,6 +77,8 @@ test('detail and history derive the same time from the stored record', () => {
   const historyEntry = selectMyAttendance(state).find((entry) => entry.session.id === 'sesi-02');
   assert.ok(historyEntry?.record);
   assert.equal(formatTimeLabel(historyEntry.record.recordedAt), formatTimeLabel(record.recordedAt));
+  assert.equal(formatDateLabel(historyEntry.record.recordedAt), formatDateLabel(record.recordedAt));
+  assert.match(formatDateLabel(record.recordedAt), /2026/);
 });
 
 const sessionItem = (id: string, status: SessionListItem['status']): SessionListItem => ({
@@ -98,6 +101,7 @@ const historyItem = (id: string, startsAt: string): RiwayatItem => ({
   startsAt,
   status: 'hadir',
   attendedAtLabel: '10.00',
+  attendedAtDateLabel: '24 Okt 2026',
 });
 
 test('schedule puts open sessions before upcoming and closed', () => {

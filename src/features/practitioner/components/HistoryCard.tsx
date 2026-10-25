@@ -12,6 +12,10 @@ type HistoryCardProps = {
 
 function getAttendanceLabel(item: RiwayatItem): string {
   if (item.attendedAtLabel) {
+    if (item.attendedAtDateLabel && item.attendedAtDateLabel !== item.dateLabel) {
+      return `Hadir ${item.attendedAtDateLabel} pukul ${item.attendedAtLabel}`;
+    }
+
     return `Hadir pukul ${item.attendedAtLabel}`;
   }
 

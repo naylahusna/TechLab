@@ -32,17 +32,28 @@ function resolveAttendance(attendance: AttendanceInfo, success: boolean): Attend
   }
 
   if (success) {
-    return { status: 'hadir', attendedAtLabel: null };
+    return { status: 'hadir', attendedAtLabel: null, attendedAtDateLabel: null };
   }
 
   return attendance;
 }
 
+function getAttendanceMomentLabel(attendance: AttendanceInfo): string | null {
+  if (attendance.attendedAtDateLabel && attendance.attendedAtLabel) {
+    return `pada ${attendance.attendedAtDateLabel} pukul ${attendance.attendedAtLabel}`;
+  }
+
+  if (attendance.attendedAtLabel) {
+    return `pukul ${attendance.attendedAtLabel}`;
+  }
+
+  return null;
+}
+
 function getAttendanceHint(attendance: AttendanceInfo): string {
   if (attendance.status === 'hadir') {
-    return attendance.attendedAtLabel
-      ? `Tercatat hadir pukul ${attendance.attendedAtLabel}.`
-      : 'Kehadiranmu berhasil dicatat.';
+    const moment = getAttendanceMomentLabel(attendance);
+    return moment ? `Tercatat hadir ${moment}.` : 'Kehadiranmu berhasil dicatat.';
   }
 
   if (attendance.status === 'tidak-hadir') {
@@ -125,6 +136,7 @@ function SessionDetailContent({
   }
 
   const attendanceHint = getAttendanceHint(effectiveAttendance);
+  const attendanceMoment = getAttendanceMomentLabel(effectiveAttendance);
 
   return (
     <>
@@ -167,8 +179,8 @@ function SessionDetailContent({
             tone="success"
             title="Presensi berhasil"
             message={
-              effectiveAttendance.attendedAtLabel
-                ? `Kehadiranmu tercatat pukul ${effectiveAttendance.attendedAtLabel}.`
+              attendanceMoment
+                ? `Kehadiranmu tercatat ${attendanceMoment}.`
                 : 'Kehadiranmu berhasil dicatat.'
             }
           />
