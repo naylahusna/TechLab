@@ -1,6 +1,7 @@
 import { FlatList, StyleSheet, View } from 'react-native';
 
 import { ScreenHeader, type ScreenSummaryItem } from '../../practitioner/components/ScreenHeader';
+import { AssistantButton } from '../components/AssistantButton';
 import { AssistantEmptyState } from '../components/AssistantEmptyState';
 import { AssistantSessionCard } from '../components/AssistantSessionCard';
 import { colors, spacing } from '../theme';
@@ -11,6 +12,7 @@ type AssistantJadwalScreenProps = {
   assistantName?: string;
   assistantInitials?: string;
   onOpenSession: (sessionId: string) => void;
+  onManageClasses?: () => void;
 };
 
 export function AssistantJadwalScreen({
@@ -18,6 +20,7 @@ export function AssistantJadwalScreen({
   assistantName,
   assistantInitials,
   onOpenSession,
+  onManageClasses,
 }: AssistantJadwalScreenProps) {
   const isEmpty = sessions.length === 0;
   const openCount = sessions.filter((session) => session.status === 'open').length;
@@ -43,6 +46,16 @@ export function AssistantJadwalScreen({
         initials={assistantInitials}
         summary={summary}
       />
+
+      {onManageClasses ? (
+        <View style={styles.manageRow}>
+          <AssistantButton
+            label="Kelola Kelas"
+            variant="secondary"
+            onPress={onManageClasses}
+          />
+        </View>
+      ) : null}
 
       <FlatList
         data={sessions}
@@ -78,6 +91,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xxl,
     paddingBottom: spacing.xxxl,
+  },
+  manageRow: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
   separator: {
     height: spacing.lg,

@@ -22,6 +22,7 @@ export default function ScheduleRoute() {
         assistantName={demo.currentUser.name}
         assistantInitials={demo.currentUser.initials}
         onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
+        onManageClasses={() => router.push('/kelas')}
       />
     );
   }

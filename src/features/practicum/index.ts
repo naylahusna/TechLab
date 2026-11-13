@@ -2,6 +2,12 @@ export {
   createPracticumRepository,
   type PracticumRepository,
 } from './repository';
+export { getPracticumRepository } from './client';
+export { useAssistantClasses, usePracticumClass } from './hooks';
+export { AssistantRoute } from './components/AssistantRoute';
+export { ClassListScreen } from './screens/ClassListScreen';
+export { ClassFormScreen } from './screens/ClassFormScreen';
+export { ClassDetailScreen } from './screens/ClassDetailScreen';
 export {
   seedPracticumData,
   type SeedPracticumOptions,

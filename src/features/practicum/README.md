@@ -18,6 +18,20 @@ Owner: Zaidan Ardiyansyah.
 Fondasi ini belum memasang UI. Layar asisten/praktikan akan memakai repository
 ini pada tahap berikutnya.
 
+## UI SRS-06
+
+Route yang tersedia:
+
+- `/kelas` — daftar kelas milik asisten.
+- `/kelas/new` — form tambah kelas.
+- `/kelas/[id]` — detail kelas + edit/arsip.
+- `/kelas/[id]/edit` — form edit kelas.
+
+Pintu masuknya adalah tombol **“Kelola Kelas”** di tab Jadwal asisten. Daftar
+dimuat ulang saat layar kembali fokus. Detail kelas saat ini menampilkan
+ringkasan, edit, dan arsip; bagian peserta/jadwal/sesi menyusul di SRS-07–09.
+Real-time listener menyusul di SRS-12.
+
 ## Struktur koleksi
 
 ```text
