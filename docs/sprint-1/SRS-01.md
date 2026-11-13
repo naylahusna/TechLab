@@ -7,6 +7,15 @@ mencatat kondisi branch SRS-01 sebelum integrasi tersebut.
 
 Pengguna memilih Praktikan atau Asisten agar mendapatkan tampilan yang sesuai.
 
+## Peran terkait
+
+- Praktikan dan Asisten: memilih salah satu peran untuk melanjutkan ke alur yang sesuai.
+
+## Owner
+
+- Sprint 1: Arga Yura Danendra — implementasi pemilihan peran (`e2f5b5d`).
+- Sprint 2: Nayla Husna — User Registration (SRS-01 Sprint 2).
+
 ## Implementasi
 
 - Pada implementasi awal, `App.tsx` memasang `RoleProvider` dan layar pemilihan

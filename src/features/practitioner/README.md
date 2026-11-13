@@ -1,84 +1,60 @@
-# Fitur Practitioner (Praktikan)
+# Practitioner
 
-Owner: Muhammad Zaidaan Ardiyansyah.
+Modul `practitioner` mencakup pengalaman pengguna praktikan, mulai dari jadwal hingga riwayat kehadiran dan konfirmasi presensi.
 
-Modul UI untuk porsi SRS praktikan. Layar menerima view model yang sudah siap
-tampil; wiring route dan pemanggilan state bersama dilakukan di PR integrasi.
+## Kontribusi prototipe terdahulu
 
-## Cakupan SRS
+Fitur praktikan prototipe dikerjakan Muhammad Zaidaan Ardiyansyah (commit
+`d5c8479`, `1a763e3`, dan `048f170`). Kontribusi historis ini berbeda dari
+penugasan SRS aktif Sprint 1 di bawah.
 
-| SRS    | Implementasi                                                      |
-| ------ | ----------------------------------------------------------------- |
-| SRS-05 | `JadwalScreen`                                                    |
-| SRS-07 | `SessionDetailScreen`                                             |
-| SRS-12 | Alur tombol presensi + pemanggilan `onConfirmAttendance`          |
-| SRS-13 | `ConfirmAttendanceSheet`                                          |
-| SRS-14 | `FeedbackBanner` sukses + status dan waktu hadir langsung berubah |
-| SRS-16 | `getAttendanceAction`                                             |
-| SRS-20 | `RiwayatScreen`                                                   |
-| SRS-23 | `EmptyState` pada jadwal dan riwayat                              |
+## Fokus fitur
 
-SRS-15 dan SRS-25 tetap milik Arga. Layar ini hanya menonaktifkan tombol dan
-menampilkan alasan; validasi akhir wajib dilakukan store.
+- `JadwalScreen` menampilkan sesi yang diikuti praktikan.
+- `SessionDetailScreen` menampilkan detail sesi, status presensi, dan konfirmasi kehadiran.
+- `RiwayatScreen` menampilkan catatan kehadiran pribadi.
+- `FeedbackBanner` memberikan konfirmasi setelah presensi berhasil.
 
-## Struktur
+## Aturan utama
 
-```text
-src/features/practitioner/
-  components/       komponen presentasional
-  lib/              aturan tombol, label status, mapper, dan sorting
-  screens/          layar praktikan
-  theme.ts          alias semantik token dari src/theme
-  types.ts          view model / kontrak props
-  index.ts          public API modul
-```
+- Presensi hanya boleh dilakukan saat sesi dibuka dan praktikan belum hadir.
+- Status kehadiran harus mengikuti aturan final dari `src/core`.
+- Tombol presensi harus dinonaktifkan saat kondisi tidak memenuhi syarat.
+- Data yang ditampilkan harus selalu berasal dari state bersama agar konsisten dengan asisten.
 
-## Kontrak data
+## Integrasi
 
-- Semua label tanggal dan waktu (`dateLabel`, `timeRangeLabel`,
-  `attendedAtLabel`, `attendedAtDateLabel`) sudah berupa string siap tampil.
-  Mapper/store yang memformat.
-- `onConfirmAttendance` mengembalikan:
-  - `{ ok: true }`
-  - `{ ok: false, reason: string }`
-- Waktu dan tanggal hadir tidak dikirim oleh aksi. Layar membaca
-  `attendedAtLabel` dan `attendedAtDateLabel` dari record store pada render
-  berikutnya agar sama dengan rekap asisten.
-- `SessionDetail.myAttendance.status` mengikuti aturan:
-  - `belum-presensi` selama sesi belum ditutup dan belum ada catatan.
-  - `hadir` jika ada catatan, termasuk setelah sesi ditutup.
-  - `tidak-hadir` setelah sesi ditutup tanpa catatan.
-- Komponen presentasional tidak mengimpor `src/core`; mapper dan route yang
-  menghubungkan data store ke view model.
+Modul ini menggunakan selector dan aksi dari `src/core` untuk membangun view model. Layar tidak boleh menambah state paralel atau membangun logika rekam kehadiran yang berbeda dari reducer utama.
 
-## Integrasi route
+## Sprint 2
 
-Route hanya menjadi pembungkus tipis. Gunakan `useDemo` dan selector dari
-`src/core`, lalu map hasilnya ke view model fitur:
+Modul ini berada dalam cakupan Praktikum & Presensi:
 
-```tsx
-const demo = useDemo();
-const sessions = selectMySessions(demo).map(toSessionListItem);
+- SRS-06: Class Management
+- SRS-07: Participant Management
+- SRS-08: Schedule Management
+- SRS-09: Practicum Session Management
+- SRS-10: Practicum Attendance
+- SRS-11: Attendance Recapitulation
+- SRS-12: Real-Time Attendance Synchronization
 
-return <JadwalScreen sessions={sessions} onOpenSession={(id) => router.push(`/sesi/${id}`)} />;
-```
+Owner: Zaidan Ardiyansyah (Programmer 2). Spesifikasi rinci tersedia di
+`docs/sprint-2/SRS-06.md` sampai `docs/sprint-2/SRS-12.md`.
 
-Untuk detail sesi, panggil aksi store dari tombol konfirmasi:
+## Sprint 1
 
-```tsx
-const result = demo.recordAttendance(session.id, demo.currentUser.id);
-return result.ok ? { ok: true } : { ok: false, reason: result.message };
-```
+Prototipe Sprint 1 berisi jadwal, detail sesi, presensi, feedback, riwayat,
+dan kondisi kosong praktikan. Owner implementasi prototipe: Muhammad Zaidaan
+Ardiyansyah, sebagaimana dicatat pada commit di bagian kontribusi di atas.
 
-Wiring route ada di `src/app/(tabs)/jadwal.tsx`, `src/app/(tabs)/catatan.tsx`,
-dan `src/app/sesi/[id].tsx`. Mapper core ke view model ada di
-`lib/argamapping.ts`.
+## Pembagian tugas
 
-## Verifikasi
+| Programmer | Owner | Tanggung jawab terkait folder ini |
+|---|---|---|
+| Programmer 2 | Zaidan Ardiyansyah | Owner SRS-06–12: praktikum dan presensi. |
 
-```bash
-npx tsc --noEmit
-npx expo lint
-npm test
-npx prettier@3 --check src/features/practitioner src/app
-```
+## Catatan integrasi
+
+- SRS-06–12 adalah kebutuhan Sprint 2; dokumen tidak menyatakan seluruhnya sudah diimplementasikan.
+- Sinkronisasi kehadiran real-time harus menggunakan sumber data yang disepakati bersama.
+- Integrasi autentikasi dan izin ke flow praktikan dilakukan bersama owner SRS terkait.

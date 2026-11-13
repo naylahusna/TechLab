@@ -3,6 +3,16 @@
 Branch: `feature/srs-04-navigasi-peran`.
 Base: `feature/srs-03-pergantian-pengguna`.
 
+## Peran terkait
+
+- Praktikan: mengakses Jadwal, Riwayat, dan Profil.
+- Asisten: mengakses Sesi Saya, Rekap, dan Profil.
+
+## Owner
+
+- Sprint 1: Arga Yura Danendra — navigasi berbasis peran (`bf4ca2e`).
+- Sprint 2: Nayla Husna — Role-Based Access Control (SRS-04 Sprint 2).
+
 ## Hasil
 
 - Setelah memilih identitas, pengguna masuk ke tab jadwal.

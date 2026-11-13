@@ -3,6 +3,15 @@
 Branch: `feature/srs-03-pergantian-pengguna`.
 Base: `feature/srs-02-pemilihan-identitas`.
 
+## Peran terkait
+
+- Praktikan dan Asisten: mengganti identitas dalam peran yang sama atau berpindah peran.
+
+## Owner
+
+- Sprint 1: Arga Yura Danendra — pergantian pengguna (`55b2880`).
+- Sprint 2: Nayla Husna — User Logout (SRS-03 Sprint 2).
+
 ## Hasil
 
 - Pengantar menyediakan akses ke profil pengguna aktif.

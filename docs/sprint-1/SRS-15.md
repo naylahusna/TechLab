@@ -3,14 +3,24 @@
 Branch: `feature/srs-15-cegah-presensi-ganda`.
 Base PR: `feature/srs-25-validasi-aksi`.
 
+## Peran terkait
+
+- Praktikan: melakukan pencatatan kehadiran satu kali untuk setiap sesi yang diikuti.
+- Store: memvalidasi pencatatan dan menolak duplikasi.
+
+## Owner
+
+- Sprint 1: Arga Yura Danendra — pencatatan presensi dan pencegahan duplikasi (`90e21b4`).
+- Sprint 2: Arga Yura Danendra — Permission Management (SRS-15 Sprint 2).
+
 Menambahkan `recordAttendance(sessionId, studentId)` ke store/provider bersama.
 Aksi memeriksa identitas, pendaftaran, status, dan record terbaru sebelum menulis.
 Satu pasangan sesi/praktikan memiliki satu record; aksi berulang ditolak dengan
 `ALREADY_PRESENT` dan tidak mengganti waktu atau referensi record sebelumnya.
 
 Pemeriksaan dan penulisan dijalankan sinkron pada snapshot terbaru, sehingga
-klik berturut-turut serta callback lama setelah pergantian peran/penutupan sesi
-tidak menghasilkan duplikasi. Waktu berasal dari perangkat dan harus valid.
+klik berturut-turut serta callback lama setelah pergantian identitas atau
+penutupan sesi tidak menghasilkan duplikasi. Waktu berasal dari perangkat dan harus valid.
 Record sebelumnya dipertahankan setelah sesi ditutup.
 
 Tes mencakup alur demo lintas peran lengkap, 25 percobaan ulang, kunjungan ulang,

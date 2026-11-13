@@ -2,25 +2,27 @@
 
 Aplikasi presensi praktikum berbasis **React Native dan Expo** untuk membantu praktikan dan asisten dalam kegiatan pencatatan kehadiran.
 
-Repository ini digunakan bersama dari awal pengembangan sampai proyek selesai. 
+Repository ini digunakan bersama dari awal pengembangan sampai proyek selesai.
 
 ## Ruang Lingkup Sprint 1
 
 Sprint pertama berfokus pada mockup frontend interaktif dengan dua peran:
 
 ### Praktikan
+
 - Melihat jadwal dan detail sesi.
 - Melakukan presensi ketika sesi dibuka.
 - Mendapatkan feedback keberhasilan presensi.
 - Melihat riwayat kehadiran pribadi.
 
 ### Asisten
+
 - Melihat jadwal dan detail sesi.
 - Membuka dan menutup sesi praktikum.
 - Melihat jumlah serta daftar peserta yang sudah dan belum hadir.
 - Melihat waktu kehadiran praktikan.
 
-## Batasan
+## Batasan Sprint 1
 
 - Seluruh identitas, jadwal, dan sesi menggunakan data dummy.
 - Perubahan data dikelola menggunakan state selama aplikasi berjalan.
@@ -41,19 +43,20 @@ Sprint pertama berfokus pada mockup frontend interaktif dengan dua peran:
 
 ## Persiapan Proyek
 
-Setelah melakukan clone repository, buka terminal pada folder yang berisi package.json:
+Setelah melakukan clone repository, buka terminal pada folder yang berisi `package.json`:
 
 ```bash
 npm ci
 ```
 
-Gunakan npm dan package-lock.json yang tersedia agar dependency seluruh anggota konsisten.
+Gunakan npm dan `package-lock.json` yang tersedia agar dependency seluruh anggota konsisten.
 
 ## Pengembangan dengan EAS
 
 Konfigurasi akun Expo, proyek EAS, dan build belum dilakukan pada fondasi awal ini.
 
 Programmer yang menangani fondasi bertanggung jawab untuk:
+
 1. Menyiapkan konfigurasi EAS pada akun yang disepakati tim.
 2. Menyiapkan development build jika digunakan untuk pengembangan.
 3. Menyiapkan build APK untuk demonstrasi.
@@ -61,9 +64,9 @@ Programmer yang menangani fondasi bertanggung jawab untuk:
 
 Seluruh anggota menggunakan proyek EAS yang sama. Pergantian PM tidak memerlukan pembuatan proyek EAS baru.
 
-## Software Requirements Specification
+## Software Requirements Specification — Sprint 1
 
-SRS berikut menjadi acuan pengembangan Sprint 1. Seluruh kebutuhan menggunakan data dummy dan state lokal, tanpa backend atau sinkronisasi antarperangkat.
+SRS Sprint 1 adalah kebutuhan prototipe presensi berikut. Seluruh kebutuhan menggunakan data dummy dan state lokal, tanpa backend atau sinkronisasi antarperangkat.
 
 | Kode SRS | Kebutuhan | Deskripsi dan Hasil yang Diharapkan |
 |---|---|---|
@@ -108,8 +111,7 @@ SRS berikut menjadi acuan pengembangan Sprint 1. Seluruh kebutuhan menggunakan d
 | Pergantian pengguna | Mempertahankan perubahan data selama aplikasi berjalan. |
 | Reload penuh | Mengembalikan data dummy ke kondisi awal. |
 
-
-## Pembagian Tugas
+## Pembagian Tugas — Sprint 1
 
 | Programmer | Tanggung Jawab | Kode SRS |
 |---|---|---|
@@ -119,19 +121,17 @@ SRS berikut menjadi acuan pengembangan Sprint 1. Seluruh kebutuhan menggunakan d
 
 Arga menyediakan fondasi data dan fungsi bersama terlebih dahulu. Zaidaan dan Fahri menggunakan fondasi tersebut pada antarmuka masing-masing.
 
-Struktur folder dan kontrak fungsi disepakati sebelum integrasi. Jangan membuat proyek Expo atau sumber data sesi terpisah untuk setiap programmer.
-
 ## Aturan Kolaborasi
 
-- main digunakan untuk versi stabil yang telah diperiksa.
-- develop digunakan untuk integrasi pekerjaan.
+- `main` digunakan untuk versi stabil yang telah diperiksa.
+- `develop` digunakan untuk integrasi pekerjaan.
 - Setiap programmer bekerja pada branch fitur masing-masing.
-- Perubahan diajukan melalui pull request ke develop.
+- Perubahan diajukan melalui pull request ke `develop`.
 - Pull request mencantumkan kode SRS, ringkasan perubahan, hasil pengujian, dan kendala.
 - PM minggu berjalan melakukan review dan merge bersama pemilik kode jika ada konflik.
-- Setelah pengujian selesai, develop digabungkan ke main.
+- Setelah pengujian selesai, `develop` digabungkan ke `main`.
 
-## Target Demonstrasi
+## Target Demonstrasi Sprint 1
 
 1. Asisten membuka sesi.
 2. Pengguna berganti menjadi praktikan.
@@ -142,3 +142,42 @@ Struktur folder dan kontrak fungsi disepakati sebelum integrasi. Jangan membuat 
 7. Praktikan tidak dapat melakukan presensi setelah sesi ditutup.
 
 Informasi sesi dan kehadiran harus konsisten pada kedua peran.
+
+## Software Requirements Specification — Sprint 2
+
+Sprint 2 menambahkan kebutuhan Firebase & Authentication, Praktikum & Presensi, dan Permission & AI Integration. Daftar ini adalah kebutuhan baru Sprint 2; tidak menggantikan kebutuhan dan pembagian Sprint 1 di atas.
+
+Rincian spesifikasi Sprint 2 terdapat di `docs/sprint-2/`.
+
+| Kode SRS Sprint 2 | Kebutuhan | Owner |
+|---|---|---|
+| SRS-00 | Firebase Foundation | Nayla Husna |
+| SRS-01 | User Registration | Nayla Husna |
+| SRS-02 | User Login | Nayla Husna |
+| SRS-03 | User Logout | Nayla Husna |
+| SRS-04 | Role-Based Access Control | Nayla Husna |
+| SRS-05 | User Profile Management | Nayla Husna |
+| SRS-06 | Class Management | Zaidan Ardiyansyah |
+| SRS-07 | Participant Management | Zaidan Ardiyansyah |
+| SRS-08 | Schedule Management | Zaidan Ardiyansyah |
+| SRS-09 | Practicum Session Management | Zaidan Ardiyansyah |
+| SRS-10 | Practicum Attendance | Zaidan Ardiyansyah |
+| SRS-11 | Attendance Recapitulation | Zaidan Ardiyansyah |
+| SRS-12 | Real-Time Attendance Synchronization | Zaidan Ardiyansyah |
+| SRS-13 | Permission Submission | Arga Yura Danendra |
+| SRS-14 | AI-Based Permission Classification | Arga Yura Danendra |
+| SRS-15 | Permission Management | Arga Yura Danendra |
+| SRS-16 | Permission Approval and Rejection | Arga Yura Danendra |
+| SRS-17 | Permission Status Monitoring | Arga Yura Danendra |
+
+### Pembagian Programmer — Sprint 2
+
+1. **Nayla Husna — Firebase Foundation & Authentication:** SRS-00 sampai SRS-05.
+2. **Zaidan Ardiyansyah — Praktikum & Presensi:** SRS-06 sampai SRS-12.
+3. **Arga Yura Danendra — Permission & AI Integration:** SRS-13 sampai SRS-17.
+
+### Catatan Integrasi Sprint 2
+
+- Nomor SRS Sprint 2 memiliki arti berbeda dari nomor yang sama pada tabel Sprint 1; gunakan label sprint atau folder `docs/sprint-2/` saat merujuknya.
+- Kriteria, implementasi, dan pengujian setiap kebutuhan Sprint 2 dicatat pada dokumen masing-masing.
+- Perubahan lintas owner dikoordinasikan bersama sebelum diintegrasikan.

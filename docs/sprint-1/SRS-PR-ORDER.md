@@ -1,4 +1,4 @@
-# Urutan PR Fondasi TechLab
+# Urutan PR Fondasi TechLab — Sprint 1
 
 Empat branch terpisah menggantikan kebutuhan PR branch gabungan
 `feature/srs-15-21-22-25-shared-state`. Gunakan seri ini untuk review per SRS;
@@ -31,3 +31,11 @@ Seluruh UI praktikan/asisten tetap di folder owner masing-masing. API lama
 `useRole()` tetap kompatibel. SRS-22 mempertahankan state contoh saat berganti
 pengguna; tes perubahan sesi ditambahkan pada SRS-25 dan tes perubahan presensi
 lintas peran ditambahkan pada SRS-15.
+
+## Catatan Sprint 2
+
+Urutan pada tabel di atas hanya berlaku untuk rangkaian SRS fondasi Sprint 1.
+SRS-00–17 pada Sprint 2 adalah kebutuhan baru dengan penomoran terpisah dan
+spesifikasinya berada di `docs/sprint-2/`. Owner Sprint 2 dicatat di
+`../sprint-2/SRS-OWNERSHIP.md`; urutan implementasinya dijelaskan di
+`../sprint-2/SRS-PR-ORDER.md`, bukan pada tabel PR prototipe Sprint 1 di atas.

@@ -3,6 +3,15 @@
 Branch: `feature/srs-02-pemilihan-identitas`.
 Base: `feature/srs-01-pemilihan-peran`.
 
+## Peran terkait
+
+- Praktikan dan Asisten: memilih identitas dummy yang tersedia untuk peran yang telah dipilih.
+
+## Owner
+
+- Sprint 1: Arga Yura Danendra — pemilihan identitas dummy (`67e0733`).
+- Sprint 2: Nayla Husna — User Login (SRS-02 Sprint 2).
+
 ## Hasil
 
 - Pilihan peran dilanjutkan ke daftar identitas yang sesuai.

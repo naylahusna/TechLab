@@ -3,6 +3,16 @@
 Branch: `feature/srs-22-state-bersama`.
 Base PR: `feature/srs-21-data-dummy`.
 
+## Peran terkait
+
+- Praktikan dan Asisten: membaca snapshot yang sama; pergantian pengguna tidak menghapus data sesi atau kehadiran.
+
+## Owner
+
+- Sprint 1: Arga Yura Danendra — state bersama (`35faf48`) dan integrasi store dengan UI asisten (`e4e322c`).
+- Kontributor UI asisten pada implementasi awal: Muhammad Fahri (`1ae76dd`).
+- Sprint 2: Tidak termasuk cakupan SRS-00–17 yang ditetapkan untuk Sprint 2.
+
 Satu snapshot menyimpan pengguna aktif, sesi, peserta, dan catatan kehadiran.
 Provider dipasang sekali di root. `RoleProvider` dan `useRole()` lama adalah
 alias ke provider/hook demo; semua screen lama tetap kompatibel.
