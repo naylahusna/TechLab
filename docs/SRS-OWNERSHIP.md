@@ -3,18 +3,22 @@
 Dokumen ini menjadi kontrak kerja tim agar implementasi SRS dapat dikerjakan paralel
 tanpa saling menimpa file atau membuat state terpisah.
 
+## Sprint 1 — Prototipe presensi
+
 ## Pembagian tanggung jawab
 
 ### Arga Yura Danendra — fondasi aplikasi dan state bersama
 
-- SRS-01: pilih peran Praktikan/Asisten
-- SRS-02: pilih identitas dummy
-- SRS-03: ganti peran atau identitas
-- SRS-04: navigasi sesuai peran
-- SRS-15: mencegah presensi berulang
-- SRS-21: data dummy
-- SRS-22: state sesi dan presensi konsisten
-- SRS-25: validasi aturan perubahan state
+- SRS-01: pilih peran Praktikan/Asisten (`e2f5b5d`)
+- SRS-02: pilih identitas dummy (`67e0733`)
+- SRS-03: ganti peran atau identitas (`55b2880`)
+- SRS-04: navigasi sesuai peran (`bf4ca2e`)
+- SRS-15: mencegah presensi berulang (`90e21b4`)
+- SRS-21: data dummy (`20ae371`)
+- SRS-22: state sesi dan presensi konsisten (`35faf48`)
+- SRS-25: validasi aturan perubahan state (`0f7cc40`)
+
+Integrasi UI asisten dengan shared state juga dilakukan Arga (`e4e322c`).
 
 Folder utama:
 
@@ -27,6 +31,8 @@ Folder utama:
 ### Muhammad Zaidaan Ardiyansyah — fitur praktikan
 
 - SRS-05, SRS-07, SRS-12, SRS-13, SRS-14, SRS-16, SRS-20, SRS-23
+- Riwayat implementasi fitur praktikan antara lain `d5c8479`, `1a763e3`,
+  dan `048f170`.
 
 Folder utama:
 
@@ -37,6 +43,8 @@ Folder utama:
 ### Muhammad Fahri — fitur asisten
 
 - SRS-06, SRS-08, SRS-09, SRS-10, SRS-11, SRS-17, SRS-18, SRS-19, SRS-24
+- Riwayat implementasi fitur asisten antara lain `8a801d8`, `38a7b64`,
+  dan `1ae76dd`.
 
 Folder utama:
 
@@ -99,3 +107,57 @@ Sebelum merge, jalankan:
 npx expo lint
 npx tsc --noEmit
 ```
+
+## Sprint 2 — SRS baru
+
+Pembagian berikut menggunakan penomoran terpisah dari kebutuhan prototipe
+Sprint 1. Spesifikasi tiap kebutuhan berada di folder `docs/sprint-2/`.
+
+### Programmer 1 — Nayla Husna: Firebase Foundation & Authentication
+
+- SRS-00: Firebase Foundation
+- SRS-01: User Registration
+- SRS-02: User Login
+- SRS-03: User Logout
+- SRS-04: Role-Based Access Control
+- SRS-05: User Profile Management
+
+Spesifikasi: `docs/sprint-2/SRS-00.md` sampai `docs/sprint-2/SRS-05.md`.
+README terkait: `src/features/auth/README.md` dan
+`src/features/profile/README.md`.
+
+### Programmer 2 — Zaidan Ardiyansyah: Praktikum & Presensi
+
+- SRS-06: Class Management
+- SRS-07: Participant Management
+- SRS-08: Schedule Management
+- SRS-09: Practicum Session Management
+- SRS-10: Practicum Attendance
+- SRS-11: Attendance Recapitulation
+- SRS-12: Real-Time Attendance Synchronization
+
+Spesifikasi: `docs/sprint-2/SRS-06.md` sampai `docs/sprint-2/SRS-12.md`.
+README terkait: `src/features/practitioner/README.md` dan
+`src/features/assistant/README.md`.
+
+### Programmer 3 — Arga Yura Danendra: Permission & AI Integration
+
+- SRS-13: Permission Submission
+- SRS-14: AI-Based Permission Classification
+- SRS-15: Permission Management
+- SRS-16: Permission Approval and Rejection
+- SRS-17: Permission Status Monitoring
+
+Spesifikasi: `docs/sprint-2/SRS-13.md` sampai `docs/sprint-2/SRS-17.md`.
+Modul permission tersedia di `src/features/permission/`; integrasinya
+dikoordinasikan dengan owner autentikasi dan praktikum/presensi.
+
+## Catatan versi SRS
+
+Dokumen SRS-01–25 di `docs/sprint-1/` mencatat kebutuhan prototipe presensi
+Sprint 1. SRS-00–17 di `docs/sprint-2/` adalah kebutuhan baru Sprint 2 dengan
+arti nomor yang berbeda.
+
+Owner Sprint 1 di atas mengacu pada dokumen pembagian tanggung jawab dan
+riwayat commit implementasi. Commit menunjukkan kontribusi prototipe, sedangkan
+pembagian Sprint 2 mengikuti owner yang ditetapkan pada bagian Sprint 2.

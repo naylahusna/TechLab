@@ -3,6 +3,15 @@
 Branch: `feature/srs-21-data-dummy`.
 Base PR: `fix/design-ui`.
 
+## Peran terkait
+
+- Praktikan dan Asisten: disediakan sebagai identitas dummy pada data awal.
+
+## Owner
+
+- Sprint 1: Arga Yura Danendra — data dummy dan kontrak data (`20ae371`).
+- Sprint 2: Tidak termasuk cakupan SRS-00–17 yang ditetapkan untuk Sprint 2.
+
 Menambahkan tujuh identitas, lima sesi dengan status upcoming/open/closed,
 peserta terdaftar, dan dua contoh presensi. ID pengguna lama tetap tersedia.
 Ada pengguna tanpa jadwal dan sesi tanpa peserta untuk kebutuhan empty state.
