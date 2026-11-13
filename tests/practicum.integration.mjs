@@ -80,6 +80,20 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
         createdAt: now,
         updatedAt: now,
       });
+      await adminSetDoc(adminDoc(adminDb, 'userDirectory', assistantId), {
+        uid: assistantId,
+        name: 'Asisten Demo',
+        number: 'AS-001',
+        role: 'asisten',
+        updatedAt: now,
+      });
+      await adminSetDoc(adminDoc(adminDb, 'userDirectory', practitionerId), {
+        uid: practitionerId,
+        name: 'Praktikan Demo',
+        number: '240101001',
+        role: 'praktikan',
+        updatedAt: now,
+      });
     });
 
     await signInWithEmailAndPassword(auth, assistantEmail, password);
@@ -91,6 +105,7 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
     await assistantRepo.addParticipant({
       classId,
       userId: practitionerId,
+      studentName: 'Praktikan Demo',
       studentNumber: '240101001',
     });
     const scheduleId = await assistantRepo.createSchedule({
@@ -107,6 +122,19 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
     assert.equal(assistantClasses.length, 1);
     assert.deepEqual(assistantClasses[0].studentIds, [practitionerId]);
 
+    const directory = await assistantRepo.searchDirectoryUsers('240101001');
+    assert.equal(directory.length, 1);
+    assert.equal(directory[0].uid, practitionerId);
+
+    const participants = await assistantRepo.listParticipants(classId);
+    assert.equal(participants.length, 1);
+    assert.equal(participants[0].studentName, 'Praktikan Demo');
+
+    const assistantSchedules = await assistantRepo.listSchedulesForAssistant(assistantId);
+    assert.equal(assistantSchedules.length, 1);
+    const assistantSessions = await assistantRepo.listSessionsForAssistant(assistantId);
+    assert.equal(assistantSessions.length, 1);
+
     await signOut(auth);
     await signInWithEmailAndPassword(auth, practitionerEmail, password);
     const practitionerRepo = createPracticumRepository(db);
@@ -116,6 +144,10 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       practitionerId,
     );
     assert.equal(practitionerSessions.length, 1);
+    const practitionerSchedules = await practitionerRepo.listSchedulesForPractitioner(
+      practitionerId,
+    );
+    assert.equal(practitionerSchedules.length, 1);
     await practitionerRepo.recordAttendance(sessionId, practitionerId);
     await assert.rejects(
       () => practitionerRepo.recordAttendance(sessionId, practitionerId),
@@ -127,6 +159,11 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
     const attendance = await assistantRepo.listAttendance(sessionId);
     assert.equal(attendance.length, 1);
     assert.equal(attendance[0].userId, practitionerId);
+    const permissions = await assistantRepo.listPermissions(sessionId, classId);
+    assert.deepEqual(permissions, []);
+    const recap = await assistantRepo.listRecap(sessionId);
+    assert.equal(recap.length, 1);
+    assert.equal(recap[0].status, 'present');
     await assistantRepo.closeSession(sessionId);
 
     await signOut(auth);

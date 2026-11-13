@@ -68,6 +68,7 @@ async function seedParticipant(classId, userId, studentNumber) {
     await setDoc(doc(context.firestore(), 'participants', `${classId}_${userId}`), {
       classId,
       userId,
+      studentName: 'Praktikan Demo',
       studentNumber,
       joinedAt: Timestamp.now(),
       leftAt: null,
@@ -162,6 +163,7 @@ test('assistant adds participant only when identity number matches the user prof
     setDoc(doc(assistant, 'participants', 'class-1_praktikan-1'), {
       classId: 'class-1',
       userId: 'praktikan-1',
+      studentName: 'Praktikan Demo',
       studentNumber: '240101001',
       joinedAt: serverTimestamp(),
       leftAt: null,
@@ -171,6 +173,7 @@ test('assistant adds participant only when identity number matches the user prof
     setDoc(doc(assistant, 'participants', 'class-1_praktikan-2'), {
       classId: 'class-1',
       userId: 'praktikan-2',
+      studentName: 'Praktikan Demo 2',
       studentNumber: '999999',
       joinedAt: serverTimestamp(),
       leftAt: null,

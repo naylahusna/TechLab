@@ -21,9 +21,19 @@ export type PracticumParticipant = Readonly<{
   id: string;
   classId: string;
   userId: string;
+  studentName: string;
   studentNumber: string;
   joinedAt: Timestamp;
   leftAt: Timestamp | null;
+}>;
+
+/** Direktori minimal untuk pencarian peserta oleh asisten. */
+export type PracticumDirectoryUser = Readonly<{
+  uid: string;
+  name: string;
+  number: string;
+  role: 'praktikan' | 'asisten';
+  updatedAt: Timestamp;
 }>;
 
 export type PracticumSchedule = Readonly<{
@@ -77,6 +87,7 @@ export type PracticumClassInput = Readonly<{
 export type PracticumParticipantInput = Readonly<{
   classId: string;
   userId: string;
+  studentName: string;
   studentNumber: string;
 }>;
 
@@ -86,6 +97,44 @@ export type PracticumScheduleInput = Readonly<{
   startAt: Date;
   endAt: Date;
   location: string;
+}>;
+
+export type PracticumPermissionStatus = 'pending' | 'approved' | 'rejected';
+
+export type PracticumPermissionAiStatus =
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'unavailable';
+
+export type PracticumPermission = Readonly<{
+  id: string;
+  sessionId: string;
+  classId: string;
+  userId: string;
+  reason: string;
+  aiCategory: string | null;
+  aiConfidence: number | null;
+  aiStatus: PracticumPermissionAiStatus;
+  status: PracticumPermissionStatus;
+  decidedBy: string | null;
+  decidedAt: Timestamp | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}>;
+
+export type PracticumRecapStatus =
+  | 'present'
+  | 'excused'
+  | 'absent'
+  | 'pending'
+  | 'belum-presensi';
+
+export type PracticumRecapEntry = Readonly<{
+  participant: PracticumParticipant;
+  attendance: PracticumAttendance | null;
+  permission: PracticumPermission | null;
+  status: PracticumRecapStatus;
 }>;
 
 export type PracticumErrorCode =

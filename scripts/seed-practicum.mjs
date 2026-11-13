@@ -50,6 +50,7 @@ const assistantId = await ensureAuthUser(assistantEmail);
 const studentIds = [];
 for (const email of studentEmails) studentIds.push(await ensureAuthUser(email));
 const studentNumbers = studentIds.map((_, index) => `24010100${index + 1}`);
+const studentNames = studentIds.map((_, index) => `Praktikan Demo ${index + 1}`);
 const classAStudents = [...studentIds];
 const classBStudents = studentIds.length > 1 ? studentIds.slice(0, 2) : [];
 
@@ -81,6 +82,25 @@ try {
         }),
       ),
     );
+
+    await Promise.all([
+      setDoc(doc(db, 'userDirectory', assistantId), {
+        uid: assistantId,
+        name: 'Dimas Aditya',
+        number: 'AS-001',
+        role: 'asisten',
+        updatedAt: now,
+      }),
+      ...studentIds.map((uid, index) =>
+        setDoc(doc(db, 'userDirectory', uid), {
+          uid,
+          name: studentNames[index],
+          number: studentNumbers[index],
+          role: 'praktikan',
+          updatedAt: now,
+        }),
+      ),
+    ]);
 
     const classes = [
       {
@@ -122,6 +142,7 @@ try {
           setDoc(doc(db, 'participants', `${classId}_${userId}`), {
             classId,
             userId,
+            studentName: studentNames[index],
             studentNumber: studentNumbers[index],
             joinedAt,
             leftAt: null,
@@ -245,6 +266,59 @@ try {
         recordedAt: at('2026-11-23T08:03:00+07:00'),
       }),
     ]);
+
+    const permissionWrites = [];
+    if (studentIds[1]) {
+      permissionWrites.push(
+        setDoc(doc(db, 'permissions', `permission-${SCHEDULE_A1}-${studentIds[1]}`), {
+          sessionId: SCHEDULE_A1,
+          classId: CLASS_A,
+          userId: studentIds[1],
+          reason: 'Sakit demam sejak pagi.',
+          aiCategory: 'sakit',
+          aiConfidence: 0.92,
+          aiStatus: 'completed',
+          status: 'approved',
+          decidedBy: assistantId,
+          decidedAt: at('2026-11-15T19:00:00+07:00'),
+          createdAt: at('2026-11-15T18:30:00+07:00'),
+          updatedAt: at('2026-11-15T19:00:00+07:00'),
+        }),
+        setDoc(doc(db, 'permissions', `permission-${SCHEDULE_A2}-${studentIds[1]}`), {
+          sessionId: SCHEDULE_A2,
+          classId: CLASS_A,
+          userId: studentIds[1],
+          reason: 'Mengikuti kegiatan organisasi kampus.',
+          aiCategory: 'kegiatan kampus',
+          aiConfidence: 0.74,
+          aiStatus: 'completed',
+          status: 'rejected',
+          decidedBy: assistantId,
+          decidedAt: at('2026-11-22T19:00:00+07:00'),
+          createdAt: at('2026-11-22T18:30:00+07:00'),
+          updatedAt: at('2026-11-22T19:00:00+07:00'),
+        }),
+      );
+    }
+    if (studentIds[2]) {
+      permissionWrites.push(
+        setDoc(doc(db, 'permissions', `permission-${SCHEDULE_A1}-${studentIds[2]}`), {
+          sessionId: SCHEDULE_A1,
+          classId: CLASS_A,
+          userId: studentIds[2],
+          reason: 'Ada urusan keluarga di luar kota.',
+          aiCategory: 'keluarga',
+          aiConfidence: 0.81,
+          aiStatus: 'completed',
+          status: 'pending',
+          decidedBy: null,
+          decidedAt: null,
+          createdAt: at('2026-11-15T20:00:00+07:00'),
+          updatedAt: at('2026-11-15T20:00:00+07:00'),
+        }),
+      );
+    }
+    await Promise.all(permissionWrites);
 
     console.log('Seed praktikum selesai:', {
       classIds: classes.map((item) => item.id),

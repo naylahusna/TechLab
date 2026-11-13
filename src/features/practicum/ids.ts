@@ -4,6 +4,8 @@ export const PRACTICUM_COLLECTIONS = {
   schedules: 'schedules',
   sessions: 'sessions',
   attendances: 'attendances',
+  permissions: 'permissions',
+  userDirectory: 'userDirectory',
 } as const;
 
 /** Satu peserta per kelas per pengguna. */

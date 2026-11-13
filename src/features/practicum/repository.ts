@@ -3,6 +3,8 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
+  onSnapshot,
   orderBy,
   query,
   runTransaction,
@@ -26,8 +28,14 @@ import type {
   PracticumAttendance,
   PracticumClass,
   PracticumClassInput,
+  PracticumDirectoryUser,
   PracticumParticipant,
   PracticumParticipantInput,
+  PracticumPermission,
+  PracticumPermissionAiStatus,
+  PracticumPermissionStatus,
+  PracticumRecapEntry,
+  PracticumRecapStatus,
   PracticumSchedule,
   PracticumScheduleInput,
   PracticumSession,
@@ -64,6 +72,42 @@ function asStringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
+function asNullableString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function asNullableNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function asPermissionStatus(value: unknown): PracticumPermissionStatus {
+  if (value === 'pending' || value === 'approved' || value === 'rejected') return value;
+  return 'pending';
+}
+
+function asPermissionAiStatus(value: unknown): PracticumPermissionAiStatus {
+  if (
+    value === 'processing' ||
+    value === 'completed' ||
+    value === 'failed' ||
+    value === 'unavailable'
+  )
+    return value;
+  return 'unavailable';
+}
+
+function deriveRecapStatus(
+  attendance: PracticumAttendance | null,
+  permission: PracticumPermission | null,
+  sessionStatus: PracticumSessionStatus,
+): PracticumRecapStatus {
+  if (attendance) return 'present';
+  if (permission?.status === 'approved') return 'excused';
+  if (permission?.status === 'pending') return 'pending';
+  if (sessionStatus === 'closed' || sessionStatus === 'cancelled') return 'absent';
+  return 'belum-presensi';
+}
+
 function asSessionStatus(value: unknown): PracticumSessionStatus {
   if (value === 'scheduled' || value === 'open' || value === 'closed' || value === 'cancelled')
     return value;
@@ -91,9 +135,40 @@ function toParticipant(snapshot: DocumentSnapshot<DocumentData>): PracticumParti
     id: snapshot.id,
     classId: asString(data.classId),
     userId: asString(data.userId),
+    studentName: asString(data.studentName),
     studentNumber: asString(data.studentNumber),
     joinedAt: asTimestamp(data.joinedAt),
     leftAt: asNullableTimestamp(data.leftAt),
+  };
+}
+
+function toDirectoryUser(snapshot: DocumentSnapshot<DocumentData>): PracticumDirectoryUser {
+  const data = snapshot.data() ?? {};
+  return {
+    uid: asString(data.uid, snapshot.id),
+    name: asString(data.name),
+    number: asString(data.number),
+    role: data.role === 'asisten' ? 'asisten' : 'praktikan',
+    updatedAt: asTimestamp(data.updatedAt),
+  };
+}
+
+function toPermission(snapshot: DocumentSnapshot<DocumentData>): PracticumPermission {
+  const data = snapshot.data() ?? {};
+  return {
+    id: snapshot.id,
+    sessionId: asString(data.sessionId),
+    classId: asString(data.classId),
+    userId: asString(data.userId),
+    reason: asString(data.reason),
+    aiCategory: asNullableString(data.aiCategory),
+    aiConfidence: asNullableNumber(data.aiConfidence),
+    aiStatus: asPermissionAiStatus(data.aiStatus),
+    status: asPermissionStatus(data.status),
+    decidedBy: asNullableString(data.decidedBy),
+    decidedAt: asNullableTimestamp(data.decidedAt),
+    createdAt: asTimestamp(data.createdAt),
+    updatedAt: asTimestamp(data.updatedAt),
   };
 }
 
@@ -166,6 +241,18 @@ export function createPracticumRepository(db: Firestore) {
   const schedules = collection(db, PRACTICUM_COLLECTIONS.schedules);
   const sessions = collection(db, PRACTICUM_COLLECTIONS.sessions);
   const attendances = collection(db, PRACTICUM_COLLECTIONS.attendances);
+  const permissions = collection(db, PRACTICUM_COLLECTIONS.permissions);
+  const userDirectory = collection(db, PRACTICUM_COLLECTIONS.userDirectory);
+
+  async function classesForAssistant(assistantId: string): Promise<PracticumClass[]> {
+    const snapshot = await getDocs(
+      query(classes, where('memberIds', 'array-contains', assistantId)),
+    );
+    return snapshot.docs
+      .map(toClass)
+      .filter((item) => !item.archivedAt)
+      .sort((left, right) => left.className.localeCompare(right.className));
+  }
 
   async function classesForPractitioner(userId: string): Promise<PracticumClass[]> {
     const snapshot = await getDocs(query(classes, where('memberIds', 'array-contains', userId)));
@@ -183,19 +270,50 @@ export function createPracticumRepository(db: Firestore) {
     classId: string,
     includeLeft = false,
   ): Promise<PracticumParticipant[]> {
-    const classSnapshot = await getDoc(doc(classes, classId));
-    if (!classSnapshot.exists()) return [];
-    const classItem = toClass(classSnapshot);
+    const snapshot = await getDocs(query(participants, where('classId', '==', classId)));
+    return snapshot.docs
+      .map(toParticipant)
+      .filter((item) => includeLeft || !item.leftAt)
+      .sort((left, right) => left.studentNumber.localeCompare(right.studentNumber));
+  }
+
+  async function participantsByIds(
+    classId: string,
+    userIds: readonly string[],
+  ): Promise<PracticumParticipant[]> {
     const snapshots = await Promise.all(
-      classItem.studentIds.map((userId) =>
-        getDoc(doc(participants, participantId(classId, userId))),
-      ),
+      userIds.map((userId) => getDoc(doc(participants, participantId(classId, userId)))),
     );
     return snapshots
       .filter((snapshot) => snapshot.exists())
       .map(toParticipant)
-      .filter((item) => includeLeft || !item.leftAt)
       .sort((left, right) => left.studentNumber.localeCompare(right.studentNumber));
+  }
+
+  async function listAttendanceForSession(
+    session: PracticumSession,
+  ): Promise<PracticumAttendance[]> {
+    const snapshot = await getDocs(
+      query(
+        attendances,
+        where('sessionId', '==', session.id),
+        where('classId', '==', session.classId),
+      ),
+    );
+    return snapshot.docs.map(toAttendance).sort(byRecordedAt);
+  }
+
+  async function listPermissionsForSession(
+    session: PracticumSession,
+  ): Promise<PracticumPermission[]> {
+    const snapshot = await getDocs(
+      query(
+        permissions,
+        where('sessionId', '==', session.id),
+        where('classId', '==', session.classId),
+      ),
+    );
+    return snapshot.docs.map(toPermission);
   }
 
   async function transitionSession(
@@ -238,13 +356,7 @@ export function createPracticumRepository(db: Firestore) {
     },
 
     async listClassesForAssistant(assistantId: string): Promise<PracticumClass[]> {
-      const snapshot = await getDocs(
-        query(classes, where('memberIds', 'array-contains', assistantId)),
-      );
-      return snapshot.docs
-        .map(toClass)
-        .filter((item) => !item.archivedAt)
-        .sort((left, right) => left.className.localeCompare(right.className));
+      return classesForAssistant(assistantId);
     },
 
     async listClassesForPractitioner(userId: string): Promise<PracticumClass[]> {
@@ -311,6 +423,45 @@ export function createPracticumRepository(db: Firestore) {
       return snapshot.exists() ? toParticipant(snapshot) : null;
     },
 
+    async listParticipantsByIds(
+      classId: string,
+      userIds: readonly string[],
+    ): Promise<PracticumParticipant[]> {
+      return participantsByIds(classId, userIds);
+    },
+
+    async searchDirectoryUsers(term: string): Promise<PracticumDirectoryUser[]> {
+      const normalized = term.trim();
+      if (!normalized) return [];
+      const [byNumber, byName] = await Promise.all([
+        getDocs(
+          query(
+            userDirectory,
+            where('role', '==', 'praktikan'),
+            where('number', '==', normalized),
+            limit(10),
+          ),
+        ),
+        getDocs(
+          query(
+            userDirectory,
+            where('role', '==', 'praktikan'),
+            where('name', '>=', normalized),
+            where('name', '<=', `${normalized}\uf8ff`),
+            limit(10),
+          ),
+        ),
+      ]);
+      const merged = new Map<string, PracticumDirectoryUser>();
+      [...byNumber.docs, ...byName.docs].forEach((snapshot) => {
+        const user = toDirectoryUser(snapshot);
+        merged.set(user.uid, user);
+      });
+      return Array.from(merged.values()).sort((left, right) =>
+        left.name.localeCompare(right.name),
+      );
+    },
+
     async addParticipant(input: PracticumParticipantInput): Promise<string> {
       const clean = validateParticipantInput(input);
       return runTransaction(db, async (transaction) => {
@@ -330,12 +481,14 @@ export function createPracticumRepository(db: Firestore) {
             throw new PracticumError('DUPLICATE', 'Peserta sudah terdaftar pada kelas ini.');
           transaction.update(ref, {
             leftAt: null,
+            studentName: clean.studentName,
             studentNumber: clean.studentNumber,
           });
         } else {
           transaction.set(ref, {
             classId: clean.classId,
             userId: clean.userId,
+            studentName: clean.studentName,
             studentNumber: clean.studentNumber,
             joinedAt: serverTimestamp(),
             leftAt: null,
@@ -386,6 +539,25 @@ export function createPracticumRepository(db: Firestore) {
       );
       return snapshot.docs
         .map(toSchedule)
+        .filter((item) => !item.archivedAt)
+        .sort(byStartAt);
+    },
+
+    async listSchedulesForAssistant(assistantId: string): Promise<PracticumSchedule[]> {
+      const assistantClasses = await classesForAssistant(assistantId);
+      const snapshots = await Promise.all(
+        assistantClasses.map((classItem) =>
+          getDocs(
+            query(
+              schedules,
+              where('classId', '==', classItem.id),
+              orderBy('startAt', 'asc'),
+            ),
+          ),
+        ),
+      );
+      return snapshots
+        .flatMap((snapshot) => snapshot.docs.map(toSchedule))
         .filter((item) => !item.archivedAt)
         .sort(byStartAt);
     },
@@ -448,6 +620,22 @@ export function createPracticumRepository(db: Firestore) {
         query(sessions, where('classId', '==', classId), orderBy('startAt', 'asc')),
       );
       return snapshot.docs.map(toSession).sort(byStartAt);
+    },
+
+    async listSessionsForAssistant(assistantId: string): Promise<PracticumSession[]> {
+      const assistantClasses = await classesForAssistant(assistantId);
+      const snapshots = await Promise.all(
+        assistantClasses.map((classItem) =>
+          getDocs(
+            query(
+              sessions,
+              where('classId', '==', classItem.id),
+              orderBy('startAt', 'asc'),
+            ),
+          ),
+        ),
+      );
+      return snapshots.flatMap((snapshot) => snapshot.docs.map(toSession)).sort(byStartAt);
     },
 
     async listSessionsForPractitioner(userId: string): Promise<PracticumSession[]> {
@@ -524,16 +712,113 @@ export function createPracticumRepository(db: Firestore) {
       const sessionSnapshot = await getDoc(doc(sessions, sessionId));
       if (!sessionSnapshot.exists())
         throw new PracticumError('NOT_FOUND', 'Sesi praktikum tidak ditemukan.');
-      const session = toSession(sessionSnapshot);
-      const records = await Promise.all(
-        session.studentIds.map(async (userId) => {
-          const snapshot = await getDoc(doc(attendances, attendanceId(sessionId, userId)));
-          return snapshot.exists() ? toAttendance(snapshot) : null;
-        }),
+      return listAttendanceForSession(toSession(sessionSnapshot));
+    },
+
+    async listPermissions(
+      sessionId: string,
+      classId: string,
+    ): Promise<PracticumPermission[]> {
+      const snapshot = await getDocs(
+        query(
+          permissions,
+          where('sessionId', '==', sessionId),
+          where('classId', '==', classId),
+        ),
       );
-      return records
-        .filter((record): record is PracticumAttendance => record !== null)
-        .sort(byRecordedAt);
+      return snapshot.docs.map(toPermission);
+    },
+
+    subscribeToClassesForAssistant(assistantId: string, onChange: () => void) {
+      return onSnapshot(
+        query(classes, where('memberIds', 'array-contains', assistantId)),
+        onChange,
+      );
+    },
+
+    subscribeToSchedules(classId: string, onChange: () => void) {
+      return onSnapshot(
+        query(schedules, where('classId', '==', classId), orderBy('startAt', 'asc')),
+        onChange,
+      );
+    },
+
+    subscribeToSessions(classId: string, onChange: () => void) {
+      return onSnapshot(
+        query(sessions, where('classId', '==', classId), orderBy('startAt', 'asc')),
+        onChange,
+      );
+    },
+
+    subscribeToParticipants(classId: string, onChange: () => void) {
+      return onSnapshot(query(participants, where('classId', '==', classId)), onChange);
+    },
+
+    subscribeToSession(sessionId: string, onChange: () => void) {
+      return onSnapshot(doc(sessions, sessionId), onChange);
+    },
+
+    subscribeToOwnAttendance(sessionId: string, userId: string, onChange: () => void) {
+      return onSnapshot(doc(attendances, attendanceId(sessionId, userId)), onChange);
+    },
+
+    subscribeToRecap(sessionId: string, onChange: () => void) {
+      let stopAttendance: (() => void) | undefined;
+      let stopPermissions: (() => void) | undefined;
+      const stopSession = onSnapshot(doc(sessions, sessionId), (snapshot) => {
+        onChange();
+        if (!snapshot.exists()) return;
+        const session = toSession(snapshot);
+        stopAttendance?.();
+        stopPermissions?.();
+        stopAttendance = onSnapshot(
+          query(
+            attendances,
+            where('sessionId', '==', sessionId),
+            where('classId', '==', session.classId),
+          ),
+          onChange,
+        );
+        stopPermissions = onSnapshot(
+          query(
+            permissions,
+            where('sessionId', '==', sessionId),
+            where('classId', '==', session.classId),
+          ),
+          onChange,
+        );
+      });
+      return () => {
+        stopSession();
+        stopAttendance?.();
+        stopPermissions?.();
+      };
+    },
+
+    async listRecap(sessionId: string): Promise<PracticumRecapEntry[]> {
+      const sessionSnapshot = await getDoc(doc(sessions, sessionId));
+      if (!sessionSnapshot.exists())
+        throw new PracticumError('NOT_FOUND', 'Sesi praktikum tidak ditemukan.');
+      const session = toSession(sessionSnapshot);
+      const [participants, attendance, permissionsList] = await Promise.all([
+        participantsByIds(session.classId, session.studentIds),
+        listAttendanceForSession(session),
+        listPermissionsForSession(session),
+      ]);
+      const attendanceByUser = new Map(attendance.map((item) => [item.userId, item]));
+      const permissionByUser = new Map(
+        permissionsList.map((item) => [item.userId, item]),
+      );
+      return participants.map((participant) => {
+        const attendanceRecord = attendanceByUser.get(participant.userId) ?? null;
+        const permission = permissionByUser.get(participant.userId) ?? null;
+        return {
+          participant,
+          attendance: attendanceRecord,
+          permission,
+          status: deriveRecapStatus(attendanceRecord, permission, session.status),
+        };
+      });
     },
 
     async recordAttendance(sessionId: string, userId: string): Promise<string> {

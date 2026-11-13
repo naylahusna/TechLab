@@ -7,6 +7,7 @@ import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import { Text } from '../../../components/Text';
 import { Badge } from '../../practitioner/components/Badge';
 import { getPracticumRepository } from '../client';
+import { InlineAction } from '../components/InlineAction';
 import { PracticumHeader } from '../components/PracticumHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import { practicumErrorMessage } from '../errors';
@@ -27,6 +28,18 @@ export function ClassDetailScreen({ classId }: { classId: string }) {
 
   function goEdit() {
     router.push(`/kelas/${classId}/edit`);
+  }
+
+  function goParticipants() {
+    router.push(`/kelas/${classId}/peserta`);
+  }
+
+  function goSchedules() {
+    router.push(`/kelas/${classId}/jadwal`);
+  }
+
+  function goSessions() {
+    router.push(`/kelas/${classId}/sesi`);
   }
 
   async function archive() {
@@ -105,6 +118,17 @@ export function ClassDetailScreen({ classId }: { classId: string }) {
               </Text>
             </View>
           </View>
+
+          {!item.archivedAt ? (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Kelola</Text>
+              <View style={styles.linkRow}>
+                <InlineAction label="Peserta" onPress={goParticipants} />
+                <InlineAction label="Jadwal" onPress={goSchedules} />
+                <InlineAction label="Sesi" onPress={goSessions} />
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Tindakan</Text>
@@ -203,6 +227,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: typography.bodyLarge,
     fontWeight: fontWeights.bold,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   row: {
     flexDirection: 'row',

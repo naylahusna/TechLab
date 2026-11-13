@@ -5,32 +5,42 @@ Owner: Zaidan Ardiyansyah.
 
 ## Cakupan
 
-| SRS | Fitur | Status fondasi |
+| SRS | Fitur | Status |
 | --- | --- | --- |
-| SRS-06 | Class Management | types, rules, indexes, repository, seed |
-| SRS-07 | Participant Management | types, rules, repository, seed |
-| SRS-08 | Schedule Management | types, rules, indexes, repository, seed |
-| SRS-09 | Practicum Session Management | types, rules, repository, seed |
-| SRS-10 | Practicum Attendance | types, rules, repository, seed |
-| SRS-11 | Attendance Recapitulation | data presensi + izin (UI menyusul) |
-| SRS-12 | Real-Time Attendance Synchronization | repository siap untuk listener (hook menyusul) |
+| SRS-06 | Class Management | Selesai |
+| SRS-07 | Participant Management | Selesai (userDirectory + studentName) |
+| SRS-08 | Schedule Management | Selesai |
+| SRS-09 | Practicum Session Management | Selesai |
+| SRS-10 | Practicum Attendance | Selesai |
+| SRS-11 | Attendance Recapitulation | Selesai (izin read-only) |
+| SRS-12 | Real-Time Attendance Synchronization | Selesai (`onSnapshot`) |
 
-Fondasi ini belum memasang UI. Layar asisten/praktikan akan memakai repository
-ini pada tahap berikutnya.
-
-## UI SRS-06
+## UI SRS-06–11
 
 Route yang tersedia:
 
 - `/kelas` — daftar kelas milik asisten.
 - `/kelas/new` — form tambah kelas.
-- `/kelas/[id]` — detail kelas + edit/arsip.
+- `/kelas/[id]` — detail kelas + edit/arsip + pintu ke peserta/jadwal/sesi.
 - `/kelas/[id]/edit` — form edit kelas.
+- `/kelas/[id]/peserta` — daftar, cari, tambah, dan hapus peserta.
+- `/kelas/[id]/jadwal` — daftar jadwal + buat sesi.
+- `/kelas/[id]/jadwal/new` — form tambah jadwal.
+- `/kelas/[id]/jadwal/[scheduleId]/edit` — form edit jadwal.
+- `/kelas/[id]/sesi` — daftar sesi + buka/tutup/batal.
+- `/sesi/[id]` — detail sesi asisten/praktikan.
+- `/sesi/[id]/rekap` — rekap kehadiran asisten.
 
-Pintu masuknya adalah tombol **“Kelola Kelas”** di tab Jadwal asisten. Daftar
-dimuat ulang saat layar kembali fokus. Detail kelas saat ini menampilkan
-ringkasan, edit, dan arsip; bagian peserta/jadwal/sesi menyusul di SRS-07–09.
-Real-time listener menyusul di SRS-12.
+Pintu masuk kelas adalah tombol **“Kelola Kelas”** di tab Jadwal asisten.
+Tab Jadwal sekarang membaca Firestore untuk asisten dan praktikan.
+
+Catatan UI:
+
+- Form jadwal memakai input teks `YYYY-MM-DD` dan `HH:mm`; native date picker
+  belum ditambahkan.
+- Detail sesi memakai kembali layar Sprint 1 dengan adaptor Firestore.
+- Rekap menampilkan hadir/izin/tidak hadir/izin menunggu/belum presensi.
+- Izin yang disetujui dihitung sebagai `excused`, bukan `present`.
 
 ## Struktur koleksi
 
@@ -40,7 +50,15 @@ classes/{classId}
   createdAt, updatedAt, archivedAt
 
 participants/{classId_userId}
-  classId, userId, studentNumber, joinedAt, leftAt
+  classId, userId, studentName, studentNumber, joinedAt, leftAt
+
+userDirectory/{uid}
+  uid, name, number, role, updatedAt
+
+permissions/{permissionId}
+  sessionId, classId, userId, reason,
+  aiCategory, aiConfidence, aiStatus,
+  status, decidedBy, decidedAt, createdAt, updatedAt
 
 schedules/{scheduleId}
   classId, title, startAt, endAt, location, createdAt, updatedAt, archivedAt
@@ -63,8 +81,10 @@ Keputusan Sprint 2:
   rekap historis tetap utuh meskipun peserta kemudian dihapus dari kelas.
 - `attendances` hanya menyimpan kehadiran fisik (`present`). Status `excused`,
   `absent`, dan `pending` diturunkan saat rekap dari sesi + izin.
-- Rekap membaca presensi per peserta (`getDoc`), bukan list query lintas-field,
-  karena Firestore Rules membatasi field yang boleh dievaluasi pada list query.
+- Rekap memakai snapshot `sessions.studentIds`, lalu menggabungkan presensi dan
+  izin. List presensi/izin dibatasi untuk asisten yang ditugaskan.
+- `userDirectory` adalah direktori minimal untuk pencarian peserta; write
+  dilakukan oleh seed/operator, bukan client.
 - Hapus data memakai arsip (`archivedAt`) atau soft remove (`leftAt`), bukan
   hard delete, agar riwayat presensi/izin tidak hilang.
 - Tanggal dan waktu memakai Firestore `Timestamp`.
@@ -108,7 +128,9 @@ Rules untuk `classes`, `participants`, `schedules`, `sessions`, dan
 - Praktikan hanya membaca kelas/jadwal/sesi tempat ia terdaftar.
 - Presensi hanya boleh dibuat oleh pemilik UID, saat sesi `open`, terdaftar,
   dan belum punya record.
-- `permissions` masih ditutup sampai Arga menambahkan rules SRS-13–17.
+- `permissions` hanya read-only untuk rekap: asisten terkait boleh list/get,
+  praktikan boleh get miliknya. Create/approve/reject tetap milik Arga.
+- `userDirectory` read-only: asisten boleh mencari praktikan; write ditutup.
 
 ## Seed
 
@@ -123,7 +145,8 @@ npm run seed:emulator:exec
 ```
 
 Script membuat akun demo di Auth emulator, dua kelas, tiga jadwal, sesi
-`closed`/`open`/`scheduled`, dan dua presensi contoh, lalu mencetak kredensial:
+`closed`/`open`/`scheduled`, dua presensi contoh, `userDirectory`, dan tiga izin
+(`approved`/`pending`/`rejected`), lalu mencetak kredensial:
 
 - `asisten.demo@techlab.test` / `TechLab123!`
 - `praktikan1.demo@techlab.test` / `TechLab123!`
@@ -131,6 +154,18 @@ Script membuat akun demo di Auth emulator, dua kelas, tiga jadwal, sesi
 - `praktikan3.demo@techlab.test` / `TechLab123!`
 
 Aktifkan `EXPO_PUBLIC_USE_FIREBASE_EMULATORS=true` di `.env` sebelum membuka app.
+
+## Real-time
+
+Hook memakai `onSnapshot` untuk:
+
+- daftar kelas asisten,
+- daftar jadwal/sesi/peserta,
+- detail sesi (status sesi, presensi, izin),
+- rekap kehadiran.
+
+Listener dibersihkan saat layar blur/unmount. Untuk praktikan, detail sesi
+mendengarkan dokumen presensi miliknya sendiri.
 
 ## Tes
 
@@ -149,10 +184,15 @@ rules + integrasi Auth/Firestore/repository secara berurutan.
 
 - `schedules`: `classId + startAt`
 - `sessions`: `classId + startAt`
+- `attendances`: `sessionId + classId`
+- `permissions`: `sessionId + classId`
+- `userDirectory`: `role + number`, `role + name`
 
 ## Batas dengan modul lain
 
 - `users` milik auth Nayla; field yang dipakai: `uid`, `name`, `number`, `role`.
-- `permissions` milik Arga; rekap SRS-11 akan membaca `sessionId`, `classId`,
-  `userId`, `status`.
+- `permissions` milik Arga; modul ini hanya membaca untuk rekap. Create,
+  approve, reject, dan AI classification tetap milik SRS-13–17.
+- `userDirectory` perlu sinkronisasi untuk user baru di production (Cloud
+  Function/trigger); seed hanya untuk demo.
 - Jangan membuat state praktikum paralel di `src/core`; gunakan repository ini.

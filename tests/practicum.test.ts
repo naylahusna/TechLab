@@ -48,21 +48,37 @@ test('participant validation rejects malformed user IDs and student numbers', ()
     validateParticipantInput({
       classId: 'class-if-a',
       userId: 'praktikan-01',
+      studentName: ' Alya Putri ',
       studentNumber: ' 240101001 ',
     }),
     {
       classId: 'class-if-a',
       userId: 'praktikan-01',
+      studentName: 'Alya Putri',
       studentNumber: '240101001',
     },
   );
   assert.throws(() =>
-    validateParticipantInput({ classId: 'class-if-a', userId: '', studentNumber: '240101001' }),
+    validateParticipantInput({
+      classId: 'class-if-a',
+      userId: '',
+      studentName: 'Alya Putri',
+      studentNumber: '240101001',
+    }),
   );
   assert.throws(() =>
     validateParticipantInput({
       classId: 'class-if-a',
       userId: 'praktikan-01',
+      studentName: 'A',
+      studentNumber: '240101001',
+    }),
+  );
+  assert.throws(() =>
+    validateParticipantInput({
+      classId: 'class-if-a',
+      userId: 'praktikan-01',
+      studentName: 'Alya Putri',
       studentNumber: '240 101',
     }),
   );

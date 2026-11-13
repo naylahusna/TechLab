@@ -2,7 +2,8 @@ rules_version = '2';
 // Data model Sprint 2.
 // users/{uid}: uid, name, number, role ('praktikan' | 'asisten'), createdAt, updatedAt.
 // SRS-06..12 collections are covered below.
-// SRS-13..17 (permissions) remain denied until their owner adds reviewed rules.
+// SRS-13..17 writes/approval remain owned by Arga; only read-only permission
+// summary is exposed for the SRS-11 recap.
 service cloud.firestore {
   match /databases/{database}/documents {
     function isAuthenticated() { return request.auth != null; }
@@ -56,10 +57,11 @@ service cloud.firestore {
     }
 
     function isValidParticipant(data) {
-      return data.keys().hasAll(['classId', 'userId', 'studentNumber', 'joinedAt', 'leftAt'])
-        && data.keys().hasOnly(['classId', 'userId', 'studentNumber', 'joinedAt', 'leftAt'])
+      return data.keys().hasAll(['classId', 'userId', 'studentName', 'studentNumber', 'joinedAt', 'leftAt'])
+        && data.keys().hasOnly(['classId', 'userId', 'studentName', 'studentNumber', 'joinedAt', 'leftAt'])
         && data.classId is string && data.classId.size() >= 1 && data.classId.size() <= 64
         && data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128
+        && data.studentName is string && data.studentName.size() >= 2 && data.studentName.size() <= 100
         && data.studentNumber is string && data.studentNumber.size() >= 1 && data.studentNumber.size() <= 32
         && data.joinedAt is timestamp
         && (data.leftAt == null || data.leftAt is timestamp);
@@ -142,7 +144,7 @@ service cloud.firestore {
       allow get: if isAuthenticated()
         && (participantId.matches('.*_' + request.auth.uid)
           || isAssignedAssistant(participantId.split('_')[0]));
-      allow list: if false;
+      allow list: if isAssistant() && isAssignedAssistant(resource.data.classId);
       allow create: if isAssistant()
         && isValidParticipant(request.resource.data)
         && isAssignedAssistant(request.resource.data.classId)
@@ -214,7 +216,7 @@ service cloud.firestore {
         && (attendanceId.matches('.*_' + request.auth.uid)
           || (exists(/databases/$(database)/documents/sessions/$(attendanceId.split('_')[0]))
             && isAssignedAssistant(get(/databases/$(database)/documents/sessions/$(attendanceId.split('_')[0])).data.classId)));
-      allow list: if false;
+      allow list: if isAssistant() && isAssignedAssistant(resource.data.classId);
       allow create: if isPractitioner()
         && isValidAttendance(request.resource.data)
         && request.resource.data.userId == request.auth.uid
@@ -227,6 +229,20 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/attendances/$(attendanceId))
         && request.resource.data.recordedAt == request.time;
       allow update, delete: if false;
+    }
+
+    match /userDirectory/{uid} {
+      allow get: if isAuthenticated() && (uid == request.auth.uid || isAssistant());
+      allow list: if isAssistant() && resource.data.role == 'praktikan';
+      allow create, update, delete: if false;
+    }
+
+    match /permissions/{permissionId} {
+      allow get: if isAuthenticated()
+        && (resource.data.userId == request.auth.uid
+          || isAssignedAssistant(resource.data.classId));
+      allow list: if isAssistant() && isAssignedAssistant(resource.data.classId);
+      allow create, update, delete: if false;
     }
 
     match /{document=**} { allow read, write: if false; }

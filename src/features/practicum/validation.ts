@@ -27,12 +27,15 @@ export function validateClassInput(input: PracticumClassInput) {
 export function validateParticipantInput(input: PracticumParticipantInput) {
   const classId = input.classId.trim();
   const userId = input.userId.trim();
+  const studentName = input.studentName.trim();
   const studentNumber = input.studentNumber.trim();
   if (!ID_PATTERN.test(classId)) throw new Error('ID kelas tidak valid.');
   if (!ID_PATTERN.test(userId)) throw new Error('ID pengguna tidak valid.');
+  if (studentName.length < 2 || studentName.length > 100)
+    throw new Error('Nama peserta harus terdiri dari 2–100 karakter.');
   if (!NUMBER_PATTERN.test(studentNumber))
     throw new Error('NIM/ID harus berisi 1–32 huruf, angka, titik, atau tanda hubung.');
-  return { classId, userId, studentNumber };
+  return { classId, userId, studentName, studentNumber };
 }
 
 export function validateScheduleInput(input: PracticumScheduleInput) {

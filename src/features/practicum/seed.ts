@@ -8,7 +8,9 @@ import {
 
 export type SeedPracticumOptions = Readonly<{
   assistantId: string;
+  assistantName?: string;
   studentIds: readonly string[];
+  studentNames?: readonly string[];
   studentNumbers?: readonly string[];
 }>;
 
@@ -30,6 +32,10 @@ function at(iso: string): Timestamp {
 
 function studentNumberFor(index: number): string {
   return `240101${String(index + 1).padStart(3, '0')}`;
+}
+
+function studentNameFor(index: number): string {
+  return `Praktikan Demo ${index + 1}`;
 }
 
 /**
@@ -143,6 +149,25 @@ export async function seedPracticumData(
     },
   ];
 
+  await Promise.all([
+    setDoc(doc(db, PRACTICUM_COLLECTIONS.userDirectory, options.assistantId), {
+      uid: options.assistantId,
+      name: options.assistantName ?? 'Asisten Demo',
+      number: 'AS-001',
+      role: 'asisten',
+      updatedAt: joinedAt,
+    }),
+    ...options.studentIds.map((uid, index) =>
+      setDoc(doc(db, PRACTICUM_COLLECTIONS.userDirectory, uid), {
+        uid,
+        name: options.studentNames?.[index] ?? studentNameFor(index),
+        number: options.studentNumbers?.[index] ?? studentNumberFor(index),
+        role: 'praktikan',
+        updatedAt: joinedAt,
+      }),
+    ),
+  ]);
+
   await Promise.all(
     classes.map((item) =>
       setDoc(doc(db, PRACTICUM_COLLECTIONS.classes, item.id), {
@@ -170,6 +195,7 @@ export async function seedPracticumData(
         setDoc(doc(db, PRACTICUM_COLLECTIONS.participants, participantId(classId, userId)), {
           classId,
           userId,
+          studentName: options.studentNames?.[index] ?? studentNameFor(index),
           studentNumber: options.studentNumbers?.[index] ?? studentNumberFor(index),
           joinedAt,
           leftAt: null,
@@ -236,6 +262,82 @@ export async function seedPracticumData(
       },
     ),
   ]);
+
+  const permissionWrites: Promise<void>[] = [];
+  const secondStudent = options.studentIds[1];
+  const thirdStudent = options.studentIds[2];
+  if (secondStudent) {
+    permissionWrites.push(
+      setDoc(
+        doc(
+          db,
+          PRACTICUM_COLLECTIONS.permissions,
+          `permission-${SCHEDULE_A1}-${secondStudent}`,
+        ),
+        {
+          sessionId: SCHEDULE_A1,
+          classId: CLASS_A,
+          userId: secondStudent,
+          reason: 'Sakit demam sejak pagi.',
+          aiCategory: 'sakit',
+          aiConfidence: 0.92,
+          aiStatus: 'completed',
+          status: 'approved',
+          decidedBy: options.assistantId,
+          decidedAt: at('2026-11-15T19:00:00+07:00'),
+          createdAt: at('2026-11-15T18:30:00+07:00'),
+          updatedAt: at('2026-11-15T19:00:00+07:00'),
+        },
+      ),
+      setDoc(
+        doc(
+          db,
+          PRACTICUM_COLLECTIONS.permissions,
+          `permission-${SCHEDULE_A2}-${secondStudent}`,
+        ),
+        {
+          sessionId: SCHEDULE_A2,
+          classId: CLASS_A,
+          userId: secondStudent,
+          reason: 'Mengikuti kegiatan organisasi kampus.',
+          aiCategory: 'kegiatan kampus',
+          aiConfidence: 0.74,
+          aiStatus: 'completed',
+          status: 'rejected',
+          decidedBy: options.assistantId,
+          decidedAt: at('2026-11-22T19:00:00+07:00'),
+          createdAt: at('2026-11-22T18:30:00+07:00'),
+          updatedAt: at('2026-11-22T19:00:00+07:00'),
+        },
+      ),
+    );
+  }
+  if (thirdStudent) {
+    permissionWrites.push(
+      setDoc(
+        doc(
+          db,
+          PRACTICUM_COLLECTIONS.permissions,
+          `permission-${SCHEDULE_A1}-${thirdStudent}`,
+        ),
+        {
+          sessionId: SCHEDULE_A1,
+          classId: CLASS_A,
+          userId: thirdStudent,
+          reason: 'Ada urusan keluarga di luar kota.',
+          aiCategory: 'keluarga',
+          aiConfidence: 0.81,
+          aiStatus: 'completed',
+          status: 'pending',
+          decidedBy: null,
+          decidedAt: null,
+          createdAt: at('2026-11-15T20:00:00+07:00'),
+          updatedAt: at('2026-11-15T20:00:00+07:00'),
+        },
+      ),
+    );
+  }
+  await Promise.all(permissionWrites);
 
   return {
     classIds: classes.map((item) => item.id),

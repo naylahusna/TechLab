@@ -1,10 +1,17 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
 import { useAuth } from '../auth/AuthProvider';
 import { getPracticumRepository } from './client';
 import { practicumErrorMessage } from './errors';
-import type { PracticumClass } from './types';
+import type {
+  PracticumAttendance,
+  PracticumClass,
+  PracticumParticipant,
+  PracticumPermission,
+  PracticumSchedule,
+  PracticumSession,
+} from './types';
 
 type ClassesState = {
   status: 'loading' | 'ready' | 'error';
@@ -58,6 +65,353 @@ export function useAssistantClasses() {
       void load();
     }, [load]),
   );
+
+  useEffect(() => {
+    if (!assistantId) return;
+    return getPracticumRepository().subscribeToClassesForAssistant(assistantId, () => {
+      void load();
+    });
+  }, [assistantId, load]);
+
+  return { ...state, reload: load };
+}
+
+type ListState<T> = {
+  status: 'loading' | 'ready' | 'missing' | 'error';
+  items: T[];
+  error: string | null;
+  refreshing: boolean;
+};
+
+function useListResource<T>(
+  id: string | undefined,
+  loader: (id: string) => Promise<T[]>,
+  subscribe?: (id: string, onChange: () => void) => () => void,
+) {
+  const [state, setState] = useState<ListState<T>>({
+    status: 'loading',
+    items: [],
+    error: null,
+    refreshing: false,
+  });
+
+  const load = useCallback(async () => {
+    if (!id) {
+      setState({ status: 'missing', items: [], error: null, refreshing: false });
+      return;
+    }
+    setState((previous) => ({
+      ...previous,
+      status: previous.items.length > 0 ? 'ready' : 'loading',
+      error: null,
+      refreshing: previous.items.length > 0,
+    }));
+    try {
+      const items = await loader(id);
+      setState({ status: 'ready', items, error: null, refreshing: false });
+    } catch (error) {
+      setState({
+        status: 'error',
+        items: [],
+        error: practicumErrorMessage(error),
+        refreshing: false,
+      });
+    }
+  }, [id, loader]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
+  useEffect(() => {
+    if (!id || !subscribe) return;
+    return subscribe(id, () => {
+      void load();
+    });
+  }, [id, subscribe, load]);
+
+  return { ...state, reload: load };
+}
+
+export function useSchedules(classId: string | undefined) {
+  const loader = useCallback(
+    (id: string) => getPracticumRepository().listSchedules(id),
+    [],
+  );
+  const subscribe = useCallback(
+    (id: string, onChange: () => void) =>
+      getPracticumRepository().subscribeToSchedules(id, onChange),
+    [],
+  );
+  return useListResource(classId, loader, subscribe);
+}
+
+export function useSessions(classId: string | undefined) {
+  const loader = useCallback(
+    (id: string) => getPracticumRepository().listSessions(id),
+    [],
+  );
+  const subscribe = useCallback(
+    (id: string, onChange: () => void) =>
+      getPracticumRepository().subscribeToSessions(id, onChange),
+    [],
+  );
+  return useListResource(classId, loader, subscribe);
+}
+
+export function useParticipants(classId: string | undefined) {
+  const loader = useCallback(
+    (id: string) => getPracticumRepository().listParticipants(id),
+    [],
+  );
+  const subscribe = useCallback(
+    (id: string, onChange: () => void) =>
+      getPracticumRepository().subscribeToParticipants(id, onChange),
+    [],
+  );
+  return useListResource(classId, loader, subscribe);
+}
+
+export function useRecap(sessionId: string | undefined) {
+  const loader = useCallback(
+    (id: string) => getPracticumRepository().listRecap(id),
+    [],
+  );
+  const subscribe = useCallback(
+    (id: string, onChange: () => void) =>
+      getPracticumRepository().subscribeToRecap(id, onChange),
+    [],
+  );
+  return useListResource(sessionId, loader, subscribe);
+}
+
+type ScheduleOverviewState = {
+  status: 'loading' | 'ready' | 'error';
+  classes: PracticumClass[];
+  schedules: PracticumSchedule[];
+  sessions: PracticumSession[];
+  error: string | null;
+  refreshing: boolean;
+};
+
+export function useScheduleOverview() {
+  const auth = useAuth();
+  const userId = auth.profile?.uid;
+  const role = auth.profile?.role;
+  const [state, setState] = useState<ScheduleOverviewState>({
+    status: 'loading',
+    classes: [],
+    schedules: [],
+    sessions: [],
+    error: null,
+    refreshing: false,
+  });
+
+  const load = useCallback(async () => {
+    if (!userId || !role) {
+      setState({
+        status: 'ready',
+        classes: [],
+        schedules: [],
+        sessions: [],
+        error: null,
+        refreshing: false,
+      });
+      return;
+    }
+    setState((previous) => ({
+      ...previous,
+      status: previous.sessions.length > 0 ? 'ready' : 'loading',
+      error: null,
+      refreshing: previous.sessions.length > 0,
+    }));
+    try {
+      const repository = getPracticumRepository();
+      const [classes, schedules, sessions] =
+        role === 'asisten'
+          ? await Promise.all([
+              repository.listClassesForAssistant(userId),
+              repository.listSchedulesForAssistant(userId),
+              repository.listSessionsForAssistant(userId),
+            ])
+          : await Promise.all([
+              repository.listClassesForPractitioner(userId),
+              repository.listSchedulesForPractitioner(userId),
+              repository.listSessionsForPractitioner(userId),
+            ]);
+      setState({
+        status: 'ready',
+        classes,
+        schedules,
+        sessions,
+        error: null,
+        refreshing: false,
+      });
+    } catch (error) {
+      setState({
+        status: 'error',
+        classes: [],
+        schedules: [],
+        sessions: [],
+        error: practicumErrorMessage(error),
+        refreshing: false,
+      });
+    }
+  }, [userId, role]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
+  return { ...state, reload: load };
+}
+
+type SessionDetailState = {
+  status: 'loading' | 'ready' | 'missing' | 'error';
+  session: PracticumSession | null;
+  classItem: PracticumClass | null;
+  schedule: PracticumSchedule | null;
+  participants: PracticumParticipant[];
+  attendance: PracticumAttendance[];
+  permissions: PracticumPermission[];
+  error: string | null;
+  refreshing: boolean;
+};
+
+export function useSessionDetail(sessionId: string | undefined) {
+  const auth = useAuth();
+  const userId = auth.profile?.uid;
+  const role = auth.profile?.role;
+  const [state, setState] = useState<SessionDetailState>({
+    status: 'loading',
+    session: null,
+    classItem: null,
+    schedule: null,
+    participants: [],
+    attendance: [],
+    permissions: [],
+    error: null,
+    refreshing: false,
+  });
+
+  const load = useCallback(async () => {
+    if (!sessionId || !userId || !role) {
+      setState({
+        status: 'missing',
+        session: null,
+        classItem: null,
+        schedule: null,
+        participants: [],
+        attendance: [],
+        permissions: [],
+        error: null,
+        refreshing: false,
+      });
+      return;
+    }
+    setState((previous) => ({
+      ...previous,
+      status: previous.session ? previous.status : 'loading',
+      error: null,
+      refreshing: previous.session !== null,
+    }));
+    try {
+      const repository = getPracticumRepository();
+      const session = await repository.getSession(sessionId);
+      if (!session) {
+        setState({
+          status: 'missing',
+          session: null,
+          classItem: null,
+          schedule: null,
+          participants: [],
+          attendance: [],
+          permissions: [],
+          error: null,
+          refreshing: false,
+        });
+        return;
+      }
+      const [classItem, schedule] = await Promise.all([
+        repository.getClass(session.classId),
+        repository.getSchedule(session.scheduleId),
+      ]);
+      if (!classItem) {
+        setState((previous) => ({
+          ...previous,
+          status: 'error',
+          error: 'Kelas tidak ditemukan.',
+          refreshing: false,
+        }));
+        return;
+      }
+      let participants: PracticumParticipant[] = [];
+      let attendance: PracticumAttendance[] = [];
+      let permissions: PracticumPermission[] = [];
+      if (role === 'asisten') {
+        [participants, attendance, permissions] = await Promise.all([
+          repository.listParticipantsByIds(session.classId, session.studentIds),
+          repository.listAttendance(sessionId),
+          repository.listPermissions(sessionId, session.classId),
+        ]);
+      } else {
+        const own = await repository.getAttendance(sessionId, userId);
+        attendance = own ? [own] : [];
+      }
+      setState({
+        status: 'ready',
+        session,
+        classItem,
+        schedule,
+        participants,
+        attendance,
+        permissions,
+        error: null,
+        refreshing: false,
+      });
+    } catch (error) {
+      setState((previous) => ({
+        ...previous,
+        status: 'error',
+        error: practicumErrorMessage(error),
+        refreshing: false,
+      }));
+    }
+  }, [sessionId, userId, role]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
+  useEffect(() => {
+    if (!sessionId || !userId || !role) return;
+    const repository = getPracticumRepository();
+    if (role === 'asisten') {
+      return repository.subscribeToRecap(sessionId, () => {
+        void load();
+      });
+    }
+    const stopSession = repository.subscribeToSession(sessionId, () => {
+      void load();
+    });
+    const stopAttendance = repository.subscribeToOwnAttendance(
+      sessionId,
+      userId,
+      () => {
+        void load();
+      },
+    );
+    return () => {
+      stopSession();
+      stopAttendance();
+    };
+  }, [sessionId, userId, role, load]);
 
   return { ...state, reload: load };
 }

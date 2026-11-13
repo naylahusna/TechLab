@@ -3,11 +3,25 @@ export {
   type PracticumRepository,
 } from './repository';
 export { getPracticumRepository } from './client';
-export { useAssistantClasses, usePracticumClass } from './hooks';
+export {
+  useAssistantClasses,
+  useParticipants,
+  usePracticumClass,
+  useRecap,
+  useScheduleOverview,
+  useSchedules,
+  useSessionDetail,
+  useSessions,
+} from './hooks';
 export { AssistantRoute } from './components/AssistantRoute';
 export { ClassListScreen } from './screens/ClassListScreen';
 export { ClassFormScreen } from './screens/ClassFormScreen';
 export { ClassDetailScreen } from './screens/ClassDetailScreen';
+export { ScheduleListScreen } from './screens/ScheduleListScreen';
+export { ScheduleFormScreen } from './screens/ScheduleFormScreen';
+export { SessionListScreen } from './screens/SessionListScreen';
+export { ParticipantListScreen } from './screens/ParticipantListScreen';
+export { RecapScreen } from './screens/RecapScreen';
 export {
   seedPracticumData,
   type SeedPracticumOptions,
@@ -30,9 +44,15 @@ export type {
   PracticumAttendance,
   PracticumClass,
   PracticumClassInput,
+  PracticumDirectoryUser,
   PracticumErrorCode,
   PracticumParticipant,
   PracticumParticipantInput,
+  PracticumPermission,
+  PracticumPermissionAiStatus,
+  PracticumPermissionStatus,
+  PracticumRecapEntry,
+  PracticumRecapStatus,
   PracticumSchedule,
   PracticumScheduleInput,
   PracticumSession,
