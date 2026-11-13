@@ -1,2 +1,2 @@
-/** Compatibility exports: onboarding and feature screens share the same provider/store. */
+/** Compatibility exports: feature screens derive identity from the root AuthProvider. */
 export { DemoProvider as RoleProvider, useDemo as useRole } from './demo-context';
