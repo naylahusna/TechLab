@@ -8,7 +8,14 @@ if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_
 const require = createRequire(import.meta.url);
 for (const args of [
   [require.resolve('typescript/bin/tsc'), '-p', 'tsconfig.test.json'],
-  ['--test', 'tests/firestore.rules.test.mjs', 'tests/firebase-auth.integration.mjs'],
+  [
+    '--test',
+    '--test-concurrency=1',
+    'tests/firestore.rules.test.mjs',
+    'tests/practicum.rules.test.mjs',
+    'tests/practicum.integration.mjs',
+    'tests/firebase-auth.integration.mjs',
+  ],
 ]) {
   const result = spawnSync(process.execPath, args, { stdio: 'inherit' });
   if (result.error) throw result.error;

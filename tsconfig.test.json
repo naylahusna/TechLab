@@ -10,5 +10,9 @@
     "rootDir": ".",
     "outDir": "dist/tests"
   },
-  "include": ["tests/**/*.test.ts", "src/features/auth/profile-repository.ts"]
+  "include": [
+    "tests/**/*.test.ts",
+    "src/features/auth/profile-repository.ts",
+    "src/features/practicum/**/*.ts"
+  ]
 }
