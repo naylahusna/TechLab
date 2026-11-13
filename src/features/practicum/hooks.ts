@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
 import { useAuth } from '../auth/AuthProvider';
+import type { SessionWithSummary } from '../assistant/types';
+import type { RiwayatItem } from '../practitioner/types';
 import { getPracticumRepository } from './client';
 import { practicumErrorMessage } from './errors';
+import { toAssistantRecapItems, toPractitionerHistoryItems } from './session-view';
 import type {
   PracticumAttendance,
   PracticumClass,
@@ -208,9 +211,11 @@ export function useScheduleOverview() {
     error: null,
     refreshing: false,
   });
+  const requestId = useRef(0);
 
   const load = useCallback(async () => {
     if (!userId || !role) {
+      requestId.current += 1;
       setState({
         status: 'ready',
         classes: [],
@@ -221,6 +226,8 @@ export function useScheduleOverview() {
       });
       return;
     }
+    const request = requestId.current + 1;
+    requestId.current = request;
     setState((previous) => ({
       ...previous,
       status: previous.sessions.length > 0 ? 'ready' : 'loading',
@@ -241,6 +248,7 @@ export function useScheduleOverview() {
               repository.listSchedulesForPractitioner(userId),
               repository.listSessionsForPractitioner(userId),
             ]);
+      if (request !== requestId.current) return;
       setState({
         status: 'ready',
         classes,
@@ -250,6 +258,7 @@ export function useScheduleOverview() {
         refreshing: false,
       });
     } catch (error) {
+      if (request !== requestId.current) return;
       setState({
         status: 'error',
         classes: [],
@@ -260,6 +269,159 @@ export function useScheduleOverview() {
       });
     }
   }, [userId, role]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
+  useEffect(() => {
+    if (!userId) return;
+    return getPracticumRepository().subscribeToScheduleOverview(userId, () => {
+      void load();
+    });
+  }, [userId, load]);
+
+  return { ...state, reload: load };
+}
+
+type RecapOverviewState = {
+  status: 'loading' | 'ready' | 'error';
+  items: SessionWithSummary[];
+  error: string | null;
+  refreshing: boolean;
+};
+
+export function useAssistantRecapOverview() {
+  const auth = useAuth();
+  const assistantId = auth.profile?.role === 'asisten' ? auth.profile.uid : undefined;
+  const [state, setState] = useState<RecapOverviewState>({
+    status: 'loading',
+    items: [],
+    error: null,
+    refreshing: false,
+  });
+
+  const load = useCallback(async () => {
+    if (!assistantId) {
+      setState({ status: 'ready', items: [], error: null, refreshing: false });
+      return;
+    }
+    setState((previous) => ({
+      ...previous,
+      status: previous.items.length > 0 ? 'ready' : 'loading',
+      error: null,
+      refreshing: previous.items.length > 0,
+    }));
+    try {
+      const repository = getPracticumRepository();
+      const [classes, schedules, sessions] = await Promise.all([
+        repository.listClassesForAssistant(assistantId),
+        repository.listSchedulesForAssistant(assistantId),
+        repository.listSessionsForAssistant(assistantId),
+      ]);
+      const attendanceBySession: Record<string, PracticumAttendance[]> = {};
+      await Promise.all(
+        sessions
+          .filter((session) => session.status !== 'scheduled')
+          .map(async (session) => {
+            attendanceBySession[session.id] = await repository.listAttendance(session.id);
+          }),
+      );
+      setState({
+        status: 'ready',
+        items: toAssistantRecapItems(classes, schedules, sessions, attendanceBySession),
+        error: null,
+        refreshing: false,
+      });
+    } catch (error) {
+      setState({
+        status: 'error',
+        items: [],
+        error: practicumErrorMessage(error),
+        refreshing: false,
+      });
+    }
+  }, [assistantId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
+  return { ...state, reload: load };
+}
+
+type PractitionerHistoryState = {
+  status: 'loading' | 'ready' | 'error';
+  items: RiwayatItem[];
+  error: string | null;
+  refreshing: boolean;
+};
+
+export function usePractitionerHistory() {
+  const auth = useAuth();
+  const userId = auth.profile?.role === 'praktikan' ? auth.profile.uid : undefined;
+  const [state, setState] = useState<PractitionerHistoryState>({
+    status: 'loading',
+    items: [],
+    error: null,
+    refreshing: false,
+  });
+
+  const load = useCallback(async () => {
+    if (!userId) {
+      setState({ status: 'ready', items: [], error: null, refreshing: false });
+      return;
+    }
+    setState((previous) => ({
+      ...previous,
+      status: previous.items.length > 0 ? 'ready' : 'loading',
+      error: null,
+      refreshing: previous.items.length > 0,
+    }));
+    try {
+      const repository = getPracticumRepository();
+      const [classes, schedules, sessions] = await Promise.all([
+        repository.listClassesForPractitioner(userId),
+        repository.listSchedulesForPractitioner(userId),
+        repository.listSessionsForPractitioner(userId),
+      ]);
+      const attendanceBySession: Record<string, PracticumAttendance[]> = {};
+      await Promise.all(
+        sessions
+          .filter(
+            (session) =>
+              session.studentIds.includes(userId) && session.status !== 'scheduled',
+          )
+          .map(async (session) => {
+            const record = await repository.getAttendance(session.id, userId);
+            attendanceBySession[session.id] = record ? [record] : [];
+          }),
+      );
+      setState({
+        status: 'ready',
+        items: toPractitionerHistoryItems(
+          classes,
+          schedules,
+          sessions,
+          attendanceBySession,
+          userId,
+        ),
+        error: null,
+        refreshing: false,
+      });
+    } catch (error) {
+      setState({
+        status: 'error',
+        items: [],
+        error: practicumErrorMessage(error),
+        refreshing: false,
+      });
+    }
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -454,6 +616,13 @@ export function usePracticumClass(classId: string | undefined) {
       void load();
     }, [load]),
   );
+
+  useEffect(() => {
+    if (!classId) return;
+    return getPracticumRepository().subscribeToClass(classId, () => {
+      void load();
+    });
+  }, [classId, load]);
 
   return { ...state, reload: load };
 }

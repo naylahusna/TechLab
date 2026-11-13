@@ -6,20 +6,12 @@ import { AssistantJadwalScreen } from '../../features/assistant';
 import { JadwalScreen } from '../../features/practitioner';
 import { useScheduleOverview } from '../../features/practicum';
 import { ErrorState, LoadingState } from '../../features/practicum/components/StateViews';
+import { initialsFor } from '../../features/practicum/profile-view';
 import {
   toAssistantSessionItem,
   toPractitionerSessionListItem,
 } from '../../features/practicum/session-view';
 import { colors } from '../../theme/tokens';
-
-function initialsFor(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-}
 
 export default function ScheduleRoute() {
   const auth = useAuth();

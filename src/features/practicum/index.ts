@@ -5,7 +5,9 @@ export {
 export { getPracticumRepository } from './client';
 export {
   useAssistantClasses,
+  useAssistantRecapOverview,
   useParticipants,
+  usePractitionerHistory,
   usePracticumClass,
   useRecap,
   useScheduleOverview,

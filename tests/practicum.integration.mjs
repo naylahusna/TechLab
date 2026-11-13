@@ -135,6 +135,18 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
     const assistantSessions = await assistantRepo.listSessionsForAssistant(assistantId);
     assert.equal(assistantSessions.length, 1);
 
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        stop();
+        reject(new Error('Langganan overview jadwal tidak mengirim snapshot.'));
+      }, 5000);
+      const stop = assistantRepo.subscribeToScheduleOverview(assistantId, () => {
+        clearTimeout(timeout);
+        stop();
+        resolve();
+      });
+    });
+
     await signOut(auth);
     await signInWithEmailAndPassword(auth, practitionerEmail, password);
     const practitionerRepo = createPracticumRepository(db);
@@ -148,6 +160,7 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       practitionerId,
     );
     assert.equal(practitionerSchedules.length, 1);
+    assert.equal(await practitionerRepo.getAttendance(sessionId, practitionerId), null);
     await practitionerRepo.recordAttendance(sessionId, practitionerId);
     await assert.rejects(
       () => practitionerRepo.recordAttendance(sessionId, practitionerId),

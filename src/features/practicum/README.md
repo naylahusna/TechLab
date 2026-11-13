@@ -32,7 +32,8 @@ Route yang tersedia:
 - `/sesi/[id]/rekap` — rekap kehadiran asisten.
 
 Pintu masuk kelas adalah tombol **“Kelola Kelas”** di tab Jadwal asisten.
-Tab Jadwal sekarang membaca Firestore untuk asisten dan praktikan.
+Tab Jadwal, tab Rekap asisten, dan tab Riwayat praktikan sekarang membaca
+Firestore.
 
 Catatan UI:
 
@@ -41,6 +42,8 @@ Catatan UI:
 - Detail sesi memakai kembali layar Sprint 1 dengan adaptor Firestore.
 - Rekap menampilkan hadir/izin/tidak hadir/izin menunggu/belum presensi.
 - Izin yang disetujui dihitung sebagai `excused`, bukan `present`.
+- Tab Rekap asisten memakai ringkasan presensi per sesi; tab Riwayat praktikan
+  membaca presensi milik sendiri per sesi (`getDoc`) agar tetap sesuai rules.
 
 ## Struktur koleksi
 
@@ -160,12 +163,15 @@ Aktifkan `EXPO_PUBLIC_USE_FIREBASE_EMULATORS=true` di `.env` sebelum membuka app
 Hook memakai `onSnapshot` untuk:
 
 - daftar kelas asisten,
+- overview tab Jadwal (kelas, jadwal, dan sesi per kelas),
+- detail kelas,
 - daftar jadwal/sesi/peserta,
 - detail sesi (status sesi, presensi, izin),
 - rekap kehadiran.
 
-Listener dibersihkan saat layar blur/unmount. Untuk praktikan, detail sesi
-mendengarkan dokumen presensi miliknya sendiri.
+Listener dibersihkan saat layar unmount/logout. Untuk praktikan, detail sesi
+mendengarkan dokumen presensi miliknya sendiri. Tab Rekap asisten dan Riwayat
+praktikan memuat ulang data saat layar kembali fokus.
 
 ## Tes
 

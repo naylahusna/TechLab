@@ -316,6 +316,13 @@ export function createPracticumRepository(db: Firestore) {
     return snapshot.docs.map(toPermission);
   }
 
+  function subscribeToMemberClasses(memberId: string, onChange: () => void) {
+    return onSnapshot(
+      query(classes, where('memberIds', 'array-contains', memberId)),
+      onChange,
+    );
+  }
+
   async function transitionSession(
     sessionId: string,
     next: 'open' | 'closed' | 'cancelled',
@@ -729,11 +736,55 @@ export function createPracticumRepository(db: Firestore) {
       return snapshot.docs.map(toPermission);
     },
 
+    subscribeToClass(classId: string, onChange: () => void) {
+      return onSnapshot(doc(classes, classId), onChange);
+    },
+
     subscribeToClassesForAssistant(assistantId: string, onChange: () => void) {
-      return onSnapshot(
-        query(classes, where('memberIds', 'array-contains', assistantId)),
-        onChange,
+      return subscribeToMemberClasses(assistantId, onChange);
+    },
+
+    subscribeToClassesForMember(memberId: string, onChange: () => void) {
+      return subscribeToMemberClasses(memberId, onChange);
+    },
+
+    subscribeToScheduleOverview(memberId: string, onChange: () => void) {
+      let stopClassQueries: (() => void)[] = [];
+      let activeClassKey: string | null = null;
+      const stopClasses = onSnapshot(
+        query(classes, where('memberIds', 'array-contains', memberId)),
+        (snapshot) => {
+          const classIds = snapshot.docs.map((item) => item.id).sort();
+          const key = classIds.join('|');
+          if (key !== activeClassKey) {
+            activeClassKey = key;
+            stopClassQueries.forEach((stop) => stop());
+            stopClassQueries = classIds.flatMap((classId) => [
+              onSnapshot(
+                query(
+                  schedules,
+                  where('classId', '==', classId),
+                  orderBy('startAt', 'asc'),
+                ),
+                onChange,
+              ),
+              onSnapshot(
+                query(
+                  sessions,
+                  where('classId', '==', classId),
+                  orderBy('startAt', 'asc'),
+                ),
+                onChange,
+              ),
+            ]);
+          }
+          onChange();
+        },
       );
+      return () => {
+        stopClasses();
+        stopClassQueries.forEach((stop) => stop());
+      };
     },
 
     subscribeToSchedules(classId: string, onChange: () => void) {

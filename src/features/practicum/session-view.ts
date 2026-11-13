@@ -5,9 +5,12 @@ import type {
   AssistantSessionItem,
   AttendanceSummary,
   ParticipantItem,
+  SessionWithSummary,
 } from '../assistant/types';
 import type {
+  AttendanceStatus,
   PraktikanIdentity,
+  RiwayatItem,
   SessionDetail,
   SessionListItem,
 } from '../practitioner/types';
@@ -131,6 +134,53 @@ export function toPractitionerSessionDetail(
   };
 }
 
+export function toPractitionerHistoryItems(
+  classes: readonly PracticumClass[],
+  schedules: readonly PracticumSchedule[],
+  sessions: readonly PracticumSession[],
+  attendanceBySession: Readonly<Record<string, readonly PracticumAttendance[]>>,
+  userId: string,
+): RiwayatItem[] {
+  const classById = new Map(classes.map((item) => [item.id, item]));
+  const scheduleById = new Map(schedules.map((item) => [item.id, item]));
+
+  return [...sessions]
+    .filter((session) => {
+      if (!session.studentIds.includes(userId)) return false;
+      const hasRecord = (attendanceBySession[session.id] ?? []).some(
+        (item) => item.userId === userId,
+      );
+      return hasRecord || session.status === 'closed' || session.status === 'cancelled';
+    })
+    .sort((left, right) => right.startAt.toMillis() - left.startAt.toMillis())
+    .flatMap((session) => {
+      const classItem = classById.get(session.classId);
+      if (!classItem) return [];
+      const record =
+        (attendanceBySession[session.id] ?? []).find((item) => item.userId === userId) ??
+        null;
+      const closed = session.status === 'closed' || session.status === 'cancelled';
+      const status: AttendanceStatus = record
+        ? 'hadir'
+        : closed
+          ? 'tidak-hadir'
+          : 'belum-presensi';
+      return [
+        {
+          id: `${session.id}:${userId}`,
+          sessionId: session.id,
+          practicalName: classItem.courseName,
+          meetingLabel: scheduleById.get(session.scheduleId)?.title ?? 'Sesi Praktikum',
+          dateLabel: timestampDateLabel(session.startAt),
+          startsAt: session.startAt.toDate().toISOString(),
+          status,
+          attendedAtLabel: record ? timestampTimeLabel(record.recordedAt) : null,
+          attendedAtDateLabel: record ? timestampDateLabel(record.recordedAt) : null,
+        },
+      ];
+    });
+}
+
 export function toPraktikanIdentity(profile: {
   uid: string;
   name: string;
@@ -172,6 +222,42 @@ export function toAttendanceSummary(
     present,
     notPresent: participants.length - present,
   };
+}
+
+export function toAssistantRecapItems(
+  classes: readonly PracticumClass[],
+  schedules: readonly PracticumSchedule[],
+  sessions: readonly PracticumSession[],
+  attendanceBySession: Readonly<Record<string, readonly PracticumAttendance[]>>,
+): SessionWithSummary[] {
+  const classById = new Map(classes.map((item) => [item.id, item]));
+  const scheduleById = new Map(schedules.map((item) => [item.id, item]));
+
+  return [...sessions]
+    .sort((left, right) => left.startAt.toMillis() - right.startAt.toMillis())
+    .flatMap((session) => {
+      const classItem = classById.get(session.classId);
+      if (!classItem) return [];
+      const participantIds = new Set(session.studentIds);
+      const present = (attendanceBySession[session.id] ?? []).filter((record) =>
+        participantIds.has(record.userId),
+      ).length;
+      const total = session.studentIds.length;
+      return [
+        {
+          session: toAssistantSessionItem(
+            session,
+            classItem,
+            scheduleById.get(session.scheduleId) ?? null,
+          ),
+          summary: {
+            total,
+            present,
+            notPresent: total - present,
+          },
+        },
+      ];
+    });
 }
 
 export const RECAP_STATUS_LABEL: Record<PracticumRecapStatus, string> = {
