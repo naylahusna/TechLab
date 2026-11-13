@@ -48,7 +48,7 @@ export function NavigationLandingScreen({ page }: { page: 'jadwal' | 'catatan' }
           onPress={() => router.navigate(page === 'jadwal' ? '/catatan' : '/jadwal')}
         />
         <ActionButton
-          title="Profil & ganti pengguna"
+          title="Profil akun"
           secondary
           onPress={() => router.navigate('/profil')}
         />

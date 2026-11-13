@@ -3,7 +3,8 @@ import { useFonts } from 'expo-font';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { RoleProvider } from '../core/role-context';
+import { AuthProvider } from '../features/auth/AuthProvider';
+import { AuthBoundary } from '../features/auth/AuthBoundary';
 import { appFonts } from '../theme/fonts';
 import { colors } from '../theme/tokens';
 
@@ -22,9 +23,11 @@ export default function RootLayout() {
   }
   return (
     <SafeAreaProvider>
-      <RoleProvider>
-        <Stack screenOptions={{ headerShown: false }} />
-      </RoleProvider>
+      <AuthProvider>
+        <AuthBoundary>
+          <Stack screenOptions={{ headerShown: false }} />
+        </AuthBoundary>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

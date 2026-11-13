@@ -1,18 +1,46 @@
-import { createContext, useContext, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useAuth, AuthProvider } from '../features/auth/AuthProvider';
+import type { ActionResult, DemoState } from './types';
 
-import { createDemoStore, type DemoStore } from './demo-store';
-import { selectCurrentUser } from './selectors';
-
-const DemoContext = createContext<DemoStore | null>(null);
-
-export function DemoProvider({ children }: { children: ReactNode }) {
-  const [store] = useState(() => createDemoStore());
-  return <DemoContext.Provider value={store}>{children}</DemoContext.Provider>;
-}
-
+/** Compatibility API for Sprint 1 screens. Never maps Firebase UIDs to seed users.
+ * Programmer 2 will replace empty practicum arrays/actions with Firestore repositories.
+ */
+export const DemoProvider = AuthProvider;
+const unavailable = (..._args: string[]): ActionResult => ({
+  ok: false,
+  code: 'INVALID_ACTION',
+  message: 'Data praktikum belum tersedia.',
+});
 export function useDemo() {
-  const store = useContext(DemoContext);
-  if (!store) throw new Error('useDemo must be used inside DemoProvider');
-  const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-  return { ...state, currentUser: selectCurrentUser(state), ...store.actions };
+  const { profile } = useAuth();
+  const currentUser = profile
+    ? {
+        id: profile.uid,
+        name: profile.name,
+        role: profile.role,
+        number: profile.number,
+        group: 'Belum ada penugasan kelas',
+        initials: profile.name
+          .split(/\s+/)
+          .slice(0, 2)
+          .map((part) => part[0])
+          .join('')
+          .toUpperCase(),
+      }
+    : null;
+  const state: DemoState = {
+    currentUserId: currentUser?.id ?? null,
+    currentRole: currentUser?.role ?? null,
+    users: currentUser ? [currentUser] : [],
+    sessions: [],
+    attendanceRecords: [],
+  };
+  return {
+    ...state,
+    currentUser,
+    selectUser: (..._args: unknown[]) => false,
+    openSession: unavailable,
+    closeSession: unavailable,
+    recordAttendance: unavailable,
+    resetDemo: unavailable,
+  };
 }
