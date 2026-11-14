@@ -10,9 +10,24 @@ AGENTS.local.md
 
 # Expo
 .expo/
+.firebase/
 dist/
 web-build/
 expo-env.d.ts
+
+# local artifacts and temporary files
+artifacts/
+.artifacts/
+tmp/
+.tmp/
+temp/
+.trash/
+trash/
+*.tmp
+*.temp
+*.bak
+*.patch
+*.rej
 
 # Native
 .kotlin/
@@ -31,6 +46,8 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+firebase-debug.log
+firestore-debug.log
 
 # generated reports and mobile build artifacts
 coverage/
