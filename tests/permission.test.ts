@@ -1,0 +1,112 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { createPermissionClassifier, parseClassification } from '../src/features/permission/ai';
+import {
+  filterPermissions,
+  permissionId,
+  validateDecision,
+  validateSubmission,
+  type Permission,
+} from '../src/features/permission/model';
+import { getAttendanceAction } from '../src/features/practitioner/lib/attendance-action';
+
+test('permission input validation, deterministic IDs, rejection reasons and immutable filters', () => {
+  assert.deepEqual(validateSubmission('  Saya sakit demam sejak pagi.  ', 'sakit'), {
+    reason: 'Saya sakit demam sejak pagi.',
+    kind: 'sakit',
+  });
+  for (const reason of ['', 'short', 'x'.repeat(2001)])
+    assert.throws(() => validateSubmission(reason, 'sakit'));
+  assert.throws(() => validateSubmission('Valid reason long enough', 'approved'));
+  assert.throws(() => permissionId('../invalid', 'user'));
+  assert.equal(permissionId('session-a', 'user-a'), 'session-a_user-a');
+  assert.throws(() => validateDecision('pending', 'test'));
+  assert.throws(() => validateDecision('rejected', '  '));
+  assert.deepEqual(validateDecision('approved', ''), { status: 'approved', decisionReason: null });
+  const items = Object.freeze([
+    Object.freeze({
+      studentName: 'Alya',
+      studentNumber: '123',
+      sessionTitle: 'PPK',
+      className: 'A',
+      status: 'pending',
+    }),
+    Object.freeze({
+      studentName: 'Bima',
+      studentNumber: '456',
+      sessionTitle: 'Basis Data',
+      className: 'B',
+      status: 'approved',
+    }),
+  ]) as unknown as readonly Permission[];
+  assert.deepEqual(filterPermissions(items, 'pending', 'ALYA'), [items[0]]);
+  assert.deepEqual(filterPermissions(items, 'all', '456'), [items[1]]);
+  assert.equal(items.length, 2);
+  assert.ok(getAttendanceAction('dibuka', 'izin').disabled);
+  assert.ok(getAttendanceAction('dibuka', 'izin-menunggu').disabled);
+});
+
+test('reserved AI adapter sends only reason, parses supported JSON and cannot produce a decision', async () => {
+  let sent = '';
+  const classify = createPermissionClassifier({
+    endpoint: 'https://teacher.example/classify',
+    fetcher: (async (_url, options) => {
+      sent = String(options?.body);
+      return new Response(JSON.stringify({ category: 'sakit', confidence: 0.9 }));
+    }) as typeof fetch,
+  });
+  const result = await classify('Demam dan perlu istirahat.', true);
+  assert.deepEqual(JSON.parse(sent), { text: 'Demam dan perlu istirahat.' });
+  assert.equal(result.aiStatus, 'completed');
+  assert.equal(result.aiCategory, 'sakit');
+  assert.ok(!('status' in result));
+  assert.deepEqual(
+    parseClassification([
+      [
+        { label: 'a', score: 0.1 },
+        { label: 'b', score: 0.9 },
+      ],
+    ]),
+    { aiCategory: 'b', aiConfidence: 0.9 },
+  );
+  assert.throws(() => parseClassification({ label: 'approved', score: 4 }));
+  assert.throws(() => parseClassification({ decision: 'approved' }));
+});
+
+test('AI disabled, no consent, invalid endpoints, HTTP errors, malformed JSON and timeout stay manual', async () => {
+  const disabled = createPermissionClassifier();
+  assert.equal((await disabled('Alasan', true)).aiStatus, 'unavailable');
+  let calls = 0;
+  const forbidden = createPermissionClassifier({
+    endpoint: 'https://teacher.example/classify',
+    fetcher: (async () => {
+      calls++;
+      throw new Error();
+    }) as typeof fetch,
+  });
+  assert.equal((await forbidden('Alasan', false)).aiStatus, 'unavailable');
+  assert.equal(calls, 0);
+  assert.equal(
+    (await createPermissionClassifier({ endpoint: 'http://public.example/unsafe' })('x', true))
+      .aiStatus,
+    'unavailable',
+  );
+  assert.equal((await forbidden('Alasan', true)).aiStatus, 'failed');
+  for (const response of [
+    new Response('bad', { status: 503 }),
+    new Response('not json'),
+    new Response('{"unexpected":true}'),
+  ]) {
+    const classify = createPermissionClassifier({
+      endpoint: 'https://teacher.example/classify',
+      fetcher: (async () => response) as typeof fetch,
+    });
+    assert.equal((await classify('Alasan', true)).aiStatus, 'failed');
+  }
+  const hanging = createPermissionClassifier({
+    endpoint: 'https://teacher.example/classify',
+    timeoutMs: 10,
+    fetcher: (() => new Promise(() => {})) as typeof fetch,
+  });
+  assert.equal((await hanging('Alasan', true)).aiStatus, 'failed');
+});

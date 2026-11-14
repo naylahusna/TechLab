@@ -217,6 +217,7 @@ rules + integrasi Auth/Firestore/repository secara berurutan.
 - `users` milik auth Nayla; field yang dipakai: `uid`, `name`, `number`, `role`.
 - `permissions` milik Arga; modul ini hanya membaca untuk rekap. Create,
   approve, reject, dan AI classification tetap milik SRS-13–17.
-- `userDirectory` perlu sinkronisasi untuk user baru di production (Cloud
-  Function/trigger); seed hanya untuk demo.
+- `userDirectory` disinkronkan bersama profil lewat transaksi pada modul auth.
+  Rules membatasi proyeksi direktori agar cocok dengan profil pemiliknya;
+  akun praktikan baru dapat dicari oleh asisten tanpa seed produksi.
 - Jangan membuat state praktikum paralel di `src/core`; gunakan repository ini.

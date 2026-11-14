@@ -1,7 +1,11 @@
 import type { AttendanceStatus, SessionStatus } from '../types';
 
 export type AttendanceActionKind =
-  'available' | 'already-attended' | 'not-open' | 'closed' | 'unavailable';
+  | 'available'
+  | 'already-attended'
+  | 'not-open'
+  | 'closed'
+  | 'unavailable';
 
 export type AttendanceAction = {
   kind: AttendanceActionKind;
@@ -20,6 +24,14 @@ export function getAttendanceAction(
   sessionStatus: SessionStatus,
   attendanceStatus: AttendanceStatus,
 ): AttendanceAction {
+  if (attendanceStatus === 'izin' || attendanceStatus === 'izin-menunggu')
+    return {
+      kind: 'unavailable',
+      label: attendanceStatus === 'izin' ? 'Izin Disetujui' : 'Izin Sedang Ditinjau',
+      disabled: true,
+      reason:
+        'Pantau pengajuanmu di tab Izin. Presensi tidak dapat dicatat selama pengajuan menunggu atau disetujui.',
+    };
   if (attendanceStatus === 'hadir') {
     return {
       kind: 'already-attended',

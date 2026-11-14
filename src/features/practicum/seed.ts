@@ -1,10 +1,5 @@
 import { doc, setDoc, Timestamp, type Firestore } from 'firebase/firestore';
-import {
-  attendanceId,
-  participantId,
-  PRACTICUM_COLLECTIONS,
-  sessionIdForSchedule,
-} from './ids';
+import { attendanceId, participantId, PRACTICUM_COLLECTIONS, sessionIdForSchedule } from './ids';
 
 export type SeedPracticumOptions = Readonly<{
   assistantId: string;
@@ -59,8 +54,7 @@ export async function seedPracticumData(
   const classBCreatedAt = at('2026-11-02T00:00:00+07:00');
 
   const classAStudentIds = [...options.studentIds];
-  const classBStudentIds =
-    options.studentIds.length > 1 ? options.studentIds.slice(0, 2) : [];
+  const classBStudentIds = options.studentIds.length > 1 ? options.studentIds.slice(0, 2) : [];
 
   const classes = [
     {
@@ -192,10 +186,7 @@ export async function seedPracticumData(
     ),
   );
 
-  const participantClassIds = [
-    CLASS_A,
-    ...(options.studentIds.length > 1 ? [CLASS_B] : []),
-  ];
+  const participantClassIds = [CLASS_A, ...(options.studentIds.length > 1 ? [CLASS_B] : [])];
   const participantWrites: Promise<void>[] = [];
   for (const classId of participantClassIds) {
     const ids = classId === CLASS_A ? options.studentIds : options.studentIds.slice(0, 2);
@@ -253,100 +244,83 @@ export async function seedPracticumData(
 
   const firstStudent = options.studentIds[0];
   await Promise.all([
-    setDoc(
-      doc(db, PRACTICUM_COLLECTIONS.attendances, attendanceId(SCHEDULE_A1, firstStudent)),
-      {
-        sessionId: SCHEDULE_A1,
-        classId: CLASS_A,
-        userId: firstStudent,
-        status: 'present',
-        recordedAt: at('2026-11-16T08:05:00+07:00'),
-      },
-    ),
-    setDoc(
-      doc(db, PRACTICUM_COLLECTIONS.attendances, attendanceId(SCHEDULE_A2, firstStudent)),
-      {
-        sessionId: SCHEDULE_A2,
-        classId: CLASS_A,
-        userId: firstStudent,
-        status: 'present',
-        recordedAt: at('2026-11-23T08:03:00+07:00'),
-      },
-    ),
+    setDoc(doc(db, PRACTICUM_COLLECTIONS.attendances, attendanceId(SCHEDULE_A1, firstStudent)), {
+      sessionId: SCHEDULE_A1,
+      classId: CLASS_A,
+      userId: firstStudent,
+      status: 'present',
+      recordedAt: at('2026-11-16T08:05:00+07:00'),
+    }),
+    setDoc(doc(db, PRACTICUM_COLLECTIONS.attendances, attendanceId(SCHEDULE_A2, firstStudent)), {
+      sessionId: SCHEDULE_A2,
+      classId: CLASS_A,
+      userId: firstStudent,
+      status: 'present',
+      recordedAt: at('2026-11-23T08:03:00+07:00'),
+    }),
   ]);
 
+  const permissionFields = (student: number, schedule: number) => ({
+    kind: 'lainnya',
+    studentName: options.studentNames?.[student] ?? studentNameFor(student),
+    studentNumber: options.studentNumbers?.[student] ?? studentNumberFor(student),
+    className: 'Informatika A',
+    sessionTitle: schedules[schedule].title,
+    sessionStartAt: schedules[schedule].startAt,
+    decisionReason: schedule === 1 ? 'Kegiatan tidak memenuhi ketentuan izin kelas.' : null,
+    aiConsent: false,
+    aiSource: null,
+    aiClassifiedAt: null,
+    aiError: 'Data contoh seed. Klasifikasi AI belum diaktifkan.',
+    aiCategory: null,
+    aiConfidence: null,
+    aiStatus: 'unavailable',
+  });
   const permissionWrites: Promise<void>[] = [];
   const secondStudent = options.studentIds[1];
   const thirdStudent = options.studentIds[2];
   if (secondStudent) {
     permissionWrites.push(
-      setDoc(
-        doc(
-          db,
-          PRACTICUM_COLLECTIONS.permissions,
-          `permission-${SCHEDULE_A1}-${secondStudent}`,
-        ),
-        {
-          sessionId: SCHEDULE_A1,
-          classId: CLASS_A,
-          userId: secondStudent,
-          reason: 'Sakit demam sejak pagi.',
-          aiCategory: 'sakit',
-          aiConfidence: 0.92,
-          aiStatus: 'completed',
-          status: 'approved',
-          decidedBy: options.assistantId,
-          decidedAt: at('2026-11-15T19:00:00+07:00'),
-          createdAt: at('2026-11-15T18:30:00+07:00'),
-          updatedAt: at('2026-11-15T19:00:00+07:00'),
-        },
-      ),
-      setDoc(
-        doc(
-          db,
-          PRACTICUM_COLLECTIONS.permissions,
-          `permission-${SCHEDULE_A2}-${secondStudent}`,
-        ),
-        {
-          sessionId: SCHEDULE_A2,
-          classId: CLASS_A,
-          userId: secondStudent,
-          reason: 'Mengikuti kegiatan organisasi kampus.',
-          aiCategory: 'kegiatan kampus',
-          aiConfidence: 0.74,
-          aiStatus: 'completed',
-          status: 'rejected',
-          decidedBy: options.assistantId,
-          decidedAt: at('2026-11-22T19:00:00+07:00'),
-          createdAt: at('2026-11-22T18:30:00+07:00'),
-          updatedAt: at('2026-11-22T19:00:00+07:00'),
-        },
-      ),
+      setDoc(doc(db, PRACTICUM_COLLECTIONS.permissions, `${SCHEDULE_A1}_${secondStudent}`), {
+        sessionId: SCHEDULE_A1,
+        classId: CLASS_A,
+        userId: secondStudent,
+        reason: 'Sakit demam sejak pagi.',
+        ...permissionFields(1, 0),
+        status: 'approved',
+        decidedBy: options.assistantId,
+        decidedAt: at('2026-11-15T19:00:00+07:00'),
+        createdAt: at('2026-11-15T18:30:00+07:00'),
+        updatedAt: at('2026-11-15T19:00:00+07:00'),
+      }),
+      setDoc(doc(db, PRACTICUM_COLLECTIONS.permissions, `${SCHEDULE_A2}_${secondStudent}`), {
+        sessionId: SCHEDULE_A2,
+        classId: CLASS_A,
+        userId: secondStudent,
+        reason: 'Mengikuti kegiatan organisasi kampus.',
+        ...permissionFields(1, 1),
+        status: 'rejected',
+        decidedBy: options.assistantId,
+        decidedAt: at('2026-11-22T19:00:00+07:00'),
+        createdAt: at('2026-11-22T18:30:00+07:00'),
+        updatedAt: at('2026-11-22T19:00:00+07:00'),
+      }),
     );
   }
   if (thirdStudent) {
     permissionWrites.push(
-      setDoc(
-        doc(
-          db,
-          PRACTICUM_COLLECTIONS.permissions,
-          `permission-${SCHEDULE_A1}-${thirdStudent}`,
-        ),
-        {
-          sessionId: SCHEDULE_A1,
-          classId: CLASS_A,
-          userId: thirdStudent,
-          reason: 'Ada urusan keluarga di luar kota.',
-          aiCategory: 'keluarga',
-          aiConfidence: 0.81,
-          aiStatus: 'completed',
-          status: 'pending',
-          decidedBy: null,
-          decidedAt: null,
-          createdAt: at('2026-11-15T20:00:00+07:00'),
-          updatedAt: at('2026-11-15T20:00:00+07:00'),
-        },
-      ),
+      setDoc(doc(db, PRACTICUM_COLLECTIONS.permissions, `${SCHEDULE_A1}_${thirdStudent}`), {
+        sessionId: SCHEDULE_A1,
+        classId: CLASS_A,
+        userId: thirdStudent,
+        reason: 'Ada urusan keluarga di luar kota.',
+        ...permissionFields(2, 0),
+        status: 'pending',
+        decidedBy: null,
+        decidedAt: null,
+        createdAt: at('2026-11-15T20:00:00+07:00'),
+        updatedAt: at('2026-11-15T20:00:00+07:00'),
+      }),
     );
   }
   await Promise.all(permissionWrites);

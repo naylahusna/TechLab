@@ -51,6 +51,10 @@ function getAttendanceMomentLabel(attendance: AttendanceInfo): string | null {
 }
 
 function getAttendanceHint(attendance: AttendanceInfo): string {
+  if (attendance.status === 'izin')
+    return 'Asisten menyetujui izinmu. Lihat keputusan lengkap pada tab Izin.';
+  if (attendance.status === 'izin-menunggu')
+    return 'Pengajuan izinmu masih menunggu keputusan asisten.';
   if (attendance.status === 'hadir') {
     const moment = getAttendanceMomentLabel(attendance);
     return moment ? `Tercatat hadir ${moment}.` : 'Kehadiranmu berhasil dicatat.';

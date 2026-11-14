@@ -2,8 +2,7 @@ rules_version = '2';
 // Data model Sprint 2.
 // users/{uid}: uid, name, number, role ('praktikan' | 'asisten'), createdAt, updatedAt.
 // SRS-06..12 collections are covered below.
-// SRS-13..17 writes/approval remain owned by Arga; only read-only permission
-// summary is exposed for the SRS-11 recap.
+// SRS-13..17 permissions are shared by practitioner monitoring and assistant recap.
 service cloud.firestore {
   match /databases/{database}/documents {
     function isAuthenticated() { return request.auth != null; }
@@ -228,7 +227,7 @@ service cloud.firestore {
         && (attendanceId.matches('.*_' + request.auth.uid)
           || (exists(/databases/$(database)/documents/sessions/$(attendanceId.split('_')[0]))
             && isAssignedAssistant(get(/databases/$(database)/documents/sessions/$(attendanceId.split('_')[0])).data.classId)));
-      allow list: if isAssistant() && isAssignedAssistant(resource.data.classId);
+      allow list: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAssignedAssistant(resource.data.classId));
       allow create: if isPractitioner()
         && isValidAttendance(request.resource.data)
         && request.resource.data.userId == request.auth.uid
@@ -239,6 +238,8 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/participants/$(request.resource.data.classId + '_' + request.auth.uid))
         && get(/databases/$(database)/documents/participants/$(request.resource.data.classId + '_' + request.auth.uid)).data.leftAt == null
         && !exists(/databases/$(database)/documents/attendances/$(attendanceId))
+        && (!exists(/databases/$(database)/documents/permissions/$(attendanceId))
+          || get(/databases/$(database)/documents/permissions/$(attendanceId)).data.status == 'rejected')
         && request.resource.data.recordedAt == request.time;
       allow update, delete: if false;
     }
@@ -246,15 +247,92 @@ service cloud.firestore {
     match /userDirectory/{uid} {
       allow get: if isAuthenticated() && (uid == request.auth.uid || isAssistant());
       allow list: if isAssistant() && resource.data.role == 'praktikan';
-      allow create, update, delete: if false;
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasAll(['uid', 'name', 'number', 'role', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'number', 'role', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.name == getAfter(/databases/$(database)/documents/users/$(uid)).data.name
+        && request.resource.data.number == getAfter(/databases/$(database)/documents/users/$(uid)).data.number
+        && request.resource.data.role == getAfter(/databases/$(database)/documents/users/$(uid)).data.role
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
     }
 
     match /permissions/{permissionId} {
       allow get: if isAuthenticated()
-        && (resource.data.userId == request.auth.uid
-          || isAssignedAssistant(resource.data.classId));
-      allow list: if isAssistant() && isAssignedAssistant(resource.data.classId);
-      allow create, update, delete: if false;
+        && ((resource != null && (resource.data.userId == request.auth.uid
+          || isAssignedAssistant(resource.data.classId)))
+          || (resource == null && permissionId.matches('.*_' + request.auth.uid)));
+      allow list: if isAuthenticated()
+        && (resource.data.userId == request.auth.uid || isAssignedAssistant(resource.data.classId));
+      allow create: if isPractitioner() && validPermission(request.resource.data)
+        && request.resource.data.userId == request.auth.uid
+        && permissionId == request.resource.data.sessionId + '_' + request.auth.uid
+        && eligiblePermission(request.resource.data)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.decidedBy == null && request.resource.data.decidedAt == null
+        && request.resource.data.decisionReason == null
+        && request.resource.data.aiStatus == 'unavailable'
+        && request.resource.data.aiCategory == null && request.resource.data.aiConfidence == null
+        && request.resource.data.aiSource == null && request.resource.data.aiClassifiedAt == null
+        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow update: if validPermission(request.resource.data)
+        && resource.data.status == 'pending'
+        && request.resource.data.updatedAt == request.time
+        && (permissionDecision() || permissionClassification());
+      allow delete: if false;
+    }
+
+    function validPermission(d) {
+      return d.keys().hasAll(['sessionId', 'classId', 'userId', 'kind', 'reason', 'studentName', 'studentNumber', 'sessionTitle', 'className', 'sessionStartAt', 'status', 'decidedBy', 'decidedAt', 'decisionReason', 'aiConsent', 'aiStatus', 'aiCategory', 'aiConfidence', 'aiSource', 'aiClassifiedAt', 'aiError', 'createdAt', 'updatedAt'])
+        && d.keys().hasOnly(['sessionId', 'classId', 'userId', 'kind', 'reason', 'studentName', 'studentNumber', 'sessionTitle', 'className', 'sessionStartAt', 'status', 'decidedBy', 'decidedAt', 'decisionReason', 'aiConsent', 'aiStatus', 'aiCategory', 'aiConfidence', 'aiSource', 'aiClassifiedAt', 'aiError', 'createdAt', 'updatedAt'])
+        && d.sessionId is string && d.sessionId.size() > 0 && d.sessionId.size() <= 128
+        && d.classId is string && d.classId.size() > 0 && d.classId.size() <= 128
+        && d.userId is string && d.userId.size() > 0 && d.userId.size() <= 128
+        && d.kind in ['sakit', 'keluarga', 'kegiatan-kampus', 'lainnya']
+        && d.reason is string && d.reason.size() >= 10 && d.reason.size() <= 2000 && d.reason == d.reason.trim()
+        && d.studentName is string && d.studentName.size() >= 2 && d.studentName.size() <= 100
+        && d.studentNumber is string && d.studentNumber.size() > 0 && d.studentNumber.size() <= 32
+        && d.sessionTitle is string && d.sessionTitle.size() > 0 && d.sessionTitle.size() <= 120
+        && d.className is string && d.className.size() > 0 && d.className.size() <= 100
+        && d.sessionStartAt is timestamp
+        && d.status in ['pending', 'approved', 'rejected']
+        && (d.decidedBy == null || (d.decidedBy is string && d.decidedBy.size() > 0 && d.decidedBy.size() <= 128))
+        && (d.decidedAt == null || d.decidedAt is timestamp)
+        && (d.decisionReason == null || (d.decisionReason is string && d.decisionReason.size() <= 1000 && d.decisionReason == d.decisionReason.trim()))
+        && (d.status != 'rejected' || (d.decisionReason is string && d.decisionReason.size() >= 5))
+        && d.aiConsent is bool && d.aiStatus in ['unavailable', 'failed', 'completed', 'processing']
+        && (d.aiCategory == null || (d.aiCategory is string && d.aiCategory.size() > 0 && d.aiCategory.size() <= 100))
+        && (d.aiConfidence == null || (d.aiConfidence is number && d.aiConfidence >= 0 && d.aiConfidence <= 1))
+        && (d.aiSource == null || (d.aiSource is string && d.aiSource.size() <= 500))
+        && (d.aiClassifiedAt == null || d.aiClassifiedAt is timestamp)
+        && (d.aiError == null || (d.aiError is string && d.aiError.size() <= 300))
+        && (d.aiStatus != 'completed' || (d.aiCategory is string && d.aiConsent && d.aiSource is string && d.aiClassifiedAt is timestamp))
+        && d.createdAt is timestamp && d.updatedAt is timestamp;
+    }
+    function eligiblePermission(d) {
+      let s = get(/databases/$(database)/documents/sessions/$(d.sessionId)).data;
+      let c = get(/databases/$(database)/documents/classes/$(d.classId)).data;
+      let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return s.classId == d.classId && s.status in ['scheduled', 'open']
+        && request.auth.uid in s.studentIds && request.auth.uid in c.studentIds && c.archivedAt == null
+        && get(/databases/$(database)/documents/participants/$(d.classId + '_' + request.auth.uid)).data.leftAt == null
+        && !exists(/databases/$(database)/documents/attendances/$(d.sessionId + '_' + request.auth.uid))
+        && d.studentName == p.name && d.studentNumber == p.number
+        && d.className == c.className && d.sessionStartAt == s.startAt
+        && d.sessionTitle == get(/databases/$(database)/documents/schedules/$(s.scheduleId)).data.title;
+    }
+    function permissionDecision() {
+      return isAssignedAssistant(resource.data.classId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decidedBy', 'decidedAt', 'decisionReason', 'updatedAt'])
+        && request.resource.data.status in ['approved', 'rejected']
+        && request.resource.data.decidedBy == request.auth.uid
+        && request.resource.data.decidedAt == request.time;
+    }
+    function permissionClassification() {
+      return isPractitioner() && resource.data.userId == request.auth.uid && resource.data.aiConsent
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['aiStatus', 'aiCategory', 'aiConfidence', 'aiSource', 'aiClassifiedAt', 'aiError', 'updatedAt'])
+        && request.resource.data.aiClassifiedAt == request.time;
     }
 
     match /{document=**} { allow read, write: if false; }

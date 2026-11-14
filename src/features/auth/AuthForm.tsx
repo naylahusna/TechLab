@@ -1,14 +1,7 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
+import { SelectionLayout } from '../../components/SelectionLayout';
 import { Text } from '../../components/Text';
 import { ActionButton } from '../../components/ActionButton';
 import { colors } from '../../theme/tokens';
@@ -80,113 +73,120 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'complete' }) 
     }
   }
   return (
-    <SafeAreaView style={styles.screen}>
+    <SelectionLayout
+      title={
+        complete
+          ? 'Satu langkah lagi.'
+          : register
+            ? 'Mulai perjalananmu.'
+            : 'Selamat datang kembali.'
+      }
+      subtitle={
+        complete
+          ? 'Lengkapi profil agar kegiatan praktikum terhubung dengan akunmu.'
+          : register
+            ? 'Buat akun praktikan dan ikuti kegiatan kelasmu.'
+            : 'Masuk untuk melanjutkan kegiatan praktikum kamu.'
+      }
+      eyebrow={complete ? 'PROFIL AKUN' : register ? 'BUAT AKUN TECHLAB' : 'MASUK KE TECHLAB'}
+      storyTitle={'Praktikum rapi.\nSemua terhubung.'}
+      storyDescription="Jadwal, presensi, dan pengajuan izin dalam satu ruang. Terhubung untuk praktikan dan asisten."
+      footer="Akun dilindungi Firebase Authentication. Peran ditetapkan oleh pengelola."
+    >
       <KeyboardAvoidingView
         style={styles.screen}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>
-          <View style={styles.card}>
-            <Text style={styles.brand}>TechLab.</Text>
-            <Text accessibilityRole="header" style={styles.title}>
-              {complete
-                ? 'Lengkapi profil'
-                : register
-                  ? 'Buat akun praktikan'
-                  : 'Selamat datang kembali'}
-            </Text>
-            <Text style={styles.copy}>
-              {complete
-                ? `Akun ${auth.account?.email ?? ''} sudah tersedia. Lengkapi profil untuk melanjutkan.`
-                : 'Kelola kegiatan praktikum dengan akun TechLab kamu.'}
-            </Text>
-            {(register || complete) && (
-              <>
+        <View style={styles.card}>
+          <Text style={styles.copy}>
+            {complete
+              ? `Akun ${auth.account?.email ?? ''} sudah tersedia. Lengkapi profil untuk melanjutkan.`
+              : 'Kelola kegiatan praktikum dengan akun TechLab kamu.'}
+          </Text>
+          {(register || complete) && (
+            <>
+              <FormField
+                label="Nama lengkap"
+                value={name}
+                onChangeText={setName}
+                editable={!busy}
+              />
+              <FormField
+                label="NIM / ID"
+                value={number}
+                onChangeText={setNumber}
+                editable={!busy}
+                maxLength={32}
+              />
+              <Text style={styles.copy}>
+                Akun baru terdaftar sebagai praktikan. Akses asisten ditetapkan oleh pengelola.
+              </Text>
+            </>
+          )}
+          {!complete && (
+            <>
+              <FormField
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                email
+                editable={!busy}
+                maxLength={254}
+              />
+              <FormField
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                password
+                editable={!busy}
+                maxLength={4096}
+              />
+              {register && (
                 <FormField
-                  label="Nama lengkap"
-                  value={name}
-                  onChangeText={setName}
-                  editable={!busy}
-                />
-                <FormField
-                  label="NIM / ID"
-                  value={number}
-                  onChangeText={setNumber}
-                  editable={!busy}
-                  maxLength={32}
-                />
-                <Text style={styles.copy}>
-                  Akun baru terdaftar sebagai praktikan. Akses asisten ditetapkan oleh pengelola.
-                </Text>
-              </>
-            )}
-            {!complete && (
-              <>
-                <FormField
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  email
-                  editable={!busy}
-                  maxLength={254}
-                />
-                <FormField
-                  label="Password"
-                  value={password}
-                  onChangeText={setPassword}
+                  label="Konfirmasi password"
+                  value={confirmation}
+                  onChangeText={setConfirmation}
                   password
                   editable={!busy}
                   maxLength={4096}
                 />
-                {register && (
-                  <FormField
-                    label="Konfirmasi password"
-                    value={confirmation}
-                    onChangeText={setConfirmation}
-                    password
-                    editable={!busy}
-                    maxLength={4096}
-                  />
-                )}
-              </>
-            )}
-            {!!error && (
-              <Text accessibilityRole="alert" style={styles.error}>
-                {error}
-              </Text>
-            )}
+              )}
+            </>
+          )}
+          {!!error && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {error}
+            </Text>
+          )}
+          <ActionButton
+            title={busy ? 'Memproses…' : complete ? 'Simpan profil' : register ? 'Daftar' : 'Masuk'}
+            disabled={busy}
+            onPress={() => {
+              void submit();
+            }}
+          />
+          {!complete && (
             <ActionButton
-              title={
-                busy ? 'Memproses…' : complete ? 'Simpan profil' : register ? 'Daftar' : 'Masuk'
-              }
+              secondary
               disabled={busy}
+              title={register ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar'}
+              onPress={() => router.replace(register ? '/' : '/register')}
+            />
+          )}
+          {complete && (
+            <ActionButton
+              secondary
+              disabled={busy}
+              title="Keluar"
               onPress={() => {
-                void submit();
+                setError('');
+                void auth.logout().catch((cause) => setError(authErrorMessage(cause)));
               }}
             />
-            {!complete && (
-              <ActionButton
-                secondary
-                disabled={busy}
-                title={register ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar'}
-                onPress={() => router.replace(register ? '/' : '/register')}
-              />
-            )}
-            {complete && (
-              <ActionButton
-                secondary
-                disabled={busy}
-                title="Keluar"
-                onPress={() => {
-                  setError('');
-                  void auth.logout().catch((cause) => setError(authErrorMessage(cause)));
-                }}
-              />
-            )}
-          </View>
-        </ScrollView>
+          )}
+        </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </SelectionLayout>
   );
 }
 
@@ -195,14 +195,9 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
   card: {
     width: '100%',
-    maxWidth: 480,
     alignSelf: 'center',
     gap: 18,
     backgroundColor: colors.white,
-    padding: 24,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: colors.line,
   },
   brand: { color: colors.blue, fontSize: 28, fontWeight: '800' },
   title: { color: colors.navy, fontSize: 23, fontWeight: '800' },
@@ -218,6 +213,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.navy,
     backgroundColor: colors.background,
+    fontFamily: 'Nunito',
   },
   error: { color: colors.danger, lineHeight: 21 },
 });

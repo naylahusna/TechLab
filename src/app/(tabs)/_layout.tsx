@@ -15,6 +15,7 @@ export default function TabsLayout() {
   const navigation = navigationFor(currentUser.role);
   return (
     <Tabs
+      backBehavior="initialRoute"
       key={`${currentUser.role}-${currentUser.id}`}
       screenOptions={{
         headerShown: false,
@@ -53,6 +54,16 @@ export default function TabsLayout() {
         options={{
           title: navigation.catatan.label,
           tabBarButtonTestID: 'tab-catatan',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon kind="catatan" color={color} selected={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="izin"
+        options={{
+          title: currentUser.role === 'asisten' ? 'Tinjau Izin' : 'Izin Saya',
+          tabBarButtonTestID: 'tab-izin',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon kind="catatan" color={color} selected={focused} />
           ),

@@ -24,6 +24,9 @@ import {
 } from '../../../features/practicum/session-view';
 import { SessionDetailScreen } from '../../../features/practitioner';
 import { colors } from '../../../theme/tokens';
+import { ActionButton } from '../../../components/ActionButton';
+import { usePermissions } from '../../../features/permission/hooks';
+import { PermissionBadge, ui } from '../../../features/permission/ui';
 
 export default function SesiRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -31,6 +34,7 @@ export default function SesiRoute() {
   const router = useRouter();
   const sessionId = typeof id === 'string' ? id : undefined;
   const detail = useSessionDetail(sessionId);
+  const permissionResource = usePermissions();
 
   if (!auth.profile) return <Redirect href="/" />;
   if (!sessionId) return <Redirect href="/jadwal" />;
@@ -53,10 +57,7 @@ export default function SesiRoute() {
     return (
       <View style={styles.screen}>
         <PracticumHeader title="Detail Sesi" onBack={goBack} />
-        <ErrorState
-          message={detail.error ?? 'Terjadi kesalahan.'}
-          onRetry={detail.reload}
-        />
+        <ErrorState message={detail.error ?? 'Terjadi kesalahan.'} onRetry={detail.reload} />
       </View>
     );
   }
@@ -86,6 +87,7 @@ export default function SesiRoute() {
       detail.participants,
       detail.attendance,
       session.status,
+      detail.permissions,
     );
     const summary = toAttendanceSummary(detail.participants, detail.attendance);
 
@@ -137,6 +139,14 @@ export default function SesiRoute() {
     userId,
   );
   const praktikan = toPraktikanIdentity(auth.profile);
+  const myPermission = permissionResource.data.find(
+    (p) => p.sessionId === session.id && p.userId === userId,
+  );
+  if (myPermission && practitionerSession.myAttendance.status !== 'hadir') {
+    if (myPermission.status === 'approved') practitionerSession.myAttendance.status = 'izin';
+    if (myPermission.status === 'pending')
+      practitionerSession.myAttendance.status = 'izin-menunggu';
+  }
 
   async function confirmAttendance() {
     try {
@@ -155,6 +165,41 @@ export default function SesiRoute() {
         fromCache={detail.fromCache}
         onRetry={detail.retrySync}
       />
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          gap: 8,
+          width: '100%',
+          maxWidth: 900,
+          alignSelf: 'center',
+        }}
+      >
+        {myPermission ? (
+          <View style={ui.row}>
+            <PermissionBadge status={myPermission.status} />
+            <ActionButton
+              title="Lihat izin"
+              secondary
+              onPress={() => router.push(`/izin/${myPermission.id}`)}
+            />
+          </View>
+        ) : (
+          <ActionButton
+            title="Berhalangan hadir? Ajukan izin"
+            secondary
+            disabled={
+              session.status === 'closed' ||
+              session.status === 'cancelled' ||
+              !!detail.attendance.length ||
+              permissionResource.status !== 'ready'
+            }
+            onPress={() =>
+              router.push({ pathname: '/izin/new', params: { sessionId: session.id } })
+            }
+          />
+        )}
+      </View>
       <SessionDetailScreen
         session={practitionerSession}
         praktikan={praktikan}
