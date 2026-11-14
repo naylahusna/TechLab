@@ -23,7 +23,7 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, [waiting, waitKey]);
   if (!auth.provisioning && auth.status === 'missing-profile') return <AuthForm mode="complete" />;
-  if (waiting || auth.status === 'error')
+  if (waiting || auth.status === 'error' || auth.actionError)
     return (
       <View style={styles.page}>
         {waiting && (
@@ -31,11 +31,12 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
         )}
         <Text style={styles.message}>
           {auth.error ||
+            auth.actionError ||
             (slow
               ? 'Belum mendapat respons. Periksa koneksi internet kamu.'
               : 'Menyiapkan akun TechLab…')}
         </Text>
-        {(slow || auth.status === 'error') && (
+        {(slow || auth.status === 'error' || !!auth.actionError) && (
           <>
             <ActionButton title="Coba lagi" onPress={auth.retry} />
             {auth.account && (

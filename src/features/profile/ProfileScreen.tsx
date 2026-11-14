@@ -9,6 +9,9 @@ import { useAuth } from '../auth/AuthProvider';
 import { FormField } from '../auth/AuthForm';
 import { authErrorMessage } from '../auth/model';
 import { colors } from '../../theme/tokens';
+import type { Role } from '../../core/roles';
+
+const roleLabel = (role: Role) => (role === 'asisten' ? 'Asprak' : 'Praktikan');
 
 export function ProfileScreen() {
   const auth = useAuth();
@@ -19,6 +22,7 @@ export function ProfileScreen() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [pendingRole, setPendingRole] = useState<Role | null>(null);
   if (!auth.profile) return <Redirect href="/" />;
   async function save() {
     if (busy) return;
@@ -51,8 +55,32 @@ export function ProfileScreen() {
   return (
     <AppPage title="Profil pengguna" subtitle="Kelola identitas akun TechLab kamu.">
       <View style={styles.card}>
-        <Text style={styles.role}>{auth.profile.role === 'asisten' ? 'Asisten' : 'Praktikan'}</Text>
+        <Text style={styles.role}>Mode {roleLabel(auth.profile.role)}</Text>
         <Text style={styles.copy}>{auth.account?.email}</Text>
+        <Text style={styles.copy}>
+          Akses akun: {auth.profile.roles.map(roleLabel).join(' dan ')}.
+        </Text>
+        {auth.profile.roles.length > 1 &&
+          auth.profile.roles.map((role) => (
+            <ActionButton
+              key={role}
+              title={
+                role === auth.profile?.role
+                  ? `${roleLabel(role)} aktif`
+                  : `Gunakan mode ${roleLabel(role)}`
+              }
+              disabled={busy || !!draft || role === auth.profile?.role}
+              secondary
+              testID={`switch-role-${role}`}
+              onPress={() => {
+                setError('');
+                setPendingRole(role);
+              }}
+            />
+          ))}
+        {!!draft && auth.profile.roles.length > 1 && (
+          <Text style={styles.copy}>Simpan perubahan profil sebelum berganti mode.</Text>
+        )}
         <FormField
           label="Nama lengkap"
           value={name}
@@ -104,6 +132,24 @@ export function ProfileScreen() {
           onPress={() => setConfirmLogout(true)}
         />
       </View>
+      <ConfirmationModal
+        visible={pendingRole !== null}
+        title={`Gunakan mode ${roleLabel(pendingRole ?? 'praktikan')}?`}
+        description="Akun dan riwayat kamu tetap sama. Menu akan mengikuti peran yang dipilih."
+        confirmLabel="Ganti mode"
+        confirmTestID="confirm-role-switch"
+        cancelTestID="cancel-role-switch"
+        onConfirm={() => {
+          try {
+            if (pendingRole) auth.selectRole(pendingRole);
+          } catch (cause) {
+            setError(authErrorMessage(cause));
+          } finally {
+            setPendingRole(null);
+          }
+        }}
+        onCancel={() => setPendingRole(null)}
+      />
       <ConfirmationModal
         visible={confirmLogout}
         title="Keluar dari TechLab?"

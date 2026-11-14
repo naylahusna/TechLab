@@ -1,7 +1,7 @@
 import { isRole, type Role } from '../../core/roles';
 
 export type ProfileFields = { name: string; number: string };
-export type UserProfile = ProfileFields & { uid: string; role: Role };
+export type UserProfile = ProfileFields & { uid: string; role: Role; roles: readonly Role[] };
 
 export function validateProfile(fields: ProfileFields) {
   const name = fields.name.trim();
@@ -31,7 +31,30 @@ export function parseProfile(uid: string, data: Record<string, unknown>): UserPr
   ) {
     throw new Error('Profil akun tidak valid. Hubungi pengelola TechLab.');
   }
-  return { uid, role: data.role, ...validateProfile({ name: data.name, number: data.number }) };
+  // Legacy accounts keep their existing permission until an operator migrates them.
+  const roles = data.roles === undefined ? [data.role] : data.roles;
+  if (
+    !Array.isArray(roles) ||
+    roles.length < 1 ||
+    roles.length > 2 ||
+    !roles.every(isRole) ||
+    new Set(roles).size !== roles.length ||
+    !roles.includes(data.role)
+  )
+    throw new Error('Peran akun tidak valid. Hubungi pengelola TechLab.');
+  return {
+    uid,
+    role: data.role,
+    roles: Object.freeze([...roles]),
+    ...validateProfile({ name: data.name, number: data.number }),
+  };
+}
+
+/** Selecting a view never changes the operator-assigned permissions in Firestore. */
+export function profileWithRole(profile: UserProfile, role: Role): UserProfile {
+  if (!isRole(role) || !profile.roles.includes(role))
+    throw new Error('Akses peran ini belum diberikan oleh pengelola.');
+  return { ...profile, role };
 }
 
 export function authErrorMessage(error: unknown): string {

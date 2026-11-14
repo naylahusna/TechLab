@@ -129,7 +129,9 @@ test('schedule overview allows empty membership queries but rejects unscoped and
     assert.equal(result.empty, true);
     await assertFails(getDocs(collection(db, 'classes')));
     await assertFails(
-      getDocs(query(collection(db, 'classes'), where('memberIds', 'array-contains', 'someone-else'))),
+      getDocs(
+        query(collection(db, 'classes'), where('memberIds', 'array-contains', 'someone-else')),
+      ),
     );
   }
 });
@@ -149,12 +151,20 @@ test('schedule overview queries work for both roles and deny unrelated schedules
     assert.equal(classes.size, 1);
     for (const name of ['schedules', 'sessions']) {
       const result = await assertSucceeds(
-        getDocs(query(collection(db, name), where('classId', '==', 'class-1'), orderBy('startAt', 'asc'))),
+        getDocs(
+          query(collection(db, name), where('classId', '==', 'class-1'), orderBy('startAt', 'asc')),
+        ),
       );
       assert.equal(result.size, 1);
       const outsider = env.authenticatedContext('praktikan-2').firestore();
       await assertFails(
-        getDocs(query(collection(outsider, name), where('classId', '==', 'class-1'), orderBy('startAt', 'asc'))),
+        getDocs(
+          query(
+            collection(outsider, name),
+            where('classId', '==', 'class-1'),
+            orderBy('startAt', 'asc'),
+          ),
+        ),
       );
     }
   }
@@ -371,3 +381,73 @@ test('attendance is one record per session and only for enrolled practitioners i
   assert.equal(saved.data().userId, 'praktikan-1');
 });
 
+test('asprak grant and revocation preserve the same UID and practitioner attendance', async () => {
+  const uid = 'mahasiswa-1';
+  await seedUser(uid);
+  await seedUser('asisten-1', 'asisten');
+  await seedClass('kelas-belajar', 'asisten-1', [uid]);
+  await seedParticipant('kelas-belajar', uid, '240101001');
+  await seedSchedule('sesi-belajar', 'kelas-belajar');
+  await seedSession('sesi-belajar', 'sesi-belajar', 'kelas-belajar', 'open', [uid]);
+  await seedClass('kelas-mengajar', uid);
+  await seedSchedule('sesi-mengajar', 'kelas-mengajar');
+  await seedSession('sesi-mengajar', 'sesi-mengajar', 'kelas-mengajar');
+  await seedClass('kelas-lain', 'asisten-1');
+  await seedSchedule('sesi-lain', 'kelas-lain');
+  const db = env.authenticatedContext(uid).firestore();
+  const historyRef = doc(db, 'attendances', `sesi-belajar_${uid}`);
+  await assertSucceeds(
+    setDoc(historyRef, {
+      sessionId: 'sesi-belajar',
+      classId: 'kelas-belajar',
+      userId: uid,
+      status: 'present',
+      recordedAt: serverTimestamp(),
+    }),
+  );
+  const original = (await getDoc(historyRef)).data();
+  const openSession = () =>
+    updateDoc(doc(db, 'sessions', 'sesi-mengajar'), {
+      status: 'open',
+      openedAt: serverTimestamp(),
+      openedBy: uid,
+      updatedAt: serverTimestamp(),
+    });
+  // Merely being listed on a class or supplying a client role does not grant asprak.
+  await assertFails(openSession());
+  await assertFails(
+    updateDoc(doc(db, 'users', uid), {
+      roles: ['praktikan', 'asisten'],
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await env.withSecurityRulesDisabled(async (context) => {
+    await updateDoc(doc(context.firestore(), 'users', uid), { roles: ['praktikan', 'asisten'] });
+  });
+  await assertSucceeds(openSession());
+  await assertFails(getDoc(doc(db, 'schedules', 'sesi-lain')));
+  assert.deepEqual((await getDoc(historyRef)).data(), original);
+  // Both permissions are usable on the same authenticated UID.
+  await seedSession('sesi-belajar-2', 'sesi-belajar', 'kelas-belajar', 'open', [uid]);
+  await assertSucceeds(
+    setDoc(doc(db, 'attendances', `sesi-belajar-2_${uid}`), {
+      sessionId: 'sesi-belajar-2',
+      classId: 'kelas-belajar',
+      userId: uid,
+      status: 'present',
+      recordedAt: serverTimestamp(),
+    }),
+  );
+  await env.withSecurityRulesDisabled(async (context) => {
+    await updateDoc(doc(context.firestore(), 'users', uid), { roles: ['praktikan'] });
+  });
+  await assertFails(
+    updateDoc(doc(db, 'sessions', 'sesi-mengajar'), {
+      status: 'closed',
+      closedAt: serverTimestamp(),
+      closedBy: uid,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  assert.deepEqual((await getDoc(historyRef)).data(), original);
+});

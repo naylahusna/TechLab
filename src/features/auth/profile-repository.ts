@@ -13,6 +13,7 @@ export function createProfileRepository(db: Firestore) {
           uid,
           ...clean,
           role: 'praktikan',
+          roles: ['praktikan'],
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });

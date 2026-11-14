@@ -27,13 +27,17 @@ const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
 const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY;
 const appId = process.env.EXPO_PUBLIC_FIREBASE_APP_ID;
 if (!apiKey || !appId || projectId !== 'techlab-naylahusna-2026') {
-  throw new Error('Isi .env atau .env.local dengan konfigurasi Firebase TechLab; .env.example tidak dimuat otomatis.');
+  throw new Error(
+    'Isi .env atau .env.local dengan konfigurasi Firebase TechLab; .env.example tidak dimuat otomatis.',
+  );
 }
 if (process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
   throw new Error('Pemeriksaan ini untuk cloud. Gunakan EXPO_PUBLIC_USE_FIREBASE_EMULATORS=false.');
 }
 if (!stdin.isTTY) {
-  throw new Error('Jalankan npm run firebase:check di terminal interaktif untuk memasukkan akun sendiri.');
+  throw new Error(
+    'Jalankan npm run firebase:check di terminal interaktif untuk memasukkan akun sendiri.',
+  );
 }
 
 async function readPassword() {
@@ -81,23 +85,49 @@ try {
   console.log('OK: login Firebase Authentication.');
   step = 'Membaca users/{uid}';
   const profile = await getDocFromServer(doc(db, 'users', user.uid));
-  if (!profile.exists()) throw new Error('Profil Firestore belum ada untuk akun ini. Lengkapi profil melalui aplikasi.');
+  if (!profile.exists())
+    throw new Error('Profil Firestore belum ada untuk akun ini. Lengkapi profil melalui aplikasi.');
   const role = profile.data().role;
   if (!['praktikan', 'asisten'].includes(role)) throw new Error('Peran pada profil tidak valid.');
-  console.log(`OK: profil ${role}.`);
+  const roles = profile.data().roles ?? [role];
+  if (
+    !Array.isArray(roles) ||
+    roles.length < 1 ||
+    roles.length > 2 ||
+    !roles.every((value) => ['praktikan', 'asisten'].includes(value)) ||
+    new Set(roles).size !== roles.length ||
+    !roles.includes(role)
+  ) {
+    throw new Error('Daftar izin pada profil tidak valid.');
+  }
+  console.log(`OK: izin profil ${roles.join(', ')}.`);
   step = 'Query classes dengan memberIds berisi UID akun aktif';
-  const classes = await getDocsFromServer(query(collection(db, 'classes'), where('memberIds', 'array-contains', user.uid)));
+  const classes = await getDocsFromServer(
+    query(collection(db, 'classes'), where('memberIds', 'array-contains', user.uid)),
+  );
   console.log(`OK: akses kelas; ${classes.size} kelas terkait.`);
-  if (classes.empty) console.log('Belum terdaftar di kelas. Ini kondisi kosong, bukan error permission-denied.');
+  if (classes.empty)
+    console.log('Belum terdaftar di kelas. Ini kondisi kosong, bukan error permission-denied.');
   for (const item of classes.docs) {
     const classData = item.data();
-    const members = role === 'asisten' ? classData.assistantIds : classData.studentIds;
-    if (!Array.isArray(members) || !members.includes(user.uid)) {
-      throw new Error(`Keanggotaan kelas ${item.id} tidak konsisten antara memberIds dan ${role === 'asisten' ? 'assistantIds' : 'studentIds'}.`);
+    const assigned =
+      roles.includes('asisten') &&
+      Array.isArray(classData.assistantIds) &&
+      classData.assistantIds.includes(user.uid);
+    const enrolled =
+      roles.includes('praktikan') &&
+      Array.isArray(classData.studentIds) &&
+      classData.studentIds.includes(user.uid);
+    if (!assigned && !enrolled) {
+      throw new Error(
+        `Keanggotaan kelas ${item.id} tidak sesuai dengan izin akun dan penugasan/peserta kelas.`,
+      );
     }
     for (const name of ['schedules', 'sessions']) {
       step = `Query ${name} untuk kelas ${item.id}`;
-      const snapshot = await getDocsFromServer(query(collection(db, name), where('classId', '==', item.id), orderBy('startAt', 'asc')));
+      const snapshot = await getDocsFromServer(
+        query(collection(db, name), where('classId', '==', item.id), orderBy('startAt', 'asc')),
+      );
       console.log(`OK: ${name} kelas ${item.id}; ${snapshot.size} dokumen.`);
     }
   }
@@ -106,12 +136,18 @@ try {
   console.error(`GAGAL pada: ${step}`);
   console.error(`Kode: ${error.code ?? 'invalid-data'}`);
   if (error.code === 'permission-denied') {
-    console.error('Periksa rules yang benar-benar terpasang di Firebase Console. File firestore.rules di GitHub tidak otomatis terdeploy.');
-    console.error('Pemilik proyek dapat menjalankan npm run firebase:login, lalu npm run firebase:deploy. Jangan membuka akses dengan allow read, write: if true.');
+    console.error(
+      'Periksa rules yang benar-benar terpasang di Firebase Console. File firestore.rules di GitHub tidak otomatis terdeploy.',
+    );
+    console.error(
+      'Pemilik proyek dapat menjalankan npm run firebase:login, lalu npm run firebase:deploy. Jangan membuka akses dengan allow read, write: if true.',
+    );
   } else if (error.code === 'failed-precondition') {
     console.error('Periksa/deploy firestore.indexes.json dan tunggu index selesai dibuat.');
   } else if (error.code?.startsWith('auth/')) {
-    console.error('Login gagal. Pastikan akun terdaftar di Firebase cloud, bukan hanya Auth Emulator, dan Email/Password aktif.');
+    console.error(
+      'Login gagal. Pastikan akun terdaftar di Firebase cloud, bukan hanya Auth Emulator, dan Email/Password aktif.',
+    );
   } else {
     console.error(error.message);
   }

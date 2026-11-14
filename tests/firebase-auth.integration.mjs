@@ -50,6 +50,7 @@ test('Authentication identity connects to profile create/recovery/edit and accou
     assert.equal((await getDoc(ref)).exists(), false);
     await repository.create(uid, { name: 'Praktikan Baru', number: '240001' });
     assert.equal((await getDoc(ref)).data().role, 'praktikan');
+    assert.deepEqual((await getDoc(ref)).data().roles, ['praktikan']);
     await assert.rejects(createUserWithEmailAndPassword(auth, email, password), {
       code: 'auth/email-already-in-use',
     });
@@ -64,11 +65,18 @@ test('Authentication identity connects to profile create/recovery/edit and accou
     assert.equal((await getDoc(ref)).data().name, 'Nama Diperbarui');
     // Operator-assigned roles survive profile-creation retries.
     await env.withSecurityRulesDisabled(async (context) => {
-      await updateDoc(doc(context.firestore(), 'users', uid), { role: 'asisten' });
+      await updateDoc(doc(context.firestore(), 'users', uid), { roles: ['praktikan', 'asisten'] });
     });
     await repository.create(uid, { name: 'Must Not Overwrite', number: '999' });
-    assert.equal((await getDoc(ref)).data().role, 'asisten');
+    assert.equal((await getDoc(ref)).data().role, 'praktikan');
+    assert.deepEqual((await getDoc(ref)).data().roles, ['praktikan', 'asisten']);
     assert.equal((await getDoc(ref)).data().name, 'Nama Diperbarui');
+    await repository.update(uid, { name: 'Praktikan dan Asprak', number: '240002' });
+    await signOut(auth);
+    await signInWithEmailAndPassword(auth, email, password);
+    assert.equal(auth.currentUser.uid, uid);
+    assert.deepEqual((await getDoc(ref)).data().roles, ['praktikan', 'asisten']);
+    await assert.rejects(updateDoc(ref, { roles: ['asisten'] }), { code: 'permission-denied' });
     await deleteUser(auth.currentUser);
     const second = await createUserWithEmailAndPassword(auth, `second-${email}`, password);
     await assert.rejects(getDoc(ref), { code: 'permission-denied' });

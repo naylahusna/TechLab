@@ -116,7 +116,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'complete' }) 
                   maxLength={32}
                 />
                 <Text style={styles.copy}>
-                  Akun baru terdaftar sebagai praktikan. Akses asisten ditetapkan oleh pengelola.
+                  Akun baru mendapat akses Praktikan. Petugas dapat menambahkan akses Asprak pada
+                  akun yang sama.
                 </Text>
               </>
             )}
@@ -150,9 +151,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'complete' }) 
                 )}
               </>
             )}
-            {!!error && (
+            {!!(error || auth.actionError) && (
               <Text accessibilityRole="alert" style={styles.error}>
-                {error}
+                {error || auth.actionError}
               </Text>
             )}
             <ActionButton

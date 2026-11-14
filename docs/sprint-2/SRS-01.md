@@ -23,6 +23,16 @@ Memungkinkan pengguna membuat akun dan menyimpan profil awal yang terhubung ke i
 3. Kegagalan Firebase ditampilkan sebagai kegagalan, bukan konfirmasi registrasi sukses.
 4. Setelah registrasi berhasil, pengguna diarahkan ke alur autentikasi yang ditetapkan.
 
-## Status
+## Alur akun mahasiswa
 
-Dokumen ini mencatat kebutuhan Sprint 2; status implementasi harus diverifikasi terpisah.
+Registrasi publik membuat satu akun dengan `role: praktikan` dan
+`roles: [praktikan]`. Penunjukan sebagai asprak dilakukan petugas terhadap
+UID yang sama; mahasiswa tidak mendaftar akun kedua atau memilih akses
+asprak sendiri. Lihat [kontrak akun dan pemberian akses](ACCOUNT-ROLES.md).
+
+## Status implementasi
+
+Implementasi lokal membuat akun praktikan dan mendukung penambahan izin asprak
+oleh petugas pada UID yang sama. Alur registrasi, pemulihan profil, dan login
+ulang telah diuji melalui Firebase Emulator. Penetapan akun cloud nyata belum
+dilakukan oleh perubahan ini.
