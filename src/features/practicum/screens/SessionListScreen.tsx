@@ -4,6 +4,7 @@ import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import { Text } from '../../../components/Text';
+import { useAuth } from '../../auth/AuthProvider';
 import { Badge } from '../../practitioner/components/Badge';
 import { getPracticumRepository } from '../client';
 import { InlineAction } from '../components/InlineAction';
@@ -48,6 +49,7 @@ const ACTION_TEXT = {
 
 export function SessionListScreen({ classId }: { classId: string }) {
   const router = useRouter();
+  const auth = useAuth();
   const classState = usePracticumClass(classId);
   const sessions = useSessions(classId);
   const schedules = useSchedules(classId);
@@ -67,14 +69,18 @@ export function SessionListScreen({ classId }: { classId: string }) {
   const error = classState.error ?? sessions.error;
 
   async function confirmAction() {
-    if (!pending || busyId) return;
+    if (!pending || busyId || !auth.profile) return;
+    const actorId = auth.profile.uid;
     setBusyId(pending.session.id);
     setActionError('');
     try {
       const repository = getPracticumRepository();
-      if (pending.action === 'open') await repository.openSession(pending.session.id);
-      if (pending.action === 'close') await repository.closeSession(pending.session.id);
-      if (pending.action === 'cancel') await repository.cancelSession(pending.session.id);
+      if (pending.action === 'open')
+        await repository.openSession(pending.session.id, actorId);
+      if (pending.action === 'close')
+        await repository.closeSession(pending.session.id, actorId);
+      if (pending.action === 'cancel')
+        await repository.cancelSession(pending.session.id, actorId);
       setPending(null);
       await sessions.reload();
     } catch (cause) {

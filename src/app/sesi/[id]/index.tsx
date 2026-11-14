@@ -91,7 +91,7 @@ export default function SesiRoute() {
 
     async function openSession() {
       try {
-        await getPracticumRepository().openSession(session.id);
+        await getPracticumRepository().openSession(session.id, userId);
         await detail.reload();
         return { ok: true, message: 'Sesi dibuka.' };
       } catch (cause) {
@@ -101,7 +101,7 @@ export default function SesiRoute() {
 
     async function closeSession() {
       try {
-        await getPracticumRepository().closeSession(session.id);
+        await getPracticumRepository().closeSession(session.id, userId);
         await detail.reload();
         return { ok: true, message: 'Sesi ditutup.' };
       } catch (cause) {

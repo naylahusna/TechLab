@@ -79,8 +79,8 @@ service cloud.firestore {
     }
 
     function isValidSession(data) {
-      return data.keys().hasAll(['scheduleId', 'classId', 'studentIds', 'startAt', 'endAt', 'status', 'openedAt', 'closedAt', 'cancelledAt', 'createdBy', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['scheduleId', 'classId', 'studentIds', 'startAt', 'endAt', 'status', 'openedAt', 'closedAt', 'cancelledAt', 'createdBy', 'createdAt', 'updatedAt'])
+      return data.keys().hasAll(['scheduleId', 'classId', 'studentIds', 'startAt', 'endAt', 'status', 'openedAt', 'closedAt', 'cancelledAt', 'openedBy', 'closedBy', 'cancelledBy', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['scheduleId', 'classId', 'studentIds', 'startAt', 'endAt', 'status', 'openedAt', 'closedAt', 'cancelledAt', 'openedBy', 'closedBy', 'cancelledBy', 'createdBy', 'createdAt', 'updatedAt'])
         && data.scheduleId is string && data.scheduleId.size() >= 1 && data.scheduleId.size() <= 64
         && data.classId is string && data.classId.size() >= 1 && data.classId.size() <= 64
         && data.studentIds is list && data.studentIds.size() <= 200
@@ -89,6 +89,9 @@ service cloud.firestore {
         && (data.openedAt == null || data.openedAt is timestamp)
         && (data.closedAt == null || data.closedAt is timestamp)
         && (data.cancelledAt == null || data.cancelledAt is timestamp)
+        && (data.openedBy == null || (data.openedBy is string && data.openedBy.size() >= 1 && data.openedBy.size() <= 128))
+        && (data.closedBy == null || (data.closedBy is string && data.closedBy.size() >= 1 && data.closedBy.size() <= 128))
+        && (data.cancelledBy == null || (data.cancelledBy is string && data.cancelledBy.size() >= 1 && data.cancelledBy.size() <= 128))
         && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128
         && data.createdAt is timestamp && data.updatedAt is timestamp;
     }
@@ -198,16 +201,25 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time
         && request.resource.data.openedAt == null
         && request.resource.data.closedAt == null
-        && request.resource.data.cancelledAt == null;
+        && request.resource.data.cancelledAt == null
+        && request.resource.data.openedBy == null
+        && request.resource.data.closedBy == null
+        && request.resource.data.cancelledBy == null;
       allow update: if isAssignedAssistant(resource.data.classId)
         && isValidSession(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'openedAt', 'closedAt', 'cancelledAt', 'updatedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'openedAt', 'closedAt', 'cancelledAt', 'openedBy', 'closedBy', 'cancelledBy', 'updatedAt'])
         && request.resource.data.updatedAt == request.time
         && ((resource.data.status == 'scheduled' && request.resource.data.status in ['open', 'cancelled'])
           || (resource.data.status == 'open' && request.resource.data.status in ['closed', 'cancelled']))
-        && (request.resource.data.status != 'open' || request.resource.data.openedAt == request.time)
-        && (request.resource.data.status != 'closed' || request.resource.data.closedAt == request.time)
-        && (request.resource.data.status != 'cancelled' || request.resource.data.cancelledAt == request.time);
+        && (request.resource.data.status != 'open' || (request.resource.data.openedAt == request.time && request.resource.data.openedBy == request.auth.uid))
+        && (request.resource.data.status != 'closed' || (request.resource.data.closedAt == request.time && request.resource.data.closedBy == request.auth.uid))
+        && (request.resource.data.status != 'cancelled' || (request.resource.data.cancelledAt == request.time && request.resource.data.cancelledBy == request.auth.uid))
+        && (request.resource.data.status == 'open' || request.resource.data.openedAt == resource.data.openedAt)
+        && (request.resource.data.status == 'closed' || request.resource.data.closedAt == resource.data.closedAt)
+        && (request.resource.data.status == 'cancelled' || request.resource.data.cancelledAt == resource.data.cancelledAt)
+        && (request.resource.data.status == 'open' || request.resource.data.openedBy == resource.data.openedBy)
+        && (request.resource.data.status == 'closed' || request.resource.data.closedBy == resource.data.closedBy)
+        && (request.resource.data.status == 'cancelled' || request.resource.data.cancelledBy == resource.data.cancelledBy);
       allow delete: if false;
     }
 

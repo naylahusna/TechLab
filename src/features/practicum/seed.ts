@@ -122,6 +122,9 @@ export async function seedPracticumData(
       openedAt: at('2026-11-16T07:55:00+07:00'),
       closedAt: at('2026-11-16T10:05:00+07:00'),
       cancelledAt: null,
+      openedBy: options.assistantId,
+      closedBy: options.assistantId,
+      cancelledBy: null,
     },
     {
       id: sessionIdForSchedule(SCHEDULE_A2),
@@ -134,6 +137,9 @@ export async function seedPracticumData(
       openedAt: at('2026-11-23T07:55:00+07:00'),
       closedAt: null,
       cancelledAt: null,
+      openedBy: options.assistantId,
+      closedBy: null,
+      cancelledBy: null,
     },
     {
       id: sessionIdForSchedule(SCHEDULE_B1),
@@ -146,6 +152,9 @@ export async function seedPracticumData(
       openedAt: null,
       closedAt: null,
       cancelledAt: null,
+      openedBy: null,
+      closedBy: null,
+      cancelledBy: null,
     },
   ];
 
@@ -232,6 +241,9 @@ export async function seedPracticumData(
         openedAt: item.openedAt,
         closedAt: item.closedAt,
         cancelledAt: item.cancelledAt,
+        openedBy: item.openedBy,
+        closedBy: item.closedBy,
+        cancelledBy: item.cancelledBy,
         createdBy: options.assistantId,
         createdAt: joinedAt,
         updatedAt: joinedAt,

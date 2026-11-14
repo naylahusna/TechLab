@@ -68,7 +68,9 @@ schedules/{scheduleId}
 
 sessions/{scheduleId}
   scheduleId, classId, studentIds, startAt, endAt, status,
-  openedAt, closedAt, cancelledAt, createdBy, createdAt, updatedAt
+  openedAt, closedAt, cancelledAt,
+  openedBy, closedBy, cancelledBy,
+  createdBy, createdAt, updatedAt
 
 attendances/{sessionId_userId}
   sessionId, classId, userId, status: "present", recordedAt
@@ -78,6 +80,9 @@ Keputusan Sprint 2:
 
 - **Satu jadwal = satu sesi**, sehingga `sessionId` sama dengan `scheduleId`.
   Security Rules menegakkan `sessionId == scheduleId`.
+- **Audit status sesi:** setiap transisi menyimpan waktu dan pelaku
+  (`openedBy`, `closedBy`, `cancelledBy`). Security Rules menolak pelaku yang
+  tidak sama dengan UID asisten yang sedang login.
 - `classes.memberIds` adalah gabungan `assistantIds` + `studentIds`. Field ini
   dipakai untuk query/list yang aman di Firestore Rules.
 - `sessions.studentIds` adalah snapshot peserta saat sesi dibuat, sehingga
@@ -121,7 +126,7 @@ const scheduleId = await repo.createSchedule({
   location: 'Lab Komputasi 1',
 });
 const sessionId = await repo.createSessionFromSchedule(scheduleId, currentUser.uid);
-await repo.openSession(sessionId);
+await repo.openSession(sessionId, currentUser.uid);
 await repo.recordAttendance(sessionId, studentUid);
 ```
 

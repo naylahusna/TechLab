@@ -103,6 +103,9 @@ async function seedSession(sessionId, scheduleId, classId, status = 'scheduled',
       openedAt: status === 'scheduled' ? null : Timestamp.now(),
       closedAt: status === 'closed' ? Timestamp.now() : null,
       cancelledAt: null,
+      openedBy: status === 'scheduled' ? null : 'asisten-1',
+      closedBy: status === 'closed' ? 'asisten-1' : null,
+      cancelledBy: null,
       createdBy: 'asisten-1',
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
@@ -209,10 +212,27 @@ test('assistant opens and closes a session; closed session cannot be reopened', 
   await seedSession('schedule-1', 'schedule-1', 'class-1', 'scheduled');
 
   const assistant = env.authenticatedContext('asisten-1').firestore();
+  await assertFails(
+    updateDoc(doc(assistant, 'sessions', 'schedule-1'), {
+      status: 'open',
+      openedAt: serverTimestamp(),
+      openedBy: 'asisten-2',
+      updatedAt: serverTimestamp(),
+    }),
+  );
   await assertSucceeds(
     updateDoc(doc(assistant, 'sessions', 'schedule-1'), {
       status: 'open',
       openedAt: serverTimestamp(),
+      openedBy: 'asisten-1',
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    updateDoc(doc(assistant, 'sessions', 'schedule-1'), {
+      status: 'closed',
+      closedAt: serverTimestamp(),
+      closedBy: 'asisten-2',
       updatedAt: serverTimestamp(),
     }),
   );
@@ -220,6 +240,7 @@ test('assistant opens and closes a session; closed session cannot be reopened', 
     updateDoc(doc(assistant, 'sessions', 'schedule-1'), {
       status: 'closed',
       closedAt: serverTimestamp(),
+      closedBy: 'asisten-1',
       updatedAt: serverTimestamp(),
     }),
   );
@@ -227,6 +248,7 @@ test('assistant opens and closes a session; closed session cannot be reopened', 
     updateDoc(doc(assistant, 'sessions', 'schedule-1'), {
       status: 'open',
       openedAt: serverTimestamp(),
+      openedBy: 'asisten-1',
       updatedAt: serverTimestamp(),
     }),
   );
@@ -236,6 +258,7 @@ test('assistant opens and closes a session; closed session cannot be reopened', 
     updateDoc(doc(practitioner, 'sessions', 'schedule-1'), {
       status: 'open',
       openedAt: serverTimestamp(),
+      openedBy: 'praktikan-1',
       updatedAt: serverTimestamp(),
     }),
   );

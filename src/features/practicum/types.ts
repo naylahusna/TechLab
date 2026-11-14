@@ -60,6 +60,10 @@ export type PracticumSession = Readonly<{
   openedAt: Timestamp | null;
   closedAt: Timestamp | null;
   cancelledAt: Timestamp | null;
+  /** UID asisten yang melakukan transisi status, untuk audit SRS-09. */
+  openedBy: string | null;
+  closedBy: string | null;
+  cancelledBy: string | null;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;

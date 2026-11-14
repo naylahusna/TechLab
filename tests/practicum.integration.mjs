@@ -116,7 +116,10 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       location: 'Lab Komputasi 1',
     });
     const sessionId = await assistantRepo.createSessionFromSchedule(scheduleId, assistantId);
-    await assistantRepo.openSession(sessionId);
+    await assistantRepo.openSession(sessionId, assistantId);
+    const openedSession = await assistantRepo.getSession(sessionId);
+    assert.equal(openedSession.openedBy, assistantId);
+    assert.equal(openedSession.closedBy, null);
 
     const assistantClasses = await assistantRepo.listClassesForAssistant(assistantId);
     assert.equal(assistantClasses.length, 1);
@@ -256,7 +259,10 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
     const recap = await assistantRepo.listRecap(sessionId);
     assert.equal(recap.length, 1);
     assert.equal(recap[0].status, 'present');
-    await assistantRepo.closeSession(sessionId);
+    await assistantRepo.closeSession(sessionId, assistantId);
+    const closedSession = await assistantRepo.getSession(sessionId);
+    assert.equal(closedSession.openedBy, assistantId);
+    assert.equal(closedSession.closedBy, assistantId);
 
     await signOut(auth);
     await signInWithEmailAndPassword(auth, practitionerEmail, password);

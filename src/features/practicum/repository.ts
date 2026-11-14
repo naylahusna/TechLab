@@ -206,6 +206,9 @@ function toSession(snapshot: DocumentSnapshot<DocumentData>): PracticumSession {
     openedAt: asNullableTimestamp(data.openedAt),
     closedAt: asNullableTimestamp(data.closedAt),
     cancelledAt: asNullableTimestamp(data.cancelledAt),
+    openedBy: asNullableString(data.openedBy),
+    closedBy: asNullableString(data.closedBy),
+    cancelledBy: asNullableString(data.cancelledBy),
     createdBy: asString(data.createdBy),
     createdAt: asTimestamp(data.createdAt),
     updatedAt: asTimestamp(data.updatedAt),
@@ -372,7 +375,11 @@ export function createPracticumRepository(db: Firestore) {
   async function transitionSession(
     sessionId: string,
     next: 'open' | 'closed' | 'cancelled',
+    actorId: string,
   ): Promise<void> {
+    if (!actorId.trim())
+      throw new PracticumError('INVALID_INPUT', 'Pelaku perubahan sesi tidak valid.');
+
     await runTransaction(db, async (transaction) => {
       const ref = doc(sessions, sessionId);
       const snapshot = await transaction.get(ref);
@@ -394,9 +401,18 @@ export function createPracticumRepository(db: Firestore) {
         status: next,
         updatedAt: serverTimestamp(),
       };
-      if (next === 'open') patch.openedAt = serverTimestamp();
-      if (next === 'closed') patch.closedAt = serverTimestamp();
-      if (next === 'cancelled') patch.cancelledAt = serverTimestamp();
+      if (next === 'open') {
+        patch.openedAt = serverTimestamp();
+        patch.openedBy = actorId;
+      }
+      if (next === 'closed') {
+        patch.closedAt = serverTimestamp();
+        patch.closedBy = actorId;
+      }
+      if (next === 'cancelled') {
+        patch.cancelledAt = serverTimestamp();
+        patch.cancelledBy = actorId;
+      }
       transaction.update(ref, patch);
     });
   }
@@ -759,6 +775,9 @@ export function createPracticumRepository(db: Firestore) {
           openedAt: null,
           closedAt: null,
           cancelledAt: null,
+          openedBy: null,
+          closedBy: null,
+          cancelledBy: null,
           createdBy,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -767,16 +786,16 @@ export function createPracticumRepository(db: Firestore) {
       });
     },
 
-    openSession(sessionId: string): Promise<void> {
-      return transitionSession(sessionId, 'open');
+    openSession(sessionId: string, actorId: string): Promise<void> {
+      return transitionSession(sessionId, 'open', actorId);
     },
 
-    closeSession(sessionId: string): Promise<void> {
-      return transitionSession(sessionId, 'closed');
+    closeSession(sessionId: string, actorId: string): Promise<void> {
+      return transitionSession(sessionId, 'closed', actorId);
     },
 
-    cancelSession(sessionId: string): Promise<void> {
-      return transitionSession(sessionId, 'cancelled');
+    cancelSession(sessionId: string, actorId: string): Promise<void> {
+      return transitionSession(sessionId, 'cancelled', actorId);
     },
 
     // SRS-10 — Practicum Attendance

@@ -205,6 +205,9 @@ try {
         openedAt: at('2026-11-16T07:55:00+07:00'),
         closedAt: at('2026-11-16T10:05:00+07:00'),
         cancelledAt: null,
+        openedBy: assistantId,
+        closedBy: assistantId,
+        cancelledBy: null,
       },
       {
         id: SCHEDULE_A2,
@@ -217,6 +220,9 @@ try {
         openedAt: at('2026-11-23T07:55:00+07:00'),
         closedAt: null,
         cancelledAt: null,
+        openedBy: assistantId,
+        closedBy: null,
+        cancelledBy: null,
       },
       {
         id: SCHEDULE_B1,
@@ -229,6 +235,9 @@ try {
         openedAt: null,
         closedAt: null,
         cancelledAt: null,
+        openedBy: null,
+        closedBy: null,
+        cancelledBy: null,
       },
     ];
     await Promise.all(
@@ -243,6 +252,9 @@ try {
           openedAt: item.openedAt,
           closedAt: item.closedAt,
           cancelledAt: item.cancelledAt,
+          openedBy: item.openedBy,
+          closedBy: item.closedBy,
+          cancelledBy: item.cancelledBy,
           createdBy: assistantId,
           createdAt: joinedAt,
           updatedAt: joinedAt,
