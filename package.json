@@ -4,20 +4,20 @@
   "main": "index.ts",
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
-    "expo": "~58.0.19",
+    "expo": "~58.0.25",
     "expo-constants": "~58.0.13",
-    "expo-dev-client": "~58.0.15",
+    "expo-dev-client": "~58.0.20",
     "expo-font": "~58.0.10",
-    "expo-linking": "~58.0.14",
-    "expo-router": "~58.0.26",
-    "expo-status-bar": "~58.0.4",
+    "expo-linking": "~58.0.17",
+    "expo-router": "~58.0.31",
+    "expo-status-bar": "~58.0.5",
     "firebase": "^13.3.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "react-native": "0.88.0",
+    "react-native": "0.88.1",
     "react-native-gesture-handler": "~3.3.0",
-    "react-native-safe-area-context": "~5.10.1",
-    "react-native-screens": "~4.30.0"
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-screens": "~4.30.1"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^6.0.0",
@@ -28,6 +28,7 @@
   },
   "scripts": {
     "start": "expo start",
+    "start:go": "expo start --go",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
@@ -36,7 +37,13 @@
     "test:rules": "npx -y firebase-tools@13.35.1 emulators:exec --only firestore --project demo-techlab \"node --test --test-concurrency=1 tests/firestore.rules.test.mjs tests/practicum.rules.test.mjs\"",
     "test:firebase": "npx -y firebase-tools@13.35.1 emulators:exec --only auth,firestore --project demo-techlab \"node scripts/test-firebase.mjs\"",
     "seed:emulator": "tsc -p tsconfig.test.json && node scripts/seed-practicum.mjs",
-    "seed:emulator:exec": "npx -y firebase-tools@13.35.1 emulators:exec --only auth,firestore --project techlab-naylahusna-2026 \"npm run seed:emulator\""
+    "preseed:emulator:exec": "node scripts/prepare-emulators.mjs",
+    "seed:emulator:exec": "npx -y firebase-tools@13.35.1 emulators:exec --only auth,firestore --project techlab-naylahusna-2026 --import=.firebase/emulators --export-on-exit=.firebase/emulators \"npm run seed:emulator\"",
+    "prefirebase:emulators": "node scripts/prepare-emulators.mjs",
+    "firebase:emulators": "npx -y firebase-tools@13.35.1 emulators:start --only auth,firestore --project techlab-naylahusna-2026 --import=.firebase/emulators --export-on-exit=.firebase/emulators",
+    "firebase:check": "node scripts/check-firebase.mjs",
+    "firebase:login": "npx -y firebase-tools@13.35.1 login",
+    "firebase:deploy": "npx -y firebase-tools@13.35.1 deploy --only firestore:rules,firestore:indexes --project techlab-naylahusna-2026"
   },
   "private": true
 }

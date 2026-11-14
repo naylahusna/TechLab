@@ -7,12 +7,17 @@ import {
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
   Timestamp,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 
 let env;
@@ -112,6 +117,48 @@ async function seedSession(sessionId, scheduleId, classId, status = 'scheduled',
     });
   });
 }
+
+test('schedule overview allows empty membership queries but rejects unscoped and foreign queries', async () => {
+  await seedUser('praktikan-1');
+  await seedUser('asisten-1', 'asisten');
+  for (const uid of ['praktikan-1', 'asisten-1']) {
+    const db = env.authenticatedContext(uid).firestore();
+    const result = await assertSucceeds(
+      getDocs(query(collection(db, 'classes'), where('memberIds', 'array-contains', uid))),
+    );
+    assert.equal(result.empty, true);
+    await assertFails(getDocs(collection(db, 'classes')));
+    await assertFails(
+      getDocs(query(collection(db, 'classes'), where('memberIds', 'array-contains', 'someone-else'))),
+    );
+  }
+});
+
+test('schedule overview queries work for both roles and deny unrelated schedules and sessions', async () => {
+  await seedUser('asisten-1', 'asisten');
+  await seedUser('praktikan-1');
+  await seedUser('praktikan-2');
+  await seedClass('class-1', 'asisten-1', ['praktikan-1']);
+  await seedSchedule('schedule-1', 'class-1');
+  await seedSession('schedule-1', 'schedule-1', 'class-1', 'open', ['praktikan-1']);
+  for (const uid of ['asisten-1', 'praktikan-1']) {
+    const db = env.authenticatedContext(uid).firestore();
+    const classes = await assertSucceeds(
+      getDocs(query(collection(db, 'classes'), where('memberIds', 'array-contains', uid))),
+    );
+    assert.equal(classes.size, 1);
+    for (const name of ['schedules', 'sessions']) {
+      const result = await assertSucceeds(
+        getDocs(query(collection(db, name), where('classId', '==', 'class-1'), orderBy('startAt', 'asc'))),
+      );
+      assert.equal(result.size, 1);
+      const outsider = env.authenticatedContext('praktikan-2').firestore();
+      await assertFails(
+        getDocs(query(collection(outsider, name), where('classId', '==', 'class-1'), orderBy('startAt', 'asc'))),
+      );
+    }
+  }
+});
 
 test('assistant creates a class with self and cannot manage another assistant class', async () => {
   await seedUser('asisten-1', 'asisten');
