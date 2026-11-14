@@ -135,6 +135,62 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
     const assistantSessions = await assistantRepo.listSessionsForAssistant(assistantId);
     assert.equal(assistantSessions.length, 1);
 
+    const conflictClassId = await assistantRepo.createClass(
+      { className: 'Informatika B', courseName: 'Basis Data' },
+      assistantId,
+    );
+    const firstScheduleId = await assistantRepo.createSchedule({
+      classId: conflictClassId,
+      title: 'Jadwal A',
+      startAt: new Date('2026-12-01T08:00:00+07:00'),
+      endAt: new Date('2026-12-01T10:00:00+07:00'),
+      location: 'Lab Komputasi 2',
+    });
+    await assert.rejects(
+      () =>
+        assistantRepo.createSchedule({
+          classId: conflictClassId,
+          title: 'Jadwal Bentrok',
+          startAt: new Date('2026-12-01T09:00:00+07:00'),
+          endAt: new Date('2026-12-01T11:00:00+07:00'),
+          location: 'Lab Komputasi 2',
+        }),
+      /bentrok/i,
+    );
+    const backToBackScheduleId = await assistantRepo.createSchedule({
+      classId: conflictClassId,
+      title: 'Jadwal B',
+      startAt: new Date('2026-12-01T10:00:00+07:00'),
+      endAt: new Date('2026-12-01T12:00:00+07:00'),
+      location: 'Lab Komputasi 2',
+    });
+    await assert.rejects(
+      () =>
+        assistantRepo.updateSchedule(backToBackScheduleId, {
+          classId: conflictClassId,
+          title: 'Jadwal B',
+          startAt: new Date('2026-12-01T09:00:00+07:00'),
+          endAt: new Date('2026-12-01T11:00:00+07:00'),
+          location: 'Lab Komputasi 2',
+        }),
+      /bentrok/i,
+    );
+    await assistantRepo.updateSchedule(backToBackScheduleId, {
+      classId: conflictClassId,
+      title: 'Jadwal B',
+      startAt: new Date('2026-12-01T10:00:00+07:00'),
+      endAt: new Date('2026-12-01T12:00:00+07:00'),
+      location: 'Lab Komputasi 2',
+    });
+    await assistantRepo.archiveSchedule(firstScheduleId);
+    await assistantRepo.createSchedule({
+      classId: conflictClassId,
+      title: 'Jadwal C',
+      startAt: new Date('2026-12-01T08:00:00+07:00'),
+      endAt: new Date('2026-12-01T10:00:00+07:00'),
+      location: 'Lab Komputasi 2',
+    });
+
     await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         stop();

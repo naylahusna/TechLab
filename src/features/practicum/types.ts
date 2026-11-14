@@ -142,6 +142,7 @@ export type PracticumErrorCode =
   | 'FORBIDDEN'
   | 'INVALID_INPUT'
   | 'INVALID_TIME'
+  | 'SCHEDULE_CONFLICT'
   | 'INVALID_TRANSITION'
   | 'SESSION_NOT_OPEN'
   | 'ALREADY_PRESENT'

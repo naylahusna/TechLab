@@ -93,6 +93,12 @@ Keputusan Sprint 2:
 - Tanggal dan waktu memakai Firestore `Timestamp`.
 - ID kelas/jadwal tidak boleh mengandung `_` karena `participantId` dan
   `attendanceId` memakai pemisah tersebut.
+- **Konflik jadwal:** jadwal dengan kelas yang sama tidak boleh tumpang tindih
+  (`startAt < jadwalLain.endAt` dan `endAt > jadwalLain.startAt`). Jadwal
+  back-to-back (`end == start`) diizinkan, jadwal arsip diabaikan, dan
+  pengecekan berlaku saat create/update. Lab tidak ikut dicek.
+- **Notifikasi jadwal:** mekanisme yang disepakati adalah real-time in-app
+  (`onSnapshot`); push notification belum termasuk Sprint 2.
 
 ## Repository
 

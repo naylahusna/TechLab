@@ -6,6 +6,7 @@ import {
   participantId,
   sessionIdForSchedule,
 } from '../src/features/practicum/ids';
+import { findScheduleConflict } from '../src/features/practicum/schedule-conflict';
 import {
   toAssistantRecapItems,
   toPractitionerHistoryItems,
@@ -304,5 +305,52 @@ test('recap and history skip sessions whose class is no longer readable', () => 
   assert.deepEqual(
     toPractitionerHistoryItems([], schedules, sessions, {}, 'praktikan-1'),
     [],
+  );
+});
+
+test('schedule conflict detects overlap in the same class only', () => {
+  const { classItem, schedules } = recapFixture();
+  const first = schedules[0];
+
+  const overlapping = findScheduleConflict(schedules, {
+    classId: classItem.id,
+    startAt: new Date('2026-11-16T09:00:00+07:00'),
+    endAt: new Date('2026-11-16T11:00:00+07:00'),
+  });
+  assert.equal(overlapping?.id, first.id);
+
+  const backToBack = findScheduleConflict(schedules, {
+    classId: classItem.id,
+    startAt: new Date('2026-11-16T10:00:00+07:00'),
+    endAt: new Date('2026-11-16T12:00:00+07:00'),
+  });
+  assert.equal(backToBack, null);
+
+  const selfExcluded = findScheduleConflict(schedules, {
+    classId: classItem.id,
+    startAt: new Date('2026-11-16T08:00:00+07:00'),
+    endAt: new Date('2026-11-16T10:00:00+07:00'),
+    excludeScheduleId: first.id,
+  });
+  assert.equal(selfExcluded, null);
+
+  const archived = [{ ...first, archivedAt: at('2026-11-02T00:00:00+07:00') }];
+  assert.equal(
+    findScheduleConflict(archived, {
+      classId: classItem.id,
+      startAt: new Date('2026-11-16T09:00:00+07:00'),
+      endAt: new Date('2026-11-16T11:00:00+07:00'),
+    }),
+    null,
+  );
+
+  const otherClass = [{ ...first, classId: 'class-2' }];
+  assert.equal(
+    findScheduleConflict(otherClass, {
+      classId: classItem.id,
+      startAt: new Date('2026-11-16T09:00:00+07:00'),
+      endAt: new Date('2026-11-16T11:00:00+07:00'),
+    }),
+    null,
   );
 });

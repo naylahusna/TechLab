@@ -41,6 +41,7 @@ import type {
   PracticumSession,
   PracticumSessionStatus,
 } from './types';
+import { findScheduleConflict } from './schedule-conflict';
 import {
   validateClassInput,
   validateParticipantInput,
@@ -323,6 +324,15 @@ export function createPracticumRepository(db: Firestore) {
     );
   }
 
+  async function schedulesForClass(classId: string): Promise<PracticumSchedule[]> {
+    const snapshot = await getDocs(query(schedules, where('classId', '==', classId)));
+    return snapshot.docs.map(toSchedule);
+  }
+
+  function scheduleConflictMessage(conflict: PracticumSchedule): string {
+    return `Jadwal bentrok dengan "${conflict.title}". Pilih waktu lain.`;
+  }
+
   async function transitionSession(
     sessionId: string,
     next: 'open' | 'closed' | 'cancelled',
@@ -584,6 +594,14 @@ export function createPracticumRepository(db: Firestore) {
 
     async createSchedule(input: PracticumScheduleInput): Promise<string> {
       const clean = validateScheduleInput(input);
+      const conflict = findScheduleConflict(await schedulesForClass(clean.classId), {
+        classId: clean.classId,
+        startAt: clean.startAt,
+        endAt: clean.endAt,
+      });
+      if (conflict)
+        throw new PracticumError('SCHEDULE_CONFLICT', scheduleConflictMessage(conflict));
+
       const ref = doc(schedules);
       await setDoc(ref, {
         classId: clean.classId,
@@ -600,6 +618,22 @@ export function createPracticumRepository(db: Firestore) {
 
     async updateSchedule(scheduleId: string, input: PracticumScheduleInput): Promise<void> {
       const clean = validateScheduleInput(input);
+      const snapshot = await getDoc(doc(schedules, scheduleId));
+      if (!snapshot.exists())
+        throw new PracticumError('NOT_FOUND', 'Jadwal praktikum tidak ditemukan.');
+      const current = toSchedule(snapshot);
+      if (clean.classId !== current.classId)
+        throw new PracticumError('INVALID_INPUT', 'Kelas jadwal tidak dapat diubah.');
+
+      const conflict = findScheduleConflict(await schedulesForClass(current.classId), {
+        classId: current.classId,
+        startAt: clean.startAt,
+        endAt: clean.endAt,
+        excludeScheduleId: scheduleId,
+      });
+      if (conflict)
+        throw new PracticumError('SCHEDULE_CONFLICT', scheduleConflictMessage(conflict));
+
       await updateDoc(doc(schedules, scheduleId), {
         title: clean.title,
         startAt: Timestamp.fromDate(clean.startAt),
