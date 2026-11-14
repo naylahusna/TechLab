@@ -38,6 +38,9 @@ export function useAssistantClasses() {
     error: null,
     refreshing: false,
   });
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [fromCache, setFromCache] = useState(false);
+  const [subscriptionEpoch, setSubscriptionEpoch] = useState(0);
 
   const load = useCallback(async () => {
     if (!assistantId) {
@@ -71,12 +74,26 @@ export function useAssistantClasses() {
 
   useEffect(() => {
     if (!assistantId) return;
-    return getPracticumRepository().subscribeToClassesForAssistant(assistantId, () => {
-      void load();
-    });
-  }, [assistantId, load]);
+    return getPracticumRepository().subscribeToClassesForAssistant(
+      assistantId,
+      (isFromCache) => {
+        setFromCache(isFromCache);
+        setSyncError(null);
+        void load();
+      },
+      (error) => {
+        setSyncError(practicumErrorMessage(error));
+      },
+    );
+  }, [assistantId, load, subscriptionEpoch]);
 
-  return { ...state, reload: load };
+  const retrySync = useCallback(() => {
+    setSyncError(null);
+    setSubscriptionEpoch((value) => value + 1);
+    void load();
+  }, [load]);
+
+  return { ...state, syncError, fromCache, reload: load, retrySync };
 }
 
 type ListState<T> = {
@@ -86,10 +103,16 @@ type ListState<T> = {
   refreshing: boolean;
 };
 
+type SubscriptionResource = (
+  id: string,
+  onChange: (fromCache: boolean) => void,
+  onError: (error: Error) => void,
+) => () => void;
+
 function useListResource<T>(
   id: string | undefined,
   loader: (id: string) => Promise<T[]>,
-  subscribe?: (id: string, onChange: () => void) => () => void,
+  subscribe?: SubscriptionResource,
 ) {
   const [state, setState] = useState<ListState<T>>({
     status: 'loading',
@@ -97,6 +120,9 @@ function useListResource<T>(
     error: null,
     refreshing: false,
   });
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [fromCache, setFromCache] = useState(false);
+  const [subscriptionEpoch, setSubscriptionEpoch] = useState(0);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -130,12 +156,26 @@ function useListResource<T>(
 
   useEffect(() => {
     if (!id || !subscribe) return;
-    return subscribe(id, () => {
-      void load();
-    });
-  }, [id, subscribe, load]);
+    return subscribe(
+      id,
+      (isFromCache) => {
+        setFromCache(isFromCache);
+        setSyncError(null);
+        void load();
+      },
+      (error) => {
+        setSyncError(practicumErrorMessage(error));
+      },
+    );
+  }, [id, subscribe, load, subscriptionEpoch]);
 
-  return { ...state, reload: load };
+  const retrySync = useCallback(() => {
+    setSyncError(null);
+    setSubscriptionEpoch((value) => value + 1);
+    void load();
+  }, [load]);
+
+  return { ...state, syncError, fromCache, reload: load, retrySync };
 }
 
 export function useSchedules(classId: string | undefined) {
@@ -143,9 +183,9 @@ export function useSchedules(classId: string | undefined) {
     (id: string) => getPracticumRepository().listSchedules(id),
     [],
   );
-  const subscribe = useCallback(
-    (id: string, onChange: () => void) =>
-      getPracticumRepository().subscribeToSchedules(id, onChange),
+  const subscribe = useCallback<SubscriptionResource>(
+    (id, onChange, onError) =>
+      getPracticumRepository().subscribeToSchedules(id, onChange, onError),
     [],
   );
   return useListResource(classId, loader, subscribe);
@@ -156,9 +196,9 @@ export function useSessions(classId: string | undefined) {
     (id: string) => getPracticumRepository().listSessions(id),
     [],
   );
-  const subscribe = useCallback(
-    (id: string, onChange: () => void) =>
-      getPracticumRepository().subscribeToSessions(id, onChange),
+  const subscribe = useCallback<SubscriptionResource>(
+    (id, onChange, onError) =>
+      getPracticumRepository().subscribeToSessions(id, onChange, onError),
     [],
   );
   return useListResource(classId, loader, subscribe);
@@ -169,9 +209,9 @@ export function useParticipants(classId: string | undefined) {
     (id: string) => getPracticumRepository().listParticipants(id),
     [],
   );
-  const subscribe = useCallback(
-    (id: string, onChange: () => void) =>
-      getPracticumRepository().subscribeToParticipants(id, onChange),
+  const subscribe = useCallback<SubscriptionResource>(
+    (id, onChange, onError) =>
+      getPracticumRepository().subscribeToParticipants(id, onChange, onError),
     [],
   );
   return useListResource(classId, loader, subscribe);
@@ -182,9 +222,9 @@ export function useRecap(sessionId: string | undefined) {
     (id: string) => getPracticumRepository().listRecap(id),
     [],
   );
-  const subscribe = useCallback(
-    (id: string, onChange: () => void) =>
-      getPracticumRepository().subscribeToRecap(id, onChange),
+  const subscribe = useCallback<SubscriptionResource>(
+    (id, onChange, onError) =>
+      getPracticumRepository().subscribeToRecap(id, onChange, onError),
     [],
   );
   return useListResource(sessionId, loader, subscribe);
@@ -212,6 +252,9 @@ export function useScheduleOverview() {
     refreshing: false,
   });
   const requestId = useRef(0);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [fromCache, setFromCache] = useState(false);
+  const [subscriptionEpoch, setSubscriptionEpoch] = useState(0);
 
   const load = useCallback(async () => {
     if (!userId || !role) {
@@ -278,12 +321,26 @@ export function useScheduleOverview() {
 
   useEffect(() => {
     if (!userId) return;
-    return getPracticumRepository().subscribeToScheduleOverview(userId, () => {
-      void load();
-    });
-  }, [userId, load]);
+    return getPracticumRepository().subscribeToScheduleOverview(
+      userId,
+      (isFromCache) => {
+        setFromCache(isFromCache);
+        setSyncError(null);
+        void load();
+      },
+      (error) => {
+        setSyncError(practicumErrorMessage(error));
+      },
+    );
+  }, [userId, load, subscriptionEpoch]);
 
-  return { ...state, reload: load };
+  const retrySync = useCallback(() => {
+    setSyncError(null);
+    setSubscriptionEpoch((value) => value + 1);
+    void load();
+  }, [load]);
+
+  return { ...state, syncError, fromCache, reload: load, retrySync };
 }
 
 type RecapOverviewState = {
@@ -459,6 +516,9 @@ export function useSessionDetail(sessionId: string | undefined) {
     error: null,
     refreshing: false,
   });
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [fromCache, setFromCache] = useState(false);
+  const [subscriptionEpoch, setSubscriptionEpoch] = useState(0);
 
   const load = useCallback(async () => {
     if (!sessionId || !userId || !role) {
@@ -554,28 +614,37 @@ export function useSessionDetail(sessionId: string | undefined) {
   useEffect(() => {
     if (!sessionId || !userId || !role) return;
     const repository = getPracticumRepository();
-    if (role === 'asisten') {
-      return repository.subscribeToRecap(sessionId, () => {
-        void load();
-      });
-    }
-    const stopSession = repository.subscribeToSession(sessionId, () => {
+    const onChange = (isFromCache: boolean) => {
+      setFromCache(isFromCache);
+      setSyncError(null);
       void load();
-    });
+    };
+    const onError = (error: Error) => {
+      setSyncError(practicumErrorMessage(error));
+    };
+    if (role === 'asisten') {
+      return repository.subscribeToRecap(sessionId, onChange, onError);
+    }
+    const stopSession = repository.subscribeToSession(sessionId, onChange, onError);
     const stopAttendance = repository.subscribeToOwnAttendance(
       sessionId,
       userId,
-      () => {
-        void load();
-      },
+      onChange,
+      onError,
     );
     return () => {
       stopSession();
       stopAttendance();
     };
-  }, [sessionId, userId, role, load]);
+  }, [sessionId, userId, role, load, subscriptionEpoch]);
 
-  return { ...state, reload: load };
+  const retrySync = useCallback(() => {
+    setSyncError(null);
+    setSubscriptionEpoch((value) => value + 1);
+    void load();
+  }, [load]);
+
+  return { ...state, syncError, fromCache, reload: load, retrySync };
 }
 
 export function usePracticumClass(classId: string | undefined) {
@@ -584,6 +653,9 @@ export function usePracticumClass(classId: string | undefined) {
     item: null,
     error: null,
   });
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [fromCache, setFromCache] = useState(false);
+  const [subscriptionEpoch, setSubscriptionEpoch] = useState(0);
 
   const load = useCallback(async () => {
     if (!classId) {
@@ -619,10 +691,24 @@ export function usePracticumClass(classId: string | undefined) {
 
   useEffect(() => {
     if (!classId) return;
-    return getPracticumRepository().subscribeToClass(classId, () => {
-      void load();
-    });
-  }, [classId, load]);
+    return getPracticumRepository().subscribeToClass(
+      classId,
+      (isFromCache) => {
+        setFromCache(isFromCache);
+        setSyncError(null);
+        void load();
+      },
+      (error) => {
+        setSyncError(practicumErrorMessage(error));
+      },
+    );
+  }, [classId, load, subscriptionEpoch]);
 
-  return { ...state, reload: load };
+  const retrySync = useCallback(() => {
+    setSyncError(null);
+    setSubscriptionEpoch((value) => value + 1);
+    void load();
+  }, [load]);
+
+  return { ...state, syncError, fromCache, reload: load, retrySync };
 }

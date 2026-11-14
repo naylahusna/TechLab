@@ -217,6 +217,29 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
     );
     assert.equal(practitionerSchedules.length, 1);
     assert.equal(await practitionerRepo.getAttendance(sessionId, practitionerId), null);
+
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        stop();
+        reject(new Error('Langganan jadwal terlarang tidak memicu error.'));
+      }, 5000);
+      const stop = practitionerRepo.subscribeToSchedules(
+        conflictClassId,
+        () => {},
+        (error) => {
+          clearTimeout(timeout);
+          stop();
+          try {
+            assert.ok(error instanceof Error);
+            assert.ok(error.message.length > 0);
+            resolve();
+          } catch (cause) {
+            reject(cause);
+          }
+        },
+      );
+    });
+
     await practitionerRepo.recordAttendance(sessionId, practitionerId);
     await assert.rejects(
       () => practitionerRepo.recordAttendance(sessionId, practitionerId),

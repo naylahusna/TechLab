@@ -10,6 +10,7 @@ import { InlineAction } from '../components/InlineAction';
 import { PracticumField } from '../components/PracticumField';
 import { PracticumHeader } from '../components/PracticumHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
+import { SyncStatusBanner } from '../components/SyncStatusBanner';
 import { practicumErrorMessage } from '../errors';
 import { useParticipants, usePracticumClass } from '../hooks';
 import { colors, fontWeights, lineHeights, radius, spacing, typography } from '../theme';
@@ -96,6 +97,15 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
         title="Kelola Peserta"
         subtitle={classState.item?.className ?? 'Peserta praktikum kelas.'}
         onBack={goBack}
+      />
+
+      <SyncStatusBanner
+        error={classState.syncError ?? participants.syncError}
+        fromCache={classState.fromCache || participants.fromCache}
+        onRetry={() => {
+          classState.retrySync();
+          participants.retrySync();
+        }}
       />
 
       {loading ? <LoadingState message="Memuat peserta…" /> : null}

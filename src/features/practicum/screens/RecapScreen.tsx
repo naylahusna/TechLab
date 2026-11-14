@@ -6,6 +6,7 @@ import { Text } from '../../../components/Text';
 import { Badge } from '../../practitioner/components/Badge';
 import { PracticumHeader } from '../components/PracticumHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
+import { SyncStatusBanner } from '../components/SyncStatusBanner';
 import { useRecap, useSessionDetail } from '../hooks';
 import {
   RECAP_STATUS_LABEL,
@@ -68,6 +69,15 @@ export function RecapScreen({ sessionId }: { sessionId: string }) {
             : 'Rekap sesi praktikum.'
         }
         onBack={goBack}
+      />
+
+      <SyncStatusBanner
+        error={detail.syncError ?? recap.syncError}
+        fromCache={detail.fromCache || recap.fromCache}
+        onRetry={() => {
+          detail.retrySync();
+          recap.retrySync();
+        }}
       />
 
       {loading ? <LoadingState message="Memuat rekap…" /> : null}

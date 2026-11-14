@@ -10,13 +10,15 @@ import { getPracticumRepository } from '../client';
 import { InlineAction } from '../components/InlineAction';
 import { PracticumHeader } from '../components/PracticumHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
+import { SyncStatusBanner } from '../components/SyncStatusBanner';
 import { practicumErrorMessage } from '../errors';
 import { usePracticumClass } from '../hooks';
 import { colors, fontWeights, lineHeights, radius, spacing, typography } from '../theme';
 
 export function ClassDetailScreen({ classId }: { classId: string }) {
   const router = useRouter();
-  const { status, item, error, reload } = usePracticumClass(classId);
+  const { status, item, error, reload, syncError, fromCache, retrySync } =
+    usePracticumClass(classId);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [archiveError, setArchiveError] = useState('');
@@ -66,6 +68,8 @@ export function ClassDetailScreen({ classId }: { classId: string }) {
         subtitle="Informasi kelas praktikum dan tindakan pengelolaan."
         onBack={goBack}
       />
+
+      <SyncStatusBanner error={syncError} fromCache={fromCache} onRetry={retrySync} />
 
       {status === 'loading' ? <LoadingState message="Memuat kelas…" /> : null}
 

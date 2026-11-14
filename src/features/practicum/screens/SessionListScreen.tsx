@@ -9,6 +9,7 @@ import { getPracticumRepository } from '../client';
 import { InlineAction } from '../components/InlineAction';
 import { PracticumHeader } from '../components/PracticumHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
+import { SyncStatusBanner } from '../components/SyncStatusBanner';
 import { practicumErrorMessage } from '../errors';
 import { usePracticumClass, useSchedules, useSessions } from '../hooks';
 import { sessionTimeRange, timestampDateLabel } from '../session-view';
@@ -91,6 +92,15 @@ export function SessionListScreen({ classId }: { classId: string }) {
         title="Kelola Sesi"
         subtitle={classState.item?.className ?? 'Sesi praktikum kelas.'}
         onBack={goBack}
+      />
+
+      <SyncStatusBanner
+        error={classState.syncError ?? sessions.syncError}
+        fromCache={classState.fromCache || sessions.fromCache}
+        onRetry={() => {
+          classState.retrySync();
+          sessions.retrySync();
+        }}
       />
 
       {loading ? <LoadingState message="Memuat sesi…" /> : null}

@@ -14,6 +14,7 @@ import {
   ErrorState,
   LoadingState,
 } from '../../../features/practicum/components/StateViews';
+import { SyncStatusBanner } from '../../../features/practicum/components/SyncStatusBanner';
 import {
   toAssistantParticipants,
   toAssistantSessionItem,
@@ -109,15 +110,22 @@ export default function SesiRoute() {
     }
 
     return (
-      <AssistantSessionDetailScreen
-        session={assistantSession}
-        summary={summary}
-        participants={participants}
-        onBack={goBack}
-        onOpenSession={openSession}
-        onCloseSession={closeSession}
-        onOpenRecap={() => router.push(`/sesi/${session.id}/rekap`)}
-      />
+      <View style={styles.screen}>
+        <SyncStatusBanner
+          error={detail.syncError}
+          fromCache={detail.fromCache}
+          onRetry={detail.retrySync}
+        />
+        <AssistantSessionDetailScreen
+          session={assistantSession}
+          summary={summary}
+          participants={participants}
+          onBack={goBack}
+          onOpenSession={openSession}
+          onCloseSession={closeSession}
+          onOpenRecap={() => router.push(`/sesi/${session.id}/rekap`)}
+        />
+      </View>
     );
   }
 
@@ -141,12 +149,19 @@ export default function SesiRoute() {
   }
 
   return (
-    <SessionDetailScreen
-      session={practitionerSession}
-      praktikan={praktikan}
-      onBack={goBack}
-      onConfirmAttendance={confirmAttendance}
-    />
+    <View style={styles.screen}>
+      <SyncStatusBanner
+        error={detail.syncError}
+        fromCache={detail.fromCache}
+        onRetry={detail.retrySync}
+      />
+      <SessionDetailScreen
+        session={practitionerSession}
+        praktikan={praktikan}
+        onBack={goBack}
+        onConfirmAttendance={confirmAttendance}
+      />
+    </View>
   );
 }
 

@@ -5,12 +5,22 @@ import { ActionButton } from '../../../components/ActionButton';
 import { ClassCard } from '../components/ClassCard';
 import { PracticumHeader } from '../components/PracticumHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
+import { SyncStatusBanner } from '../components/SyncStatusBanner';
 import { useAssistantClasses } from '../hooks';
 import { colors, spacing } from '../theme';
 
 export function ClassListScreen() {
   const router = useRouter();
-  const { status, classes, error, refreshing, reload } = useAssistantClasses();
+  const {
+    status,
+    classes,
+    error,
+    refreshing,
+    reload,
+    syncError,
+    fromCache,
+    retrySync,
+  } = useAssistantClasses();
 
   function goBack() {
     if (router.canGoBack()) router.back();
@@ -33,6 +43,8 @@ export function ClassListScreen() {
         subtitle="Kelola kelas praktikum yang kamu ampu."
         onBack={goBack}
       />
+
+      <SyncStatusBanner error={syncError} fromCache={fromCache} onRetry={retrySync} />
 
       {status === 'loading' && classes.length === 0 ? (
         <LoadingState message="Memuat kelas…" />

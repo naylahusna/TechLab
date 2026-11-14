@@ -179,6 +179,13 @@ Listener dibersihkan saat layar unmount/logout. Untuk praktikan, detail sesi
 mendengarkan dokumen presensi miliknya sendiri. Tab Rekap asisten dan Riwayat
 praktikan memuat ulang data saat layar kembali fokus.
 
+Status sinkronisasi:
+
+- `fromCache` dari metadata Firestore menampilkan banner “Data tersimpan”.
+- Error listener menampilkan banner “Koneksi bermasalah” dan tombol
+  **Coba lagi**; data lama tetap ditampilkan.
+- `retrySync` membuat subscription baru lalu memuat ulang data.
+
 ## Tes
 
 ```bash

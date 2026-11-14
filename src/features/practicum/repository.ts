@@ -14,8 +14,10 @@ import {
   updateDoc,
   where,
   type DocumentData,
+  type DocumentReference,
   type DocumentSnapshot,
   type Firestore,
+  type Query,
 } from 'firebase/firestore';
 import { PracticumError } from './errors';
 import {
@@ -47,6 +49,9 @@ import {
   validateParticipantInput,
   validateScheduleInput,
 } from './validation';
+
+type SubscriptionListener = (fromCache: boolean) => void;
+type SubscriptionErrorHandler = (error: Error) => void;
 
 function asTimestamp(value: unknown): Timestamp {
   if (value instanceof Timestamp) return value;
@@ -317,10 +322,41 @@ export function createPracticumRepository(db: Firestore) {
     return snapshot.docs.map(toPermission);
   }
 
-  function subscribeToMemberClasses(memberId: string, onChange: () => void) {
+  function subscribeToQuery(
+    target: Query<DocumentData>,
+    onChange: SubscriptionListener,
+    onError?: SubscriptionErrorHandler,
+  ) {
     return onSnapshot(
+      target,
+      { includeMetadataChanges: true },
+      (snapshot) => onChange(snapshot.metadata.fromCache),
+      onError,
+    );
+  }
+
+  function subscribeToDocument(
+    target: DocumentReference<DocumentData>,
+    onChange: SubscriptionListener,
+    onError?: SubscriptionErrorHandler,
+  ) {
+    return onSnapshot(
+      target,
+      { includeMetadataChanges: true },
+      (snapshot) => onChange(snapshot.metadata.fromCache),
+      onError,
+    );
+  }
+
+  function subscribeToMemberClasses(
+    memberId: string,
+    onChange: SubscriptionListener,
+    onError?: SubscriptionErrorHandler,
+  ) {
+    return subscribeToQuery(
       query(classes, where('memberIds', 'array-contains', memberId)),
       onChange,
+      onError,
     );
   }
 
@@ -770,109 +806,215 @@ export function createPracticumRepository(db: Firestore) {
       return snapshot.docs.map(toPermission);
     },
 
-    subscribeToClass(classId: string, onChange: () => void) {
-      return onSnapshot(doc(classes, classId), onChange);
+    subscribeToClass(
+      classId: string,
+      onChange: SubscriptionListener,
+      onError?: SubscriptionErrorHandler,
+    ) {
+      return subscribeToDocument(doc(classes, classId), onChange, onError);
     },
 
-    subscribeToClassesForAssistant(assistantId: string, onChange: () => void) {
-      return subscribeToMemberClasses(assistantId, onChange);
+    subscribeToClassesForAssistant(
+      assistantId: string,
+      onChange: SubscriptionListener,
+      onError?: SubscriptionErrorHandler,
+    ) {
+      return subscribeToMemberClasses(assistantId, onChange, onError);
     },
 
-    subscribeToClassesForMember(memberId: string, onChange: () => void) {
-      return subscribeToMemberClasses(memberId, onChange);
+    subscribeToClassesForMember(
+      memberId: string,
+      onChange: SubscriptionListener,
+      onError?: SubscriptionErrorHandler,
+    ) {
+      return subscribeToMemberClasses(memberId, onChange, onError);
     },
 
-    subscribeToScheduleOverview(memberId: string, onChange: () => void) {
+    subscribeToScheduleOverview(
+      memberId: string,
+      onChange: SubscriptionListener,
+      onError?: SubscriptionErrorHandler,
+    ) {
       let stopClassQueries: (() => void)[] = [];
       let activeClassKey: string | null = null;
+      const cacheStates = new Map<string, boolean>();
+      const emit = () => {
+        onChange(Array.from(cacheStates.values()).some(Boolean));
+      };
+      const listen = (key: string, target: Query<DocumentData>) =>
+        subscribeToQuery(
+          target,
+          (fromCache) => {
+            cacheStates.set(key, fromCache);
+            emit();
+          },
+          onError,
+        );
+
       const stopClasses = onSnapshot(
         query(classes, where('memberIds', 'array-contains', memberId)),
+        { includeMetadataChanges: true },
         (snapshot) => {
+          cacheStates.set('classes', snapshot.metadata.fromCache);
           const classIds = snapshot.docs.map((item) => item.id).sort();
           const key = classIds.join('|');
           if (key !== activeClassKey) {
             activeClassKey = key;
             stopClassQueries.forEach((stop) => stop());
+            for (const cacheKey of [...cacheStates.keys()]) {
+              if (cacheKey !== 'classes') cacheStates.delete(cacheKey);
+            }
             stopClassQueries = classIds.flatMap((classId) => [
-              onSnapshot(
+              listen(
+                `schedules:${classId}`,
                 query(
                   schedules,
                   where('classId', '==', classId),
                   orderBy('startAt', 'asc'),
                 ),
-                onChange,
               ),
-              onSnapshot(
+              listen(
+                `sessions:${classId}`,
                 query(
                   sessions,
                   where('classId', '==', classId),
                   orderBy('startAt', 'asc'),
                 ),
-                onChange,
               ),
             ]);
           }
-          onChange();
+          emit();
         },
+        onError,
       );
+
       return () => {
         stopClasses();
         stopClassQueries.forEach((stop) => stop());
       };
     },
 
-    subscribeToSchedules(classId: string, onChange: () => void) {
-      return onSnapshot(
+    subscribeToSchedules(
+      classId: string,
+      onChange: SubscriptionListener,
+      onError?: SubscriptionErrorHandler,
+    ) {
+      return subscribeToQuery(
         query(schedules, where('classId', '==', classId), orderBy('startAt', 'asc')),
         onChange,
+        onError,
       );
     },
 
-    subscribeToSessions(classId: string, onChange: () => void) {
-      return onSnapshot(
+    subscribeToSessions(
+      classId: string,
+      onChange: SubscriptionListener,
+      onError?: SubscriptionErrorHandler,
+    ) {
+      return subscribeToQuery(
         query(sessions, where('classId', '==', classId), orderBy('startAt', 'asc')),
         onChange,
+        onError,
       );
     },
 
-    subscribeToParticipants(classId: string, onChange: () => void) {
-      return onSnapshot(query(participants, where('classId', '==', classId)), onChange);
+    subscribeToParticipants(
+      classId: string,
+      onChange: SubscriptionListener,
+      onError?: SubscriptionErrorHandler,
+    ) {
+      return subscribeToQuery(
+        query(participants, where('classId', '==', classId)),
+        onChange,
+        onError,
+      );
     },
 
-    subscribeToSession(sessionId: string, onChange: () => void) {
-      return onSnapshot(doc(sessions, sessionId), onChange);
+    subscribeToSession(
+      sessionId: string,
+      onChange: SubscriptionListener,
+      onError?: SubscriptionErrorHandler,
+    ) {
+      return subscribeToDocument(doc(sessions, sessionId), onChange, onError);
     },
 
-    subscribeToOwnAttendance(sessionId: string, userId: string, onChange: () => void) {
-      return onSnapshot(doc(attendances, attendanceId(sessionId, userId)), onChange);
+    subscribeToOwnAttendance(
+      sessionId: string,
+      userId: string,
+      onChange: SubscriptionListener,
+      onError?: SubscriptionErrorHandler,
+    ) {
+      return subscribeToDocument(
+        doc(attendances, attendanceId(sessionId, userId)),
+        onChange,
+        onError,
+      );
     },
 
-    subscribeToRecap(sessionId: string, onChange: () => void) {
+    subscribeToRecap(
+      sessionId: string,
+      onChange: SubscriptionListener,
+      onError?: SubscriptionErrorHandler,
+    ) {
       let stopAttendance: (() => void) | undefined;
       let stopPermissions: (() => void) | undefined;
-      const stopSession = onSnapshot(doc(sessions, sessionId), (snapshot) => {
-        onChange();
-        if (!snapshot.exists()) return;
-        const session = toSession(snapshot);
-        stopAttendance?.();
-        stopPermissions?.();
-        stopAttendance = onSnapshot(
-          query(
-            attendances,
-            where('sessionId', '==', sessionId),
-            where('classId', '==', session.classId),
-          ),
-          onChange,
-        );
-        stopPermissions = onSnapshot(
-          query(
-            permissions,
-            where('sessionId', '==', sessionId),
-            where('classId', '==', session.classId),
-          ),
-          onChange,
-        );
-      });
+      let lastClassId: string | null = null;
+      const cacheStates = new Map<string, boolean>();
+      const emit = () => {
+        onChange(Array.from(cacheStates.values()).some(Boolean));
+      };
+
+      const stopSession = onSnapshot(
+        doc(sessions, sessionId),
+        { includeMetadataChanges: true },
+        (snapshot) => {
+          cacheStates.set('session', snapshot.metadata.fromCache);
+          if (!snapshot.exists()) {
+            stopAttendance?.();
+            stopPermissions?.();
+            stopAttendance = undefined;
+            stopPermissions = undefined;
+            lastClassId = null;
+            cacheStates.delete('attendance');
+            cacheStates.delete('permissions');
+            emit();
+            return;
+          }
+          const session = toSession(snapshot);
+          if (session.classId !== lastClassId) {
+            lastClassId = session.classId;
+            stopAttendance?.();
+            stopPermissions?.();
+            stopAttendance = subscribeToQuery(
+              query(
+                attendances,
+                where('sessionId', '==', sessionId),
+                where('classId', '==', session.classId),
+              ),
+              (fromCache) => {
+                cacheStates.set('attendance', fromCache);
+                emit();
+              },
+              onError,
+            );
+            stopPermissions = subscribeToQuery(
+              query(
+                permissions,
+                where('sessionId', '==', sessionId),
+                where('classId', '==', session.classId),
+              ),
+              (fromCache) => {
+                cacheStates.set('permissions', fromCache);
+                emit();
+              },
+              onError,
+            );
+          }
+          emit();
+        },
+        onError,
+      );
+
       return () => {
         stopSession();
         stopAttendance?.();

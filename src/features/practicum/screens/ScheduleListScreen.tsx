@@ -10,6 +10,7 @@ import { getPracticumRepository } from '../client';
 import { InlineAction } from '../components/InlineAction';
 import { PracticumHeader } from '../components/PracticumHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews';
+import { SyncStatusBanner } from '../components/SyncStatusBanner';
 import { practicumErrorMessage } from '../errors';
 import { usePracticumClass, useSchedules } from '../hooks';
 import { timestampDateLabel, timestampTimeLabel } from '../session-view';
@@ -83,6 +84,15 @@ export function ScheduleListScreen({ classId }: { classId: string }) {
         title="Kelola Jadwal"
         subtitle={classState.item?.className ?? 'Jadwal praktikum kelas.'}
         onBack={goBack}
+      />
+
+      <SyncStatusBanner
+        error={classState.syncError ?? schedules.syncError}
+        fromCache={classState.fromCache || schedules.fromCache}
+        onRetry={() => {
+          classState.retrySync();
+          schedules.retrySync();
+        }}
       />
 
       {loading ? <LoadingState message="Memuat jadwal…" /> : null}

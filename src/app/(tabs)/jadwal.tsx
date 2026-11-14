@@ -6,6 +6,7 @@ import { AssistantJadwalScreen } from '../../features/assistant';
 import { JadwalScreen } from '../../features/practitioner';
 import { useScheduleOverview } from '../../features/practicum';
 import { ErrorState, LoadingState } from '../../features/practicum/components/StateViews';
+import { SyncStatusBanner } from '../../features/practicum/components/SyncStatusBanner';
 import { initialsFor } from '../../features/practicum/profile-view';
 import {
   toAssistantSessionItem,
@@ -56,13 +57,20 @@ export default function ScheduleRoute() {
     });
 
     return (
-      <AssistantJadwalScreen
-        sessions={sessions}
-        assistantName={auth.profile.name}
-        assistantInitials={initialsFor(auth.profile.name)}
-        onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
-        onManageClasses={() => router.push('/kelas')}
-      />
+      <View style={styles.screen}>
+        <SyncStatusBanner
+          error={overview.syncError}
+          fromCache={overview.fromCache}
+          onRetry={overview.retrySync}
+        />
+        <AssistantJadwalScreen
+          sessions={sessions}
+          assistantName={auth.profile.name}
+          assistantInitials={initialsFor(auth.profile.name)}
+          onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
+          onManageClasses={() => router.push('/kelas')}
+        />
+      </View>
     );
   }
 
@@ -79,12 +87,19 @@ export default function ScheduleRoute() {
   });
 
   return (
-    <JadwalScreen
-      sessions={sessions}
-      praktikanName={auth.profile.name}
-      praktikanInitials={initialsFor(auth.profile.name)}
-      onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
-    />
+    <View style={styles.screen}>
+      <SyncStatusBanner
+        error={overview.syncError}
+        fromCache={overview.fromCache}
+        onRetry={overview.retrySync}
+      />
+      <JadwalScreen
+        sessions={sessions}
+        praktikanName={auth.profile.name}
+        praktikanInitials={initialsFor(auth.profile.name)}
+        onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
+      />
+    </View>
   );
 }
 
