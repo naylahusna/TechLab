@@ -37,6 +37,7 @@ type AssistantSessionDetailScreenProps = {
   onBack: () => void;
   onOpenSession: () => { ok: boolean; message?: string } | Promise<{ ok: boolean; message?: string }>;
   onCloseSession: () => { ok: boolean; message?: string } | Promise<{ ok: boolean; message?: string }>;
+  onOpenRecap?: () => void;
 };
 
 export function AssistantSessionDetailScreen({
@@ -46,6 +47,7 @@ export function AssistantSessionDetailScreen({
   onBack,
   onOpenSession,
   onCloseSession,
+  onOpenRecap,
 }: AssistantSessionDetailScreenProps) {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<AttendanceFilter>('semua');
@@ -183,6 +185,14 @@ export function AssistantSessionDetailScreen({
               </Text>
             </View>
           )}
+          {onOpenRecap ? (
+            <AssistantButton
+              label="Lihat Rekap Kehadiran"
+              variant="secondary"
+              onPress={onOpenRecap}
+              testID="btn-open-recap"
+            />
+          ) : null}
         </View>
 
         <AttendanceSummaryCard summary={summary} />

@@ -33,8 +33,10 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "node scripts/test.mjs",
-    "test:rules": "npx -y firebase-tools@latest emulators:exec --only firestore --project demo-techlab \"node --test tests/firestore.rules.test.mjs\"",
-    "test:firebase": "npx -y firebase-tools@latest emulators:exec --only auth,firestore --project demo-techlab \"node scripts/test-firebase.mjs\""
+    "test:rules": "npx -y firebase-tools@13.35.1 emulators:exec --only firestore --project demo-techlab \"node --test --test-concurrency=1 tests/firestore.rules.test.mjs tests/practicum.rules.test.mjs\"",
+    "test:firebase": "npx -y firebase-tools@13.35.1 emulators:exec --only auth,firestore --project demo-techlab \"node scripts/test-firebase.mjs\"",
+    "seed:emulator": "tsc -p tsconfig.test.json && node scripts/seed-practicum.mjs",
+    "seed:emulator:exec": "npx -y firebase-tools@13.35.1 emulators:exec --only auth,firestore --project techlab-naylahusna-2026 \"npm run seed:emulator\""
   },
   "private": true
 }

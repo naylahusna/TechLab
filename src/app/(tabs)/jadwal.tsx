@@ -1,43 +1,108 @@
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 
-import { useDemo, selectMySessions } from '../../core';
-import { AssistantJadwalScreen, toAssistantSessionItem } from '../../features/assistant';
-import { selectAssistantSessions } from '../../features/assistant/session-view';
-import { NavigationLandingScreen } from '../../features/navigation/NavigationLandingScreen';
+import { useAuth } from '../../features/auth/AuthProvider';
+import { AssistantJadwalScreen } from '../../features/assistant';
 import { JadwalScreen } from '../../features/practitioner';
-import { toSessionListItem } from '../../features/practitioner/lib/argamapping';
+import { useScheduleOverview } from '../../features/practicum';
+import { ErrorState, LoadingState } from '../../features/practicum/components/StateViews';
+import { SyncStatusBanner } from '../../features/practicum/components/SyncStatusBanner';
+import { initialsFor } from '../../features/practicum/profile-view';
+import {
+  toAssistantSessionItem,
+  toPractitionerSessionListItem,
+} from '../../features/practicum/session-view';
+import { colors } from '../../theme/tokens';
 
 export default function ScheduleRoute() {
-  const demo = useDemo();
+  const auth = useAuth();
   const router = useRouter();
+  const overview = useScheduleOverview();
 
-  if (demo.currentUser?.role === 'asisten') {
-    const sessions = selectAssistantSessions(demo).map(({ session }) =>
-      toAssistantSessionItem(session),
+  if (!auth.profile) return <Redirect href="/" />;
+
+  if (overview.status === 'loading') {
+    return (
+      <View style={styles.screen}>
+        <LoadingState message="Memuat jadwal…" />
+      </View>
     );
+  }
+
+  if (overview.status === 'error') {
+    return (
+      <View style={styles.screen}>
+        <ErrorState
+          message={overview.error ?? 'Tidak dapat memuat jadwal.'}
+          onRetry={overview.reload}
+        />
+      </View>
+    );
+  }
+
+  const classById = new Map(overview.classes.map((item) => [item.id, item]));
+  const scheduleById = new Map(overview.schedules.map((item) => [item.id, item]));
+
+  if (auth.profile.role === 'asisten') {
+    const sessions = overview.sessions.flatMap((session) => {
+      const classItem = classById.get(session.classId);
+      if (!classItem) return [];
+      return [
+        toAssistantSessionItem(
+          session,
+          classItem,
+          scheduleById.get(session.scheduleId) ?? null,
+        ),
+      ];
+    });
 
     return (
-      <AssistantJadwalScreen
-        sessions={sessions}
-        assistantName={demo.currentUser.name}
-        assistantInitials={demo.currentUser.initials}
-        onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
-      />
+      <View style={styles.screen}>
+        <SyncStatusBanner
+          error={overview.syncError}
+          fromCache={overview.fromCache}
+          onRetry={overview.retrySync}
+        />
+        <AssistantJadwalScreen
+          sessions={sessions}
+          assistantName={auth.profile.name}
+          assistantInitials={initialsFor(auth.profile.name)}
+          onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
+          onManageClasses={() => router.push('/kelas')}
+        />
+      </View>
     );
   }
 
-  if (demo.currentUser?.role !== 'praktikan') {
-    return <NavigationLandingScreen page="jadwal" />;
-  }
-
-  const sessions = selectMySessions(demo).map(toSessionListItem);
+  const sessions = overview.sessions.flatMap((session) => {
+    const classItem = classById.get(session.classId);
+    if (!classItem) return [];
+    return [
+      toPractitionerSessionListItem(
+        session,
+        classItem,
+        scheduleById.get(session.scheduleId) ?? null,
+      ),
+    ];
+  });
 
   return (
-    <JadwalScreen
-      sessions={sessions}
-      praktikanName={demo.currentUser.name}
-      praktikanInitials={demo.currentUser.initials}
-      onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
-    />
+    <View style={styles.screen}>
+      <SyncStatusBanner
+        error={overview.syncError}
+        fromCache={overview.fromCache}
+        onRetry={overview.retrySync}
+      />
+      <JadwalScreen
+        sessions={sessions}
+        praktikanName={auth.profile.name}
+        praktikanInitials={initialsFor(auth.profile.name)}
+        onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
+      />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
+});

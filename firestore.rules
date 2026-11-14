@@ -1,17 +1,16 @@
 rules_version = '2';
-// Data model: users/{Firebase Auth UID}
-// uid: string (1..128), immutable; name: string (2..100, trimmed)
-// number: string (1..32 alphanumeric, dot or hyphen)
-// role: 'praktikan' | 'asisten', immutable to clients
-// createdAt: timestamp, immutable; updatedAt: timestamp, server time
-// Email remains in Firebase Authentication; no collection-wide profile reads.
-// SRS-06..17 collections are denied until their owners add reviewed rules.
+// Data model Sprint 2.
+// users/{uid}: uid, name, number, role ('praktikan' | 'asisten'), createdAt, updatedAt.
+// SRS-06..12 collections are covered below.
+// SRS-13..17 writes/approval remain owned by Arga; only read-only permission
+// summary is exposed for the SRS-11 recap.
 service cloud.firestore {
   match /databases/{database}/documents {
     function isAuthenticated() { return request.auth != null; }
     function isOwner(userId) { return isAuthenticated() && request.auth.uid == userId; }
     function uidUnchanged(userId) { return request.resource.data.uid == userId; }
     function uidNotModified() { return request.resource.data.uid == resource.data.uid; }
+
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'name', 'number', 'role', 'createdAt', 'updatedAt'])
         && data.keys().hasOnly(['uid', 'name', 'number', 'role', 'createdAt', 'updatedAt'])
@@ -23,6 +22,90 @@ service cloud.firestore {
         && data.role in ['praktikan', 'asisten']
         && data.createdAt is timestamp && data.updatedAt is timestamp;
     }
+
+    function userRole() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
+    }
+    function isAssistant() { return userRole() == 'asisten'; }
+    function isPractitioner() { return userRole() == 'praktikan'; }
+
+    function isAssignedAssistant(classId) {
+      return isAssistant()
+        && exists(/databases/$(database)/documents/classes/$(classId))
+        && request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.assistantIds;
+    }
+
+    function isActiveParticipant(classId) {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/classes/$(classId))
+        && request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.studentIds;
+    }
+
+    function isValidClass(data) {
+      return data.keys().hasAll(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'createdAt', 'updatedAt', 'archivedAt'])
+        && data.keys().hasOnly(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'createdAt', 'updatedAt', 'archivedAt'])
+        && data.className is string && data.className.size() >= 1 && data.className.size() <= 100
+        && data.courseName is string && data.courseName.size() >= 1 && data.courseName.size() <= 100
+        && data.assistantIds is list && data.assistantIds.size() >= 1 && data.assistantIds.size() <= 20
+        && data.studentIds is list && data.studentIds.size() <= 200
+        && data.memberIds is list && data.memberIds.size() >= 1 && data.memberIds.size() <= 220
+        && data.createdAt is timestamp && data.updatedAt is timestamp
+        && (data.archivedAt == null || data.archivedAt is timestamp);
+    }
+
+    function isValidParticipant(data) {
+      return data.keys().hasAll(['classId', 'userId', 'studentName', 'studentNumber', 'joinedAt', 'leftAt'])
+        && data.keys().hasOnly(['classId', 'userId', 'studentName', 'studentNumber', 'joinedAt', 'leftAt'])
+        && data.classId is string && data.classId.size() >= 1 && data.classId.size() <= 64
+        && data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128
+        && data.studentName is string && data.studentName.size() >= 2 && data.studentName.size() <= 100
+        && data.studentNumber is string && data.studentNumber.size() >= 1 && data.studentNumber.size() <= 32
+        && data.joinedAt is timestamp
+        && (data.leftAt == null || data.leftAt is timestamp);
+    }
+
+    function isValidSchedule(data) {
+      return data.keys().hasAll(['classId', 'title', 'startAt', 'endAt', 'location', 'createdAt', 'updatedAt', 'archivedAt'])
+        && data.keys().hasOnly(['classId', 'title', 'startAt', 'endAt', 'location', 'createdAt', 'updatedAt', 'archivedAt'])
+        && data.classId is string && data.classId.size() >= 1 && data.classId.size() <= 64
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.startAt is timestamp && data.endAt is timestamp && data.startAt < data.endAt
+        && data.location is string && data.location.size() >= 1 && data.location.size() <= 120
+        && data.createdAt is timestamp && data.updatedAt is timestamp
+        && (data.archivedAt == null || data.archivedAt is timestamp);
+    }
+
+    function isValidSession(data) {
+      return data.keys().hasAll(['scheduleId', 'classId', 'studentIds', 'startAt', 'endAt', 'status', 'openedAt', 'closedAt', 'cancelledAt', 'openedBy', 'closedBy', 'cancelledBy', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['scheduleId', 'classId', 'studentIds', 'startAt', 'endAt', 'status', 'openedAt', 'closedAt', 'cancelledAt', 'openedBy', 'closedBy', 'cancelledBy', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.scheduleId is string && data.scheduleId.size() >= 1 && data.scheduleId.size() <= 64
+        && data.classId is string && data.classId.size() >= 1 && data.classId.size() <= 64
+        && data.studentIds is list && data.studentIds.size() <= 200
+        && data.startAt is timestamp && data.endAt is timestamp && data.startAt < data.endAt
+        && data.status in ['scheduled', 'open', 'closed', 'cancelled']
+        && (data.openedAt == null || data.openedAt is timestamp)
+        && (data.closedAt == null || data.closedAt is timestamp)
+        && (data.cancelledAt == null || data.cancelledAt is timestamp)
+        && (data.openedBy == null || (data.openedBy is string && data.openedBy.size() >= 1 && data.openedBy.size() <= 128))
+        && (data.closedBy == null || (data.closedBy is string && data.closedBy.size() >= 1 && data.closedBy.size() <= 128))
+        && (data.cancelledBy == null || (data.cancelledBy is string && data.cancelledBy.size() >= 1 && data.cancelledBy.size() <= 128))
+        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128
+        && data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    function isValidAttendance(data) {
+      return data.keys().hasAll(['sessionId', 'classId', 'userId', 'status', 'recordedAt'])
+        && data.keys().hasOnly(['sessionId', 'classId', 'userId', 'status', 'recordedAt'])
+        && data.sessionId is string && data.sessionId.size() >= 1 && data.sessionId.size() <= 64
+        && data.classId is string && data.classId.size() >= 1 && data.classId.size() <= 64
+        && data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128
+        && data.status == 'present'
+        && data.recordedAt is timestamp;
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId);
       allow list: if false;
@@ -37,6 +120,143 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
+
+    match /classes/{classId} {
+      allow get: if isAuthenticated() && resource != null
+        && request.auth.uid in resource.data.memberIds;
+      allow list: if isAuthenticated()
+        && request.auth.uid in resource.data.memberIds;
+      allow create: if isAssistant() && isValidClass(request.resource.data)
+        && request.resource.data.assistantIds.hasAll([request.auth.uid])
+        && request.resource.data.studentIds.size() == 0
+        && request.resource.data.memberIds.size() == request.resource.data.assistantIds.size()
+        && request.resource.data.memberIds.hasAll(request.resource.data.assistantIds)
+        && request.resource.data.memberIds.hasAll([request.auth.uid])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.archivedAt == null;
+      allow update: if isAssignedAssistant(classId)
+        && isValidClass(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'updatedAt', 'archivedAt'])
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.assistantIds.size() >= 1;
+      allow delete: if false;
+    }
+
+    match /participants/{participantId} {
+      allow get: if isAuthenticated()
+        && (participantId.matches('.*_' + request.auth.uid)
+          || isAssignedAssistant(participantId.split('_')[0]));
+      allow list: if isAssistant() && isAssignedAssistant(resource.data.classId);
+      allow create: if isAssistant()
+        && isValidParticipant(request.resource.data)
+        && isAssignedAssistant(request.resource.data.classId)
+        && participantId == request.resource.data.classId + '_' + request.resource.data.userId
+        && request.resource.data.joinedAt == request.time
+        && request.resource.data.leftAt == null
+        && exists(/databases/$(database)/documents/users/$(request.resource.data.userId))
+        && get(/databases/$(database)/documents/users/$(request.resource.data.userId)).data.role == 'praktikan'
+        && get(/databases/$(database)/documents/users/$(request.resource.data.userId)).data.number == request.resource.data.studentNumber;
+      allow update: if isAssignedAssistant(resource.data.classId)
+        && isValidParticipant(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leftAt', 'studentNumber'])
+        && (request.resource.data.leftAt == null || request.resource.data.leftAt == request.time);
+      allow delete: if false;
+    }
+
+    match /schedules/{scheduleId} {
+      allow get: if isAuthenticated() && resource != null
+        && (isAssignedAssistant(resource.data.classId) || isActiveParticipant(resource.data.classId));
+      allow list: if isAuthenticated()
+        && (isAssignedAssistant(resource.data.classId) || isActiveParticipant(resource.data.classId));
+      allow create: if isAssistant() && isValidSchedule(request.resource.data)
+        && isAssignedAssistant(request.resource.data.classId)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.archivedAt == null;
+      allow update: if isAssignedAssistant(resource.data.classId)
+        && isValidSchedule(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'startAt', 'endAt', 'location', 'updatedAt', 'archivedAt'])
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /sessions/{sessionId} {
+      allow get: if isAuthenticated()
+        && ((resource != null
+            && (isAssignedAssistant(resource.data.classId) || isActiveParticipant(resource.data.classId)))
+          || (exists(/databases/$(database)/documents/schedules/$(sessionId))
+            && isAssignedAssistant(get(/databases/$(database)/documents/schedules/$(sessionId)).data.classId)));
+      allow list: if isAuthenticated()
+        && (isAssignedAssistant(resource.data.classId) || isActiveParticipant(resource.data.classId));
+      allow create: if isAssistant() && isValidSession(request.resource.data)
+        && sessionId == request.resource.data.scheduleId
+        && isAssignedAssistant(request.resource.data.classId)
+        && exists(/databases/$(database)/documents/schedules/$(request.resource.data.scheduleId))
+        && get(/databases/$(database)/documents/schedules/$(request.resource.data.scheduleId)).data.classId == request.resource.data.classId
+        && request.resource.data.studentIds == get(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.studentIds
+        && request.resource.data.status == 'scheduled'
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.openedAt == null
+        && request.resource.data.closedAt == null
+        && request.resource.data.cancelledAt == null
+        && request.resource.data.openedBy == null
+        && request.resource.data.closedBy == null
+        && request.resource.data.cancelledBy == null;
+      allow update: if isAssignedAssistant(resource.data.classId)
+        && isValidSession(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'openedAt', 'closedAt', 'cancelledAt', 'openedBy', 'closedBy', 'cancelledBy', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && ((resource.data.status == 'scheduled' && request.resource.data.status in ['open', 'cancelled'])
+          || (resource.data.status == 'open' && request.resource.data.status in ['closed', 'cancelled']))
+        && (request.resource.data.status != 'open' || (request.resource.data.openedAt == request.time && request.resource.data.openedBy == request.auth.uid))
+        && (request.resource.data.status != 'closed' || (request.resource.data.closedAt == request.time && request.resource.data.closedBy == request.auth.uid))
+        && (request.resource.data.status != 'cancelled' || (request.resource.data.cancelledAt == request.time && request.resource.data.cancelledBy == request.auth.uid))
+        && (request.resource.data.status == 'open' || request.resource.data.openedAt == resource.data.openedAt)
+        && (request.resource.data.status == 'closed' || request.resource.data.closedAt == resource.data.closedAt)
+        && (request.resource.data.status == 'cancelled' || request.resource.data.cancelledAt == resource.data.cancelledAt)
+        && (request.resource.data.status == 'open' || request.resource.data.openedBy == resource.data.openedBy)
+        && (request.resource.data.status == 'closed' || request.resource.data.closedBy == resource.data.closedBy)
+        && (request.resource.data.status == 'cancelled' || request.resource.data.cancelledBy == resource.data.cancelledBy);
+      allow delete: if false;
+    }
+
+    match /attendances/{attendanceId} {
+      allow get: if isAuthenticated()
+        && (attendanceId.matches('.*_' + request.auth.uid)
+          || (exists(/databases/$(database)/documents/sessions/$(attendanceId.split('_')[0]))
+            && isAssignedAssistant(get(/databases/$(database)/documents/sessions/$(attendanceId.split('_')[0])).data.classId)));
+      allow list: if isAssistant() && isAssignedAssistant(resource.data.classId);
+      allow create: if isPractitioner()
+        && isValidAttendance(request.resource.data)
+        && request.resource.data.userId == request.auth.uid
+        && attendanceId == request.resource.data.sessionId + '_' + request.auth.uid
+        && exists(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId))
+        && get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.status == 'open'
+        && get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.classId == request.resource.data.classId
+        && exists(/databases/$(database)/documents/participants/$(request.resource.data.classId + '_' + request.auth.uid))
+        && get(/databases/$(database)/documents/participants/$(request.resource.data.classId + '_' + request.auth.uid)).data.leftAt == null
+        && !exists(/databases/$(database)/documents/attendances/$(attendanceId))
+        && request.resource.data.recordedAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /userDirectory/{uid} {
+      allow get: if isAuthenticated() && (uid == request.auth.uid || isAssistant());
+      allow list: if isAssistant() && resource.data.role == 'praktikan';
+      allow create, update, delete: if false;
+    }
+
+    match /permissions/{permissionId} {
+      allow get: if isAuthenticated()
+        && (resource.data.userId == request.auth.uid
+          || isAssignedAssistant(resource.data.classId));
+      allow list: if isAssistant() && isAssignedAssistant(resource.data.classId);
+      allow create, update, delete: if false;
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }
