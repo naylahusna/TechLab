@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { Pressable, TextInput, View } from 'react-native';
 import { AppPage } from '../../components/AppPage';
 import { ActionButton } from '../../components/ActionButton';
@@ -12,13 +12,24 @@ import { ChoiceChip, dateTime, PermissionBadge, ui } from './ui';
 import { colors } from '../../theme/tokens';
 
 export function PermissionListScreen() {
+  const { profile } = useAuth();
+  if (!profile) return <Redirect href="/" />;
+  return <PermissionListContent key={`${profile.uid}:${profile.role}`} />;
+}
+
+function PermissionListContent() {
   const router = useRouter();
   const { profile } = useAuth();
   const resource = usePermissions();
   const assistant = profile?.role === 'asisten';
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const items = filterPermissions(resource.data, filter, search);
+  const [classId, setClassId] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const classes = [...new Map(resource.data.map((item) => [item.classId, item.className])).entries()];
+  const sessions = [...new Map(resource.data.filter((item) => !classId || item.classId === classId)
+    .map((item) => [item.sessionId, item.sessionTitle])).entries()];
+  const items = filterPermissions(resource.data, filter, search, { classId, sessionId });
   return (
     <AppPage
       title={assistant ? 'Ruang pemeriksaan izin.' : 'Ada halangan? Kabari di sini.'}
@@ -74,6 +85,28 @@ export function PermissionListScreen() {
           ))}
         </View>
       </View>
+      {assistant && resource.status === 'ready' && (
+        <View style={ui.card}>
+          <Text style={ui.eyebrow}>KELAS YANG MEMILIKI PENGAJUAN</Text>
+          <View style={ui.wrap}>
+            <ChoiceChip label="Semua kelas" selected={!classId} onPress={() => { setClassId(''); setSessionId(''); }} />
+            {classes.map(([id, name]) => <ChoiceChip key={id} label={name} selected={classId === id}
+              onPress={() => { setClassId(id); setSessionId(''); }} />)}
+          </View>
+          <Text style={ui.eyebrow}>SESI</Text>
+          <View style={ui.wrap}>
+            <ChoiceChip label="Semua sesi" selected={!sessionId} onPress={() => setSessionId('')} />
+            {sessions.map(([id, title]) => <ChoiceChip key={id} label={title} selected={sessionId === id}
+              onPress={() => setSessionId(id)} />)}
+          </View>
+        </View>
+      )}
+      <ActionButton title="Reset pencarian dan filter" secondary
+        disabled={!search && filter === 'all' && !classId && !sessionId}
+        onPress={() => { setSearch(''); setFilter('all'); setClassId(''); setSessionId(''); }} />
+      {resource.status === 'ready' && <Text accessibilityLiveRegion="polite" style={ui.meta}>
+        Menampilkan {items.length} dari {resource.data.length} pengajuan dalam cakupanmu.
+      </Text>}
       {resource.status === 'loading' && <LoadingState message="Memuat pengajuan izin…" />}
       {resource.status === 'error' && (
         <ErrorState message={resource.error!} onRetry={resource.retry} />
