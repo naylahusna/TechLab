@@ -3,9 +3,18 @@ import process from 'node:process';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
 
-if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
-  throw new Error('Jalankan seed lewat Firebase emulator (auth + firestore).');
+process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8080';
+process.env.FIREBASE_AUTH_EMULATOR_HOST ||= '127.0.0.1:9099';
+
+function assertLoopbackEmulator(host, name) {
+  const hostname = new URL(`http://${host}`).hostname;
+  if (!['127.0.0.1', 'localhost', '[::1]'].includes(hostname)) {
+    throw new Error(`${name} harus menunjuk ke Firebase emulator lokal, bukan layanan produksi.`);
+  }
 }
+
+assertLoopbackEmulator(process.env.FIRESTORE_EMULATOR_HOST, 'Firestore');
+assertLoopbackEmulator(process.env.FIREBASE_AUTH_EMULATOR_HOST, 'Firebase Auth');
 
 const projectId = 'techlab-naylahusna-2026';
 const authBase = `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1`;
