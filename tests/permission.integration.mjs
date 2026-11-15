@@ -138,6 +138,10 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
       query(collection(student.db, 'permissions'), where('userId', '==', student.profile.uid)),
     );
     assert.equal(privateList.size, 1);
+    const assignedList = await getDocs(query(collection(assistant.db, 'permissions'), where('classId', '==', classId)));
+    assert.equal(assignedList.size, 1);
+    await assert.rejects(getDocs(query(collection(otherAssistant.db, 'permissions'), where('classId', '==', classId))));
+    await assert.rejects(getDoc(doc(otherAssistant.db, 'permissions', id)));
     await assert.rejects(getDoc(doc(outsider.db, 'permissions', id)));
     await assert.rejects(getDocs(collection(student.db, 'permissions')));
     await assert.rejects(updateDoc(ownRef, { status: 'approved', updatedAt: serverTimestamp() }));

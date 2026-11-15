@@ -56,11 +56,16 @@ export function validateDecision(status: string, reason: string) {
     throw new Error('Tuliskan alasan penolakan minimal 5 karakter.');
   return { status, decisionReason: clean || null } as const;
 }
-export function filterPermissions(items: readonly Permission[], status: string, search: string) {
+export function filterPermissions(
+  items: readonly Permission[], status: string, search: string,
+  scope: { classId?: string; sessionId?: string } = {},
+) {
   const needle = search.trim().toLocaleLowerCase('id-ID');
   return items.filter(
     (item) =>
       (status === 'all' || item.status === status) &&
+      (!scope.classId || item.classId === scope.classId) &&
+      (!scope.sessionId || item.sessionId === scope.sessionId) &&
       (!needle ||
         `${item.studentName} ${item.studentNumber} ${item.sessionTitle} ${item.className}`
           .toLocaleLowerCase('id-ID')

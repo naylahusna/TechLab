@@ -10,6 +10,18 @@ import {
 } from '../src/features/permission/model';
 import { getAttendanceAction } from '../src/features/practitioner/lib/attendance-action';
 
+test('SRS-15 combines class, session, status and search filters without mutating records', () => {
+  const items = Object.freeze([
+    Object.freeze({ classId: 'a', sessionId: 'one', status: 'pending', studentName: 'Alya', studentNumber: '123', className: 'A', sessionTitle: 'PPK' }),
+    Object.freeze({ classId: 'a', sessionId: 'two', status: 'approved', studentName: 'Bima', studentNumber: '456', className: 'A', sessionTitle: 'PPK' }),
+    Object.freeze({ classId: 'b', sessionId: 'one', status: 'pending', studentName: 'Alya', studentNumber: '789', className: 'B', sessionTitle: 'PPK' }),
+  ]) as unknown as readonly Permission[];
+  assert.deepEqual(filterPermissions(items, 'pending', ' ALYA ', { classId: 'a', sessionId: 'one' }), [items[0]]);
+  assert.equal(filterPermissions(items, 'all', '', { classId: 'missing' }).length, 0);
+  assert.equal(filterPermissions(items, 'all', '').length, 3);
+  assert.equal(items[1].status, 'approved');
+});
+
 test('permission input validation, deterministic IDs, rejection reasons and immutable filters', () => {
   assert.deepEqual(validateSubmission('  Saya sakit demam sejak pagi.  ', 'sakit'), {
     reason: 'Saya sakit demam sejak pagi.',
