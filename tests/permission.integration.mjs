@@ -268,6 +268,7 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
       sessionId: scheduledSessionId,
       reason: '  Ada keperluan keluarga yang tidak dapat ditinggalkan.  ',
       kind: 'keluarga',
+      aiConsent: true,
     });
     const submitted = (await getDoc(doc(student2.db, 'permissions', submittedId))).data();
     assert.equal(submitted.reason, 'Ada keperluan keluarga yang tidak dapat ditinggalkan.');
@@ -284,6 +285,30 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
     });
     assert.equal(restoredSubmission.reason, submitted.reason);
     assert.equal(restoredSubmission.status, 'pending');
+    await assert.rejects(student.permissions.beginClassification(id, student.profile));
+    await assert.rejects(outsider.permissions.beginClassification(submittedId, outsider.profile));
+    const claims = await Promise.all([
+      student2.permissions.beginClassification(submittedId, student2.profile),
+      student2.permissions.beginClassification(submittedId, student2.profile),
+    ]);
+    assert.equal(claims.filter(Boolean).length, 1);
+    const aiResult = {
+      aiStatus: 'completed', aiCategory: 'keluarga', aiConfidence: null,
+      aiSource: 'https://teacher.example/v1/chat/completions#integration-test', aiError: null,
+    };
+    await assert.rejects(student2.permissions.saveClassification(submittedId, student2.profile, {
+      ...aiResult, aiConfidence: 0.9,
+    }));
+    await assert.rejects(student2.permissions.saveClassification(submittedId, student2.profile, {
+      ...aiResult, aiCategory: 'positif',
+    }));
+    await student2.permissions.saveClassification(submittedId, student2.profile, aiResult);
+    const classified = (await getDoc(doc(student2.db, 'permissions', submittedId))).data();
+    assert.equal(classified.aiCategory, 'keluarga');
+    assert.equal(classified.aiConfidence, null);
+    assert.ok(classified.aiClassifiedAt.toMillis() > 0);
+    assert.equal(classified.status, 'pending');
+    assert.equal(classified.decidedBy, null);
 
     // Both the repository and rules reject a stale form after a schedule is archived.
     await assistant.practicum.archiveSchedule(scheduledId);
@@ -301,6 +326,35 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
       updatedAt: serverTimestamp(),
     }));
     assert.equal((await getDoc(archivedRef)).exists(), false);
+
+    // An AI failure persists without removing the submission; a retry cannot alter a human decision.
+    const raceSchedule = await assistant.practicum.createSchedule({
+      classId, title: 'Sesi Uji AI', location: 'Lab 1',
+      startAt: new Date('2026-12-03T08:00:00+07:00'),
+      endAt: new Date('2026-12-03T10:00:00+07:00'),
+    });
+    const raceSession = await assistant.practicum.createSessionFromSchedule(raceSchedule, assistant.profile.uid);
+    const raceId = await student.permissions.submit(student.profile, {
+      ...input, sessionId: raceSession, aiConsent: true,
+    });
+    await student.permissions.beginClassification(raceId, student.profile);
+    await student.permissions.saveClassification(raceId, student.profile, {
+      aiStatus: 'failed', aiCategory: null, aiConfidence: null,
+      aiSource: null, aiError: 'Layanan tidak merespons. Tinjau manual.',
+    });
+    const failed = (await getDoc(doc(student.db, 'permissions', raceId))).data();
+    assert.equal(failed.status, 'pending'); assert.equal(failed.reason, input.reason);
+    assert.equal(failed.aiStatus, 'failed');
+    assert.equal(await student.permissions.beginClassification(raceId, student.profile), true);
+    await assistant.permissions.decide(raceId, assistant.profile, 'approved', 'Keputusan manusia.');
+    await student.permissions.saveClassification(raceId, student.profile, { ...aiResult, aiCategory: 'sakit' });
+    const finished = (await getDoc(doc(student.db, 'permissions', raceId))).data();
+    assert.equal(finished.status, 'approved'); assert.equal(finished.decidedBy, assistant.profile.uid);
+    assert.equal(finished.decisionReason, 'Keputusan manusia.'); assert.equal(finished.aiStatus, 'completed');
+    await assert.rejects(student.permissions.saveClassification(raceId, student.profile, aiResult));
+    await assert.rejects(updateDoc(doc(student.db, 'permissions', raceId), {
+      status: 'rejected', aiCategory: 'keluarga', aiClassifiedAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    }));
   } finally {
     stops.forEach((stop) => stop());
     await Promise.all(apps.map((app) => deleteApp(app)));

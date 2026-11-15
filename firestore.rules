@@ -277,9 +277,8 @@ service cloud.firestore {
         && request.resource.data.aiSource == null && request.resource.data.aiClassifiedAt == null
         && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
       allow update: if validPermission(request.resource.data)
-        && resource.data.status == 'pending'
         && request.resource.data.updatedAt == request.time
-        && (permissionDecision() || permissionClassification());
+        && ((resource.data.status == 'pending' && permissionDecision()) || permissionClassification());
       allow delete: if false;
     }
 
@@ -333,6 +332,10 @@ service cloud.firestore {
     }
     function permissionClassification() {
       return isPractitioner() && resource.data.userId == request.auth.uid && resource.data.aiConsent
+        && request.resource.data.aiConfidence == null
+        && (request.resource.data.aiCategory == null || request.resource.data.aiCategory in ['sakit', 'keluarga', 'kegiatan-kampus', 'lainnya'])
+        && (resource.data.status == 'pending'
+          || (resource.data.aiStatus == 'processing' && request.resource.data.aiStatus in ['completed', 'failed', 'unavailable']))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['aiStatus', 'aiCategory', 'aiConfidence', 'aiSource', 'aiClassifiedAt', 'aiError', 'updatedAt'])
         && request.resource.data.aiClassifiedAt == request.time;
     }

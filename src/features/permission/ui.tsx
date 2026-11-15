@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Text } from '../../components/Text';
 import { colors } from '../../theme/tokens';
-import { permissionLabels, type Permission } from './model';
+import { permissionKinds, permissionLabels, type Permission, type PermissionKind } from './model';
 
 export function PermissionBadge({ status }: { status: Permission['status'] }) {
   return (
@@ -70,14 +70,11 @@ export function AiInformation({ permission }: { permission: Permission }) {
     <InfoCard label="BANTUAN AI · BUKAN KEPUTUSAN" tone="lavender">
       <Text style={ui.heading}>
         {permission.aiStatus === 'completed'
-          ? permission.aiCategory
+          ? permissionKinds[permission.aiCategory as PermissionKind] ?? permission.aiCategory
           : permission.aiStatus === 'processing'
             ? 'Klasifikasi sedang diproses'
             : 'Klasifikasi belum tersedia'}
       </Text>
-      {permission.aiStatus === 'completed' && permission.aiConfidence !== null && (
-        <Text style={ui.copy}>Keyakinan model: {Math.round(permission.aiConfidence * 100)}%</Text>
-      )}
       <Text style={ui.copy}>
         {permission.aiError ??
           'Hasil ini hanya informasi pendukung. Keputusan akhir tetap dibuat oleh asisten.'}

@@ -34,6 +34,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "ai:server": "node scripts/start-permission-ai.mjs",
     "lint": "expo lint",
     "test": "node scripts/test.mjs",
     "test:rules": "npx -y firebase-tools@13.35.1 emulators:exec --only firestore --project demo-techlab \"node --test --test-concurrency=1 tests/firestore.rules.test.mjs tests/practicum.rules.test.mjs\"",
