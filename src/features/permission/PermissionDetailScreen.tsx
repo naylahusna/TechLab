@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ScrollView, TextInput, View } from 'react-native';
 import { ActionButton } from '../../components/ActionButton';
@@ -8,7 +8,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { PracticumHeader } from '../practicum/components/PracticumHeader';
 import { EmptyState, ErrorState, LoadingState } from '../practicum/components/StateViews';
 import { getPermissionRepository, usePermission } from './hooks';
-import { permissionError, permissionKinds, permissionLabels, validateDecision } from './model';
+import { decisionBlockReason, permissionError, permissionKinds, permissionLabels, validateDecision } from './model';
 import { AiInformation, dateTime, InfoCard, PermissionBadge, ui } from './ui';
 import { PermissionAiRetry } from './PermissionAiControls';
 
@@ -17,39 +17,49 @@ export function PermissionDetailScreen({ id, created = false }: { id: string; cr
   const router = useRouter();
   const resource = usePermission(id);
   const [reason, setReason] = useState('');
-  const [decision, setDecision] = useState<'approved' | 'rejected' | null>(null);
+  const [decision, setDecision] = useState<{
+    status: 'approved' | 'rejected'; reason: string; description: string;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const guard = useRef(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const item = resource.data;
   const assistant = profile?.role === 'asisten';
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const decisionBlocked = resource.status !== 'ready'
+    ? 'Data terbaru belum tersedia. Coba muat kembali pengajuan.'
+    : decisionBlockReason(profile?.role, item?.status, resource.cached);
   function choose(value: 'approved' | 'rejected') {
     setError('');
     try {
-      validateDecision(value, reason);
-      setDecision(value);
+      if (busy || decisionBlocked || !item) throw new Error(decisionBlocked || 'Tunggu proses sebelumnya selesai.');
+      const clean = validateDecision(value, reason);
+      setDecision({ status: value, reason: clean.decisionReason ?? '',
+        description: `${item.studentName} · ${item.studentNumber}\n${item.sessionTitle}\n\n${clean.decisionReason || 'Tanpa catatan tambahan.'}\n\nKeputusan dicatat dengan akun dan waktu asisten. Hasil AI tidak menentukan keputusan ini.` });
     } catch (cause) {
       setError(permissionError(cause));
     }
   }
   async function decide() {
     if (guard.current || !profile || !decision) return;
+    if (decisionBlocked) { setDecision(null); setError(decisionBlocked); return; }
     guard.current = true;
     setBusy(true);
     setError('');
     const target = decision;
     setDecision(null);
     try {
-      await getPermissionRepository().decide(id, profile, target, reason);
-      setSuccess(
+      await getPermissionRepository().decide(id, profile, target.status, target.reason);
+      if (mounted.current) setSuccess(
         'Keputusan berhasil disimpan. Praktikan dapat melihat pembaruannya secara langsung.',
       );
     } catch (cause) {
-      setError(permissionError(cause));
+      if (mounted.current) setError(permissionError(cause));
     } finally {
       guard.current = false;
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   }
   return (
@@ -59,6 +69,7 @@ export function PermissionDetailScreen({ id, created = false }: { id: string; cr
         eyebrow={assistant ? 'Asisten · Tinjauan izin' : 'Praktikan · Status izin'}
         subtitle="Satu pengajuan, satu keputusan yang tercatat."
         onBack={() => {
+          if (busy) return;
           if (router.canGoBack()) router.back();
           else router.replace('/izin');
         }}
@@ -122,7 +133,7 @@ export function PermissionDetailScreen({ id, created = false }: { id: string; cr
                   : `02 · ${permissionLabels[item.status]} — ${dateTime(item.decidedAt)}`}
               </Text>
               {item.decidedBy && (
-                <Text style={ui.meta}>Keputusan dikonfirmasi oleh asisten kelas.</Text>
+                <Text selectable style={ui.meta}>Dicatat oleh asisten kelas · ID {item.decidedBy}</Text>
               )}
               {item.decisionReason && (
                 <>
@@ -156,14 +167,14 @@ export function PermissionDetailScreen({ id, created = false }: { id: string; cr
                 />
                 <ActionButton
                   title={busy ? 'Menyimpan keputusan…' : 'Setujui pengajuan'}
-                  disabled={busy || resource.cached}
+                  disabled={busy || !!decisionBlocked}
                   onPress={() => choose('approved')}
                   testID="permission-approve"
                 />
                 <ActionButton
                   title="Tolak pengajuan"
                   secondary
-                  disabled={busy || resource.cached}
+                  disabled={busy || !!decisionBlocked}
                   onPress={() => choose('rejected')}
                   testID="permission-reject"
                 />
@@ -190,9 +201,9 @@ export function PermissionDetailScreen({ id, created = false }: { id: string; cr
       <ConfirmationModal
         visible={!!decision}
         eyebrow="KEPUTUSAN FINAL ASISTEN"
-        title={decision === 'approved' ? 'Setujui izin ini?' : 'Tolak izin ini?'}
-        description={`${item?.studentName ?? ''}\n${item?.sessionTitle ?? ''}\n\n${reason.trim() || 'Tanpa catatan tambahan.'}\n\nKeputusan disimpan beserta waktu dan akun asisten. Tidak dapat diubah melalui aplikasi.`}
-        confirmLabel="Konfirmasi keputusan"
+        title={decisionBlocked ? 'Pengajuan belum dapat diputuskan' : decision?.status === 'approved' ? 'Setujui izin ini?' : 'Tolak izin ini?'}
+        description={decisionBlocked || decision?.description || ''}
+        confirmLabel={decisionBlocked ? 'Kembali ke detail' : 'Konfirmasi keputusan'}
         onConfirm={() => {
           void decide();
         }}
