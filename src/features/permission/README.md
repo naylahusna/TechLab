@@ -16,9 +16,15 @@ Modul izin Sprint 2 menggunakan Firebase Auth sebagai identitas dan collection
 - Presensi dan izin menunggu/disetujui tidak boleh dibuat bersamaan. Jika izin
   ditolak, praktikan masih boleh presensi selama sesi dibuka.
 - Tidak ada lampiran wajib pada kebijakan saat ini; formulir berisi jenis dan alasan.
-- API AI pengajar **ditunda atas permintaan owner**. Pengajuan baru menyimpan
-  `aiStatus=unavailable`, tanpa kategori/confidence buatan. Adapter transport ada
-  di `ai.ts` untuk dilengkapi setelah kontrak pengajar tersedia, belum dipanggil UI.
+- SRS-14 memakai API chat-completions melalui perantara Node (`npm run ai:server`).
+  Salin `.env.ai.example` ke `.env.ai.local` dan isi key hanya di server. URL perantara
+  ada di `EXPO_PUBLIC_PERMISSION_AI_URL`; key penyedia tidak boleh menjadi variabel publik.
+  Perantara memverifikasi akun Firebase, kepemilikan pengajuan, serta persetujuan AI,
+  lalu hanya mengirim teks alasan yang telah tersimpan. Kegagalan tetap ditinjau manual.
+- Persetujuan AI tidak dicentang otomatis. Hasil kategori, sumber/model, status, dan waktu
+  server disimpan tanpa confidence buatan. Pengajuan tetap tersimpan saat AI gagal.
+  AI yang sudah dimulai boleh menyelesaikan metadata setelah keputusan asisten,
+  tanpa mengubah keputusan atau pelakunya. Analisis sentimen lokal adalah fitur terpisah.
 - Bukti pengujian: `tests/permission.test.ts`, `tests/permission.integration.mjs`,
   `scripts/smoke-permission-web.mjs`. Smoke browser memakai akun seed **lokal**,
   sehingga perlu dataset emulator baru sebelum setiap pengujian.

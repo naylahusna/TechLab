@@ -10,6 +10,7 @@ import { EmptyState, ErrorState, LoadingState } from '../practicum/components/St
 import { getPermissionRepository, usePermission } from './hooks';
 import { permissionError, permissionKinds, permissionLabels, validateDecision } from './model';
 import { AiInformation, dateTime, InfoCard, PermissionBadge, ui } from './ui';
+import { PermissionAiRetry } from './PermissionAiControls';
 
 export function PermissionDetailScreen({ id, created = false }: { id: string; created?: boolean }) {
   const { profile } = useAuth();
@@ -107,6 +108,7 @@ export function PermissionDetailScreen({ id, created = false }: { id: string; cr
               <Text style={ui.meta}>Diajukan {dateTime(item.createdAt)}</Text>
             </InfoCard>
             <AiInformation permission={item} />
+            <PermissionAiRetry item={item} cached={resource.cached} />
             <InfoCard
               label="JEJAK PENGAJUAN"
               tone={

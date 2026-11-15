@@ -1,0 +1,28 @@
+Analisis sentimen lokal TechLab
+
+Mesin prediksi dan model disalin tanpa perubahan dari:
+https://github.com/Doctor3131/ppk-rn-expo-58
+Commit sumber: 7ce989d5b0cf8707f537a42a5f999fbb46e047c4
+File sumber: ai/sentiment.js dan ai/model-edom.json.
+Lisensi root project sumber disertakan sebagai SOURCE-LICENSE.txt (MIT).
+
+Menurut ai/README.md project sumber, data pelatihan berasal dari komentar
+evaluasi dosen/perkuliahan pada repositori EDOM sentiment:
+https://github.com/samfch/edom-sentiment
+Copyright (c) 2021 Sam FCH. Lisensi MIT disertakan sebagai EDOM-LICENSE.txt,
+diambil pada 15 November 2026 dari:
+https://raw.githubusercontent.com/samfch/edom-sentiment/main/LICENSE
+
+EDOM-LICENSE.txt dan EDOM-ATTRIBUTION.txt yang disebut README sumber tidak
+tersedia di checkout sumber maupun ZIP modelnya. Catatan atribusi ini disusun
+untuk TechLab berdasarkan README, metadata model, dan lisensi upstream.
+
+Model yang dibawa adalah LinearSVC dengan label negatif, netral, positif,
+bukan model deep learning upstream dan bukan model kategori alasan izin.
+Model masih eksperimental, belum tervalidasi untuk komentar praktikum,
+dan dapat salah menangani negasi. Skor LinearSVC adalah decision margin,
+bukan probabilitas atau persentase keyakinan.
+
+Integrasi TechLab menambahkan deklarasi TypeScript, validasi model/input,
+dan antarmuka tersendiri. Tidak ada pelatihan ulang, penggantian label,
+pengiriman komentar ke API, atau perubahan keputusan izin.

@@ -12,12 +12,15 @@ import { permissionError, permissionKinds, validateSubmission, type PermissionKi
 import { getPermissionRepository, usePermissions } from './hooks';
 import { ChoiceChip, dateTime, InfoCard, ui } from './ui';
 import { useSubmissionAttendance } from './useSubmissionAttendance';
+import { classifySavedPermission } from './classification-service';
+import { PermissionAiConsent } from './PermissionAiControls';
 
 type SubmissionPreview = {
   sessionId: string;
   reason: string;
   kind: PermissionKind;
   description: string;
+  aiConsent: boolean;
 };
 
 export function PermissionFormScreen({ initialSessionId }: { initialSessionId?: string }) {
@@ -39,6 +42,7 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
   const [sessionId, setSessionId] = useState(initialSessionId ?? '');
   const [kind, setKind] = useState<PermissionKind>('sakit');
   const [reason, setReason] = useState('');
+  const [aiConsent, setAiConsent] = useState(false);
   const [error, setError] = useState('');
   const [confirmation, setConfirmation] = useState<SubmissionPreview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -93,7 +97,8 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
       setConfirmation({
         sessionId: selected.id,
         ...clean,
-        description: `${profile?.name} · ${profile?.number}\n${title}\n${className}\nMulai: ${dateTime(selected.startAt)}\nSelesai: ${dateTime(selected.endAt)}\n${permissionKinds[clean.kind]}\n\n${clean.reason}\n\nStatus awal akan menjadi Menunggu.`,
+        aiConsent,
+        description: `${profile?.name} · ${profile?.number}\n${title}\n${className}\nMulai: ${dateTime(selected.startAt)}\nSelesai: ${dateTime(selected.endAt)}\n${permissionKinds[clean.kind]}\n\n${clean.reason}\n\nAnalisis AI eksternal: ${aiConsent ? 'disetujui' : 'tidak diminta'}.\nStatus awal akan menjadi Menunggu.`,
       });
     } catch (cause) {
       setError(permissionError(cause));
@@ -115,8 +120,13 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
         sessionId: confirmation.sessionId,
         reason: confirmation.reason,
         kind: confirmation.kind,
-        aiConsent: false,
+        aiConsent: confirmation.aiConsent,
       });
+      if (confirmation.aiConsent) {
+        // Saving permission succeeded first. A failed AI attempt never rolls it back.
+        // The stored initial AI notice offers retry if this background attempt cannot start.
+        void classifySavedPermission(id, profile).catch(() => {});
+      }
       if (mounted.current) router.replace({ pathname: '/izin/[id]', params: { id, created: '1' } });
     } catch (cause) {
       if (mounted.current) setError(permissionError(cause));
@@ -230,13 +240,7 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
             yang tidak diperlukan.
           </Text>
         </InfoCard>
-        <InfoCard label="KLASIFIKASI AI" tone="lavender">
-          <Text style={ui.heading}>Ditinjau manusia, dibantu teknologi.</Text>
-          <Text style={ui.copy}>
-            Integrasi API AI pengajar belum diaktifkan. Alasanmu belum dikirim ke layanan AI. Kamu
-            tetap bisa mengajukan izin untuk diperiksa asisten secara manual.
-          </Text>
-        </InfoCard>
+        <PermissionAiConsent checked={aiConsent} onChange={setAiConsent} disabled={busy} />
         {permissions.status === 'error' && (
           <ErrorState message={permissions.error!} onRetry={permissions.retry} />
         )}

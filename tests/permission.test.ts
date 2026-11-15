@@ -46,36 +46,41 @@ test('permission input validation, deterministic IDs, rejection reasons and immu
   assert.ok(getAttendanceAction('dibuka', 'izin-menunggu').disabled);
 });
 
-test('reserved AI adapter sends only reason, parses supported JSON and cannot produce a decision', async () => {
+test('permission AI sends only an identifier and Firebase token to the intermediary, never a provider key', async () => {
   let sent = '';
+  let headers: HeadersInit | undefined;
+  const response = {
+    aiStatus: 'completed', aiCategory: 'sakit', aiConfidence: null,
+    aiSource: 'https://teacher.example/v1/chat/completions#test-model', aiError: null,
+  };
   const classify = createPermissionClassifier({
     endpoint: 'https://teacher.example/classify',
     fetcher: (async (_url, options) => {
       sent = String(options?.body);
-      return new Response(JSON.stringify({ category: 'sakit', confidence: 0.9 }));
+      headers = options?.headers;
+      return new Response(JSON.stringify(response));
     }) as typeof fetch,
   });
-  const result = await classify('Demam dan perlu istirahat.', true);
-  assert.deepEqual(JSON.parse(sent), { text: 'Demam dan perlu istirahat.' });
+  const result = await classify('session-a_user-a', true, 'firebase-test-token');
+  assert.deepEqual(JSON.parse(sent), { permissionId: 'session-a_user-a' });
+  assert.equal(new Headers(headers).get('Authorization'), 'Bearer firebase-test-token');
   assert.equal(result.aiStatus, 'completed');
   assert.equal(result.aiCategory, 'sakit');
   assert.ok(!('status' in result));
-  assert.deepEqual(
-    parseClassification([
-      [
-        { label: 'a', score: 0.1 },
-        { label: 'b', score: 0.9 },
-      ],
-    ]),
-    { aiCategory: 'b', aiConfidence: 0.9 },
-  );
+  assert.deepEqual(parseClassification(response), response);
+  for (const invalid of [
+    { ...response, aiCategory: 'positif' },
+    { ...response, aiCategory: 'approved' },
+    { ...response, aiConfidence: 0.9 },
+    { ...response, aiSource: 'https://user:secret@example.com/' },
+  ]) assert.throws(() => parseClassification(invalid));
   assert.throws(() => parseClassification({ label: 'approved', score: 4 }));
   assert.throws(() => parseClassification({ decision: 'approved' }));
 });
 
 test('AI disabled, no consent, invalid endpoints, HTTP errors, malformed JSON and timeout stay manual', async () => {
   const disabled = createPermissionClassifier();
-  assert.equal((await disabled('Alasan', true)).aiStatus, 'unavailable');
+  assert.equal((await disabled('permission', true, 'token')).aiStatus, 'unavailable');
   let calls = 0;
   const forbidden = createPermissionClassifier({
     endpoint: 'https://teacher.example/classify',
@@ -84,14 +89,14 @@ test('AI disabled, no consent, invalid endpoints, HTTP errors, malformed JSON an
       throw new Error();
     }) as typeof fetch,
   });
-  assert.equal((await forbidden('Alasan', false)).aiStatus, 'unavailable');
+  assert.equal((await forbidden('permission', false, 'token')).aiStatus, 'unavailable');
   assert.equal(calls, 0);
   assert.equal(
-    (await createPermissionClassifier({ endpoint: 'http://public.example/unsafe' })('x', true))
+    (await createPermissionClassifier({ endpoint: 'http://public.example/unsafe' })('x', true, 'token'))
       .aiStatus,
     'unavailable',
   );
-  assert.equal((await forbidden('Alasan', true)).aiStatus, 'failed');
+  assert.equal((await forbidden('permission', true, 'token')).aiStatus, 'failed');
   for (const response of [
     new Response('bad', { status: 503 }),
     new Response('not json'),
@@ -101,12 +106,12 @@ test('AI disabled, no consent, invalid endpoints, HTTP errors, malformed JSON an
       endpoint: 'https://teacher.example/classify',
       fetcher: (async () => response) as typeof fetch,
     });
-    assert.equal((await classify('Alasan', true)).aiStatus, 'failed');
+    assert.equal((await classify('permission', true, 'token')).aiStatus, 'failed');
   }
   const hanging = createPermissionClassifier({
     endpoint: 'https://teacher.example/classify',
     timeoutMs: 10,
     fetcher: (() => new Promise(() => {})) as typeof fetch,
   });
-  assert.equal((await hanging('Alasan', true)).aiStatus, 'failed');
+  assert.equal((await hanging('permission', true, 'token')).aiStatus, 'failed');
 });
