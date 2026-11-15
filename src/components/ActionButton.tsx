@@ -43,14 +43,14 @@ export function ActionButton({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: colors.navy,
+    backgroundColor: colors.blue,
     borderRadius: 22,
     minHeight: 56,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondary: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line },
+  secondary: { backgroundColor: colors.lime, borderWidth: 1, borderColor: '#DBEEA0' },
   disabled: { backgroundColor: colors.disabled, borderColor: colors.disabled },
   pressed: { opacity: 0.75 },
   label: { fontSize: 15, fontWeight: '700', color: colors.white, textAlign: 'center' },

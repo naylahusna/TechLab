@@ -19,6 +19,7 @@ const {
   doc,
   getDoc,
   getFirestore,
+  serverTimestamp,
   updateDoc,
 } = require('firebase/firestore');
 const { initializeTestEnvironment } = require('@firebase/rules-unit-testing');
@@ -50,11 +51,23 @@ test('Authentication identity connects to profile create/recovery/edit and accou
     assert.equal((await getDoc(ref)).exists(), false);
     await repository.create(uid, { name: 'Praktikan Baru', number: '240001' });
     assert.equal((await getDoc(ref)).data().role, 'praktikan');
+    const directoryRef = doc(db, 'userDirectory', uid);
+    assert.equal((await getDoc(directoryRef)).data().number, '240001');
     await assert.rejects(createUserWithEmailAndPassword(auth, email, password), {
       code: 'auth/email-already-in-use',
     });
     await repository.update(uid, { name: 'Nama Diperbarui', number: '240002' });
     assert.equal((await getDoc(ref)).data().name, 'Nama Diperbarui');
+    assert.equal((await getDoc(directoryRef)).data().name, 'Nama Diperbarui');
+    assert.equal((await getDoc(directoryRef)).data().number, '240002');
+    await assert.rejects(
+      updateDoc(directoryRef, { role: 'asisten', updatedAt: serverTimestamp() }),
+      { code: 'permission-denied' },
+    );
+    await assert.rejects(
+      updateDoc(directoryRef, { number: 'SPOOFED', updatedAt: serverTimestamp() }),
+      { code: 'permission-denied' },
+    );
     await assert.rejects(updateDoc(ref, { role: 'asisten' }), { code: 'permission-denied' });
     await signOut(auth);
     assert.equal(auth.currentUser, null);

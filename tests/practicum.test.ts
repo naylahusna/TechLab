@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Timestamp } from 'firebase/firestore';
-import {
-  attendanceId,
-  participantId,
-  sessionIdForSchedule,
-} from '../src/features/practicum/ids';
+import { attendanceId, participantId, sessionIdForSchedule } from '../src/features/practicum/ids';
 import { findScheduleConflict } from '../src/features/practicum/schedule-conflict';
 import {
   toAssistantRecapItems,
@@ -14,6 +10,7 @@ import {
 import type {
   PracticumAttendance,
   PracticumClass,
+  PracticumPermission,
   PracticumSchedule,
   PracticumSession,
 } from '../src/features/practicum/types';
@@ -43,9 +40,7 @@ test('class validation trims fields and rejects invalid assistant lists', () => 
     },
   );
   assert.throws(() => validateClassInput({ className: '', courseName: 'X' }));
-  assert.throws(() =>
-    validateClassInput({ className: 'X', courseName: 'Y', assistantIds: [] }),
-  );
+  assert.throws(() => validateClassInput({ className: 'X', courseName: 'Y', assistantIds: [] }));
   assert.throws(() =>
     validateClassInput({
       className: 'X',
@@ -235,16 +230,10 @@ function recapFixture() {
 }
 
 test('assistant recap builds per-session summaries from Firestore records', () => {
-  const { classItem, schedules, sessions, attendance, outsiderAttendance } =
-    recapFixture();
-  const items = toAssistantRecapItems(
-    [classItem],
-    schedules,
-    sessions,
-    {
-      'schedule-1': [attendance, outsiderAttendance],
-    },
-  );
+  const { classItem, schedules, sessions, attendance, outsiderAttendance } = recapFixture();
+  const items = toAssistantRecapItems([classItem], schedules, sessions, {
+    'schedule-1': [attendance, outsiderAttendance],
+  });
 
   assert.deepEqual(
     items.map((item) => item.session.id),
@@ -308,13 +297,39 @@ test('practitioner history shows past sessions and attended open sessions only',
   assert.equal(absentHistory[0].status, 'tidak-hadir');
 });
 
+test('personal attendance history reflects approved/pending permission without inventing presence', () => {
+  const { classItem, schedules, sessions } = recapFixture();
+  const classes = [classItem];
+  const permission: PracticumPermission = {
+    id: 'schedule-1_praktikan-1',
+    sessionId: 'schedule-1',
+    classId: 'class-1',
+    userId: 'praktikan-1',
+    reason: 'Sedang sakit dan perlu beristirahat.',
+    status: 'approved',
+    decidedBy: 'asisten-1',
+    decidedAt: at('2026-11-16T08:00:00+07:00'),
+    createdAt: at('2026-11-15T08:00:00+07:00'),
+    updatedAt: at('2026-11-16T08:00:00+07:00'),
+    aiStatus: 'unavailable',
+    aiCategory: null,
+    aiConfidence: null,
+  };
+  const status = (permissions: PracticumPermission[]) =>
+    toPractitionerHistoryItems(classes, schedules, sessions, {}, 'praktikan-1', permissions).find(
+      (item) => item.sessionId === 'schedule-1',
+    )!;
+  assert.equal(status([permission]).status, 'izin');
+  assert.equal(status([permission]).attendedAtLabel, null);
+  assert.equal(status([{ ...permission, status: 'pending' }]).status, 'izin-menunggu');
+  assert.equal(status([{ ...permission, status: 'rejected' }]).status, 'tidak-hadir');
+  assert.equal(status([{ ...permission, userId: 'someone-else' }]).status, 'tidak-hadir');
+});
+
 test('recap and history skip sessions whose class is no longer readable', () => {
   const { schedules, sessions } = recapFixture();
   assert.deepEqual(toAssistantRecapItems([], schedules, sessions, {}), []);
-  assert.deepEqual(
-    toPractitionerHistoryItems([], schedules, sessions, {}, 'praktikan-1'),
-    [],
-  );
+  assert.deepEqual(toPractitionerHistoryItems([], schedules, sessions, {}, 'praktikan-1'), []);
 });
 
 test('schedule conflict detects overlap in the same class only', () => {

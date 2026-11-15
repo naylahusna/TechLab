@@ -11,7 +11,12 @@ type ParticipantCardProps = {
 };
 
 export function ParticipantCard({ participant }: ParticipantCardProps) {
-  const tone = getAttendanceStatusTone(participant.status);
+  const tone =
+    participant.permissionStatus === 'approved'
+      ? 'info'
+      : participant.permissionStatus === 'pending'
+        ? 'warning'
+        : getAttendanceStatusTone(participant.status);
 
   return (
     <View style={styles.card}>

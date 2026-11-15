@@ -19,6 +19,7 @@ import type {
   PracticumAttendance,
   PracticumClass,
   PracticumParticipant,
+  PracticumPermission,
   PracticumRecapEntry,
   PracticumRecapStatus,
   PracticumSchedule,
@@ -140,6 +141,7 @@ export function toPractitionerHistoryItems(
   sessions: readonly PracticumSession[],
   attendanceBySession: Readonly<Record<string, readonly PracticumAttendance[]>>,
   userId: string,
+  permissions: readonly PracticumPermission[] = [],
 ): RiwayatItem[] {
   const classById = new Map(classes.map((item) => [item.id, item]));
   const scheduleById = new Map(schedules.map((item) => [item.id, item]));
@@ -150,21 +152,30 @@ export function toPractitionerHistoryItems(
       const hasRecord = (attendanceBySession[session.id] ?? []).some(
         (item) => item.userId === userId,
       );
-      return hasRecord || session.status === 'closed' || session.status === 'cancelled';
+      return (
+        hasRecord ||
+        permissions.some((p) => p.sessionId === session.id && p.userId === userId) ||
+        session.status === 'closed' ||
+        session.status === 'cancelled'
+      );
     })
     .sort((left, right) => right.startAt.toMillis() - left.startAt.toMillis())
     .flatMap((session) => {
       const classItem = classById.get(session.classId);
       if (!classItem) return [];
       const record =
-        (attendanceBySession[session.id] ?? []).find((item) => item.userId === userId) ??
-        null;
+        (attendanceBySession[session.id] ?? []).find((item) => item.userId === userId) ?? null;
       const closed = session.status === 'closed' || session.status === 'cancelled';
+      const permission = permissions.find((p) => p.sessionId === session.id && p.userId === userId);
       const status: AttendanceStatus = record
         ? 'hadir'
-        : closed
-          ? 'tidak-hadir'
-          : 'belum-presensi';
+        : permission?.status === 'approved'
+          ? 'izin'
+          : permission?.status === 'pending'
+            ? 'izin-menunggu'
+            : closed
+              ? 'tidak-hadir'
+              : 'belum-presensi';
       return [
         {
           id: `${session.id}:${userId}`,
@@ -193,20 +204,30 @@ export function toAssistantParticipants(
   participants: PracticumParticipant[],
   attendance: PracticumAttendance[],
   sessionStatus: PracticumSession['status'],
+  permissions: readonly PracticumPermission[] = [],
 ): ParticipantItem[] {
   const byUser = new Map(attendance.map((item) => [item.userId, item]));
   const closed = sessionStatus === 'closed' || sessionStatus === 'cancelled';
   return participants.map((participant) => {
     const record = byUser.get(participant.userId) ?? null;
     const status = record ? 'present' : closed ? 'absent' : 'pending';
+    const permission = record
+      ? undefined
+      : permissions.find((p) => p.userId === participant.userId);
     return {
       id: participant.userId,
       name: participant.studentName,
       nim: participant.studentNumber,
       group: '',
       status,
-      statusLabel: attendanceStatusLabels[status],
+      statusLabel:
+        permission?.status === 'approved'
+          ? 'Izin Disetujui'
+          : permission?.status === 'pending'
+            ? 'Izin Menunggu'
+            : attendanceStatusLabels[status],
       attendedAtLabel: record ? timestampTimeLabel(record.recordedAt) : null,
+      ...(permission ? { permissionStatus: permission.status } : {}),
     };
   });
 }

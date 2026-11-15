@@ -34,9 +34,13 @@ async function ensureAuthUser(email) {
     });
     const signInBody = await signIn.json();
     if (signIn.ok) return signInBody.localId;
-    throw new Error(`Gagal login akun demo ${email}: ${signInBody?.error?.message ?? signIn.status}`);
+    throw new Error(
+      `Gagal login akun demo ${email}: ${signInBody?.error?.message ?? signIn.status}`,
+    );
   }
-  throw new Error(`Gagal membuat akun demo ${email}: ${signUpBody?.error?.message ?? signUp.status}`);
+  throw new Error(
+    `Gagal membuat akun demo ${email}: ${signUpBody?.error?.message ?? signUp.status}`,
+  );
 }
 
 const at = (iso) => Timestamp.fromDate(new Date(iso));
@@ -279,31 +283,43 @@ try {
       }),
     ]);
 
+    const permissionFields = (student, schedule) => ({
+      kind: 'lainnya',
+      studentName: studentNames[student],
+      studentNumber: studentNumbers[student],
+      className: 'Informatika A',
+      sessionTitle: schedules[schedule].title,
+      sessionStartAt: schedules[schedule].startAt,
+      decisionReason: schedule === 1 ? 'Kegiatan tidak memenuhi ketentuan izin kelas.' : null,
+      aiConsent: false,
+      aiSource: null,
+      aiClassifiedAt: null,
+      aiError: 'Data contoh seed. Klasifikasi AI belum diaktifkan.',
+      aiCategory: null,
+      aiConfidence: null,
+      aiStatus: 'unavailable',
+    });
     const permissionWrites = [];
     if (studentIds[1]) {
       permissionWrites.push(
-        setDoc(doc(db, 'permissions', `permission-${SCHEDULE_A1}-${studentIds[1]}`), {
+        setDoc(doc(db, 'permissions', `${SCHEDULE_A1}_${studentIds[1]}`), {
           sessionId: SCHEDULE_A1,
           classId: CLASS_A,
           userId: studentIds[1],
           reason: 'Sakit demam sejak pagi.',
-          aiCategory: 'sakit',
-          aiConfidence: 0.92,
-          aiStatus: 'completed',
+          ...permissionFields(1, 0),
           status: 'approved',
           decidedBy: assistantId,
           decidedAt: at('2026-11-15T19:00:00+07:00'),
           createdAt: at('2026-11-15T18:30:00+07:00'),
           updatedAt: at('2026-11-15T19:00:00+07:00'),
         }),
-        setDoc(doc(db, 'permissions', `permission-${SCHEDULE_A2}-${studentIds[1]}`), {
+        setDoc(doc(db, 'permissions', `${SCHEDULE_A2}_${studentIds[1]}`), {
           sessionId: SCHEDULE_A2,
           classId: CLASS_A,
           userId: studentIds[1],
           reason: 'Mengikuti kegiatan organisasi kampus.',
-          aiCategory: 'kegiatan kampus',
-          aiConfidence: 0.74,
-          aiStatus: 'completed',
+          ...permissionFields(1, 1),
           status: 'rejected',
           decidedBy: assistantId,
           decidedAt: at('2026-11-22T19:00:00+07:00'),
@@ -314,14 +330,12 @@ try {
     }
     if (studentIds[2]) {
       permissionWrites.push(
-        setDoc(doc(db, 'permissions', `permission-${SCHEDULE_A1}-${studentIds[2]}`), {
+        setDoc(doc(db, 'permissions', `${SCHEDULE_A1}_${studentIds[2]}`), {
           sessionId: SCHEDULE_A1,
           classId: CLASS_A,
           userId: studentIds[2],
           reason: 'Ada urusan keluarga di luar kota.',
-          aiCategory: 'keluarga',
-          aiConfidence: 0.81,
-          aiStatus: 'completed',
+          ...permissionFields(2, 0),
           status: 'pending',
           decidedBy: null,
           decidedAt: null,

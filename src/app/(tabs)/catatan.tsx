@@ -5,16 +5,11 @@ import { useAuth } from '../../features/auth/AuthProvider';
 import { AssistantRekapScreen } from '../../features/assistant';
 import { NavigationLandingScreen } from '../../features/navigation/NavigationLandingScreen';
 import { RiwayatScreen } from '../../features/practitioner';
-import {
-  useAssistantRecapOverview,
-  usePractitionerHistory,
-} from '../../features/practicum';
-import {
-  ErrorState,
-  LoadingState,
-} from '../../features/practicum/components/StateViews';
+import { useAssistantRecapOverview, usePractitionerHistory } from '../../features/practicum';
+import { ErrorState, LoadingState } from '../../features/practicum/components/StateViews';
 import { initialsFor } from '../../features/practicum/profile-view';
 import { colors } from '../../theme/tokens';
+import { SyncStatusBanner } from '../../features/practicum/components/SyncStatusBanner';
 
 export default function RecordsRoute() {
   const auth = useAuth();
@@ -85,11 +80,14 @@ function PractitionerRecords() {
   }
 
   return (
-    <RiwayatScreen
-      items={history.items}
-      praktikanName={profile?.name}
-      praktikanInitials={profile ? initialsFor(profile.name) : undefined}
-    />
+    <View style={styles.screen}>
+      <SyncStatusBanner error={null} fromCache={history.fromCache} onRetry={history.reload} />
+      <RiwayatScreen
+        items={history.items}
+        praktikanName={profile?.name}
+        praktikanInitials={profile ? initialsFor(profile.name) : undefined}
+      />
+    </View>
   );
 }
 

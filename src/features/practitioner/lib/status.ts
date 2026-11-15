@@ -15,4 +15,6 @@ export const ATTENDANCE_STATUS_META: Record<AttendanceStatus, StatusMeta> = {
   'belum-presensi': { label: 'Belum Presensi', tone: 'warning' },
   hadir: { label: 'Sudah Presensi', tone: 'success' },
   'tidak-hadir': { label: 'Tidak Hadir', tone: 'danger' },
+  izin: { label: 'Izin Disetujui', tone: 'info' },
+  'izin-menunggu': { label: 'Izin Menunggu', tone: 'warning' },
 };

@@ -12,17 +12,14 @@ type PracticumHeaderProps = {
   onBack: () => void;
 };
 
-export function PracticumHeader({
-  title,
-  subtitle,
-  eyebrow,
-  onBack,
-}: PracticumHeaderProps) {
+export function PracticumHeader({ title, subtitle, eyebrow, onBack }: PracticumHeaderProps) {
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
+      <View pointerEvents="none" style={styles.orb} />
+      <View pointerEvents="none" style={styles.ring} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Kembali"
@@ -42,11 +39,12 @@ export function PracticumHeader({
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primary,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingBottom: spacing.xxl,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    overflow: 'hidden',
     gap: spacing.xs,
   },
   back: {
@@ -57,26 +55,45 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.7 },
   backLabel: {
-    color: colors.link,
+    color: colors.white,
     fontSize: typography.body,
     fontWeight: fontWeights.semibold,
   },
   eyebrow: {
-    color: colors.textMuted,
+    color: colors.successSoft,
     fontSize: typography.caption,
     fontWeight: fontWeights.bold,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   title: {
-    color: colors.text,
+    color: colors.white,
     fontSize: typography.screenTitle,
     lineHeight: lineHeights.screenTitle,
     fontWeight: fontWeights.bold,
   },
   subtitle: {
-    color: colors.textMuted,
+    color: colors.onBlue,
     fontSize: typography.body,
     lineHeight: lineHeights.body,
+  },
+  orb: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    right: -24,
+    top: -55,
+    borderRadius: 70,
+    backgroundColor: '#EAFCAD22',
+  },
+  ring: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    right: -60,
+    top: -90,
+    borderRadius: 110,
+    borderWidth: 1,
+    borderColor: '#EAFCAD66',
   },
 });

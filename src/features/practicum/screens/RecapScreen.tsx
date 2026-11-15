@@ -93,10 +93,7 @@ export function RecapScreen({ sessionId }: { sessionId: string }) {
       ) : null}
 
       {!loading && !error ? (
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.summaryGrid}>
             <Summary label="Total" value={entries.length} />
             <Summary label="Hadir" value={counts.present} tone="success" />
@@ -147,12 +144,21 @@ export function RecapScreen({ sessionId }: { sessionId: string }) {
                         {time ? ` · ${time}` : ''}
                       </Text>
                       {entry.permission ? (
-                        <Text style={styles.reason} numberOfLines={2}>
-                          {entry.permission.reason}
-                          {entry.permission.aiCategory
-                            ? ` · AI: ${entry.permission.aiCategory}`
-                            : ''}
-                        </Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Lihat izin ${entry.participant.studentName}`}
+                          onPress={() => router.push(`/izin/${entry.permission!.id}`)}
+                        >
+                          <Text style={styles.reason} numberOfLines={2}>
+                            {entry.permission.reason}
+                            {entry.permission.aiCategory
+                              ? ` · AI: ${entry.permission.aiCategory}`
+                              : ''}
+                          </Text>
+                          <Text style={{ color: colors.link, fontWeight: '700', marginTop: 6 }}>
+                            Tinjau pengajuan ↗
+                          </Text>
+                        </Pressable>
                       ) : null}
                     </View>
                     <Badge
