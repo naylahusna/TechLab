@@ -113,11 +113,12 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
     };
     await assert.rejects(() => outsider.permissions.submit(outsider.profile, input));
     await assert.rejects(() => assistant.permissions.submit(assistant.profile, input));
-    await assert.rejects(() =>
-      student.permissions.submit(student.profile, { ...input, reason: 'x' }),
-    );
+    for (const reason of ['', '   ', 'x', 'x'.repeat(2001)]) {
+      await assert.rejects(() => student.permissions.submit(student.profile, { ...input, reason }));
+    }
+    assert.equal((await getDoc(doc(student.db, 'permissions', `${sessionId}_${student.profile.uid}`))).exists(), false);
     const outcomes = await Promise.allSettled([
-      student.permissions.submit(student.profile, input),
+      student.permissions.submit({ ...student.profile, name: 'Nama palsu', number: 'PALSU' }, input),
       student.permissions.submit(student.profile, input),
     ]);
     assert.equal(outcomes.filter((r) => r.status === 'fulfilled').length, 1);
@@ -129,6 +130,10 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
     assert.equal(own.aiCategory, null);
     assert.ok(own.createdAt.toMillis() > 0);
     assert.equal(own.studentNumber, student.profile.number);
+    assert.equal(own.studentName, student.profile.name);
+    assert.equal(own.decidedBy, null);
+    assert.equal(own.decidedAt, null);
+    assert.equal(own.decisionReason, null);
     const privateList = await getDocs(
       query(collection(student.db, 'permissions'), where('userId', '==', student.profile.uid)),
     );
@@ -246,6 +251,56 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
     await assert.rejects(
       setDoc(doc(outsider.db, 'permissions', `${sessionId}_${outsider.profile.uid}`), raw),
     );
+
+    // SRS-13: a future session accepts a valid submission without marking attendance.
+    const scheduledId = await assistant.practicum.createSchedule({
+      classId,
+      title: 'Sesi Pengajuan Mendatang',
+      startAt: new Date('2026-12-02T08:00:00+07:00'),
+      endAt: new Date('2026-12-02T10:00:00+07:00'),
+      location: 'Lab 1',
+    });
+    const scheduledSessionId = await assistant.practicum.createSessionFromSchedule(
+      scheduledId, assistant.profile.uid,
+    );
+    const submittedId = await student2.permissions.submit(student2.profile, {
+      ...input,
+      sessionId: scheduledSessionId,
+      reason: '  Ada keperluan keluarga yang tidak dapat ditinggalkan.  ',
+      kind: 'keluarga',
+    });
+    const submitted = (await getDoc(doc(student2.db, 'permissions', submittedId))).data();
+    assert.equal(submitted.reason, 'Ada keperluan keluarga yang tidak dapat ditinggalkan.');
+    assert.equal(submitted.kind, 'keluarga');
+    assert.equal(submitted.status, 'pending');
+    assert.equal(submitted.decidedBy, null);
+    assert.equal(submitted.decidedAt, null);
+    assert.equal((await getDoc(doc(student2.db, 'attendances', submittedId))).exists(), false);
+    const restoredSubmission = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Pending submission missing')), 8000);
+      stops.push(createPermissionRepository(student2.db).subscribeOne(submittedId, (item, cached) => {
+        if (item && !cached) { clearTimeout(timer); resolve(item); }
+      }, reject));
+    });
+    assert.equal(restoredSubmission.reason, submitted.reason);
+    assert.equal(restoredSubmission.status, 'pending');
+
+    // Both the repository and rules reject a stale form after a schedule is archived.
+    await assistant.practicum.archiveSchedule(scheduledId);
+    await assert.rejects(
+      student.permissions.submit(student.profile, { ...input, sessionId: scheduledSessionId }),
+      /Kelas atau jadwal tidak lagi tersedia/,
+    );
+    const archivedRef = doc(student.db, 'permissions', `${scheduledSessionId}_${student.profile.uid}`);
+    await assert.rejects(setDoc(archivedRef, {
+      ...submitted,
+      userId: student.profile.uid,
+      studentName: student.profile.name,
+      studentNumber: student.profile.number,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }));
+    assert.equal((await getDoc(archivedRef)).exists(), false);
   } finally {
     stops.forEach((stop) => stop());
     await Promise.all(apps.map((app) => deleteApp(app)));
