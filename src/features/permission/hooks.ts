@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthProvider';
 import { getFirebaseFirestore } from '../../services/firebase/firestore';
 import { createPermissionRepository } from './repository';
-import { permissionError, type Permission } from './model';
+import { permissionError, permissionReadVisibility, type Permission } from './model';
 
 let repository: ReturnType<typeof createPermissionRepository> | undefined;
 export function getPermissionRepository() {
@@ -18,7 +18,7 @@ type Resource<T> = {
 export function usePermissions() {
   const { profile } = useAuth();
   const [epoch, setEpoch] = useState(0);
-  const key = `${profile?.uid}:${profile?.role}`;
+  const key = `${profile?.uid}:${profile?.role}:${epoch}`;
   const [state, setState] = useState<Resource<Permission[]>>({
     status: 'loading',
     data: [],
@@ -61,7 +61,7 @@ export function usePermissions() {
 export function usePermission(id: string | undefined) {
   const { profile } = useAuth();
   const [epoch, setEpoch] = useState(0);
-  const key = `${profile?.uid}:${profile?.role}:${id}`;
+  const key = `${profile?.uid}:${profile?.role}:${id}:${epoch}`;
   const [state, setState] = useState<Resource<Permission | null>>({
     status: 'loading',
     data: null,
@@ -72,6 +72,7 @@ export function usePermission(id: string | undefined) {
   useEffect(() => {
     if (!id || !profile) return;
     let active = true;
+    let serverConfirmed = false;
     const fail = (error: unknown) => {
       if (active)
         setState({
@@ -87,7 +88,12 @@ export function usePermission(id: string | undefined) {
       stop = getPermissionRepository().subscribeOne(
         id,
         (data, cached) => {
-          if (active) setState({ status: 'ready', data, error: null, cached, key });
+          if (!active) return;
+          const visibility = permissionReadVisibility(profile.role, profile.uid, data?.userId, cached, serverConfirmed);
+          if (visibility === 'deny') { fail(new Error('Pengajuan ini bukan milik akunmu.')); return; }
+          if (visibility === 'wait') return;
+          if (!cached) serverConfirmed = true;
+          setState({ status: 'ready', data, error: null, cached, key });
         },
         fail,
       );

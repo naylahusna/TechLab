@@ -88,3 +88,22 @@ export function permissionError(error: unknown) {
     return 'Data atau index Firebase belum siap. Coba lagi atau hubungi pengelola.';
   return error instanceof Error ? error.message : 'Tidak dapat memproses izin. Coba lagi.';
 }
+
+export function permissionStatusExplanation(status: Permission['status'], cached: boolean) {
+  if (cached) return 'Status tersimpan ditampilkan; pembaruan terbaru belum dikonfirmasi server.';
+  switch (status) {
+    case 'pending': return 'Pengajuan tersimpan dan menunggu pemeriksaan asisten. Hasil AI bukan keputusan izin.';
+    case 'approved': return 'Asisten telah menyetujui pengajuan. Keputusan dan waktu pemeriksaannya sudah tercatat.';
+    case 'rejected': return 'Asisten telah menolak pengajuan. Baca alasan penolakan pada catatan asisten.';
+  }
+}
+
+export function permissionReadVisibility(
+  role: string, uid: string, ownerId: string | undefined, cached: boolean, serverConfirmed: boolean,
+): 'show' | 'wait' | 'deny' {
+  if (role !== 'asisten' && role !== 'praktikan') return 'deny';
+  if (role === 'praktikan' && ownerId && ownerId !== uid) return 'deny';
+  // A new account must not see another user's cached document before server authorization.
+  if (cached && !serverConfirmed && ownerId !== uid) return 'wait';
+  return 'show';
+}

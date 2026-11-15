@@ -4,12 +4,32 @@ import { createPermissionClassifier, parseClassification } from '../src/features
 import {
   filterPermissions,
   decisionBlockReason,
+  permissionStatusExplanation,
+  permissionReadVisibility,
   permissionId,
   validateDecision,
   validateSubmission,
   type Permission,
 } from '../src/features/permission/model';
 import { getAttendanceAction } from '../src/features/practitioner/lib/attendance-action';
+
+test('SRS-17 explains stored status while cached data never claims a confirmed decision', () => {
+  assert.match(permissionStatusExplanation('pending', false), /menunggu pemeriksaan/);
+  assert.match(permissionStatusExplanation('approved', false), /menyetujui/);
+  assert.match(permissionStatusExplanation('rejected', false), /alasan penolakan/);
+  for (const status of ['pending', 'approved', 'rejected'] as const)
+    assert.match(permissionStatusExplanation(status, true), /belum dikonfirmasi server/);
+});
+
+test('SRS-17 never exposes another practitioner record or unverified assistant cache after account switch', () => {
+  assert.equal(permissionReadVisibility('praktikan', 'b', 'a', true, false), 'deny');
+  assert.equal(permissionReadVisibility('praktikan', 'b', 'a', false, true), 'deny');
+  assert.equal(permissionReadVisibility('praktikan', 'a', 'a', true, false), 'show');
+  assert.equal(permissionReadVisibility('asisten', 'assistant-b', 'a', true, false), 'wait');
+  assert.equal(permissionReadVisibility('asisten', 'assistant-b', 'a', false, false), 'show');
+  assert.equal(permissionReadVisibility('asisten', 'assistant-b', 'a', true, true), 'show');
+  assert.equal(permissionReadVisibility('asisten', 'assistant-b', undefined, true, false), 'wait');
+});
 
 test('SRS-16 decision availability rejects stale, missing, offline and practitioner actions', () => {
   assert.equal(decisionBlockReason('asisten', 'pending', false), '');

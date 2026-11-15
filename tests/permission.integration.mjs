@@ -220,6 +220,19 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
     const rejected = await getDoc(doc(student2.db, 'permissions', id2));
     assert.equal(rejected.data().status, 'rejected');
     assert.equal(rejected.data().decisionReason, 'Alasan belum memenuhi ketentuan kelas.');
+    // SRS-17: personal lists contain no records from the other practitioner.
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Personal status list missing')), 8000);
+      stops.push(student2.permissions.subscribeList(student2.profile, (items, cached) => {
+        if (!cached && items.some((item) => item.id === id2 && item.status === 'rejected')) {
+          try {
+            assert.ok(items.every((item) => item.userId === student2.profile.uid));
+            assert.ok(items.every((item) => item.id !== id));
+            clearTimeout(timer); resolve();
+          } catch (error) { clearTimeout(timer); reject(error); }
+        }
+      }, reject));
+    });
     await student2.practicum.recordAttendance(sessionId, student2.profile.uid);
     assert.equal(
       (await assistant.practicum.listRecap(sessionId)).find(
