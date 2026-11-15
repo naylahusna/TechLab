@@ -3,12 +3,23 @@ import test from 'node:test';
 import { createPermissionClassifier, parseClassification } from '../src/features/permission/ai';
 import {
   filterPermissions,
+  decisionBlockReason,
   permissionId,
   validateDecision,
   validateSubmission,
   type Permission,
 } from '../src/features/permission/model';
 import { getAttendanceAction } from '../src/features/practitioner/lib/attendance-action';
+
+test('SRS-16 decision availability rejects stale, missing, offline and practitioner actions', () => {
+  assert.equal(decisionBlockReason('asisten', 'pending', false), '');
+  for (const [role, status, cached] of [
+    ['praktikan', 'pending', false], ['asisten', 'approved', false],
+    ['asisten', 'rejected', false], ['asisten', undefined, false], ['asisten', 'pending', true],
+  ] as const) assert.ok(decisionBlockReason(role, status, cached));
+  assert.throws(() => validateDecision('rejected', '  no '));
+  assert.equal(validateDecision('rejected', '  Bukti belum memadai.  ').decisionReason, 'Bukti belum memadai.');
+});
 
 test('SRS-15 combines class, session, status and search filters without mutating records', () => {
   const items = Object.freeze([

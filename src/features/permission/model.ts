@@ -56,6 +56,12 @@ export function validateDecision(status: string, reason: string) {
     throw new Error('Tuliskan alasan penolakan minimal 5 karakter.');
   return { status, decisionReason: clean || null } as const;
 }
+export function decisionBlockReason(role: string | undefined, status: string | undefined, cached: boolean) {
+  if (role !== 'asisten') return 'Hanya asisten kelas yang berwenang dapat memutuskan izin.';
+  if (cached) return 'Status terbaru belum dikonfirmasi server. Sambungkan koneksi sebelum memutuskan izin.';
+  if (status !== 'pending') return 'Pengajuan sudah berubah atau diputuskan. Periksa status terbaru.';
+  return '';
+}
 export function filterPermissions(
   items: readonly Permission[], status: string, search: string,
   scope: { classId?: string; sessionId?: string } = {},

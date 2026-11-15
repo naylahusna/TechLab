@@ -182,12 +182,12 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
         ),
       );
     });
-    await assistant.permissions.decide(
-      id,
-      assistant.profile,
-      'approved',
-      'Istirahat dan semoga lekas pulih.',
-    );
+    const decisions = await Promise.allSettled([
+      assistant.permissions.decide(id, assistant.profile, 'approved', 'Istirahat dan semoga lekas pulih.'),
+      assistant.permissions.decide(id, assistant.profile, 'approved', 'Istirahat dan semoga lekas pulih.'),
+    ]);
+    assert.equal(decisions.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(decisions.filter((result) => result.status === 'rejected').length, 1);
     await approved;
     assert.equal(observed.decidedBy, assistant.profile.uid);
     assert.ok(observed.decidedAt.toMillis() > 0);
