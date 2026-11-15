@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Redirect, useRouter } from 'expo-router';
 import { ScrollView, TextInput, View } from 'react-native';
 import { Text } from '../../components/Text';
@@ -11,12 +11,25 @@ import { ErrorState, LoadingState, EmptyState } from '../practicum/components/St
 import { permissionError, permissionKinds, validateSubmission, type PermissionKind } from './model';
 import { getPermissionRepository, usePermissions } from './hooks';
 import { ChoiceChip, dateTime, InfoCard, ui } from './ui';
+import { useSubmissionAttendance } from './useSubmissionAttendance';
+
+type SubmissionPreview = {
+  sessionId: string;
+  reason: string;
+  kind: PermissionKind;
+  description: string;
+};
 
 export function PermissionFormScreen({ initialSessionId }: { initialSessionId?: string }) {
   const auth = useAuth();
   if (!auth.profile) return <Redirect href="/" />;
   if (auth.profile.role !== 'praktikan') return <Redirect href="/izin" />;
-  return <FormContent key={auth.profile.uid} initialSessionId={initialSessionId} />;
+  return (
+    <FormContent
+      key={`${auth.profile.uid}:${initialSessionId ?? ''}`}
+      initialSessionId={initialSessionId}
+    />
+  );
 }
 function FormContent({ initialSessionId }: { initialSessionId?: string }) {
   const { profile } = useAuth();
@@ -27,46 +40,89 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
   const [kind, setKind] = useState<PermissionKind>('sakit');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
-  const [confirm, setConfirm] = useState(false);
+  const [confirmation, setConfirmation] = useState<SubmissionPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const guard = useRef(false);
+  const mounted = useRef(true);
   const sessions = overview.sessions.filter(
-    (s) => s.studentIds.includes(profile!.uid) && (s.status === 'scheduled' || s.status === 'open'),
+    (s) =>
+      s.studentIds.includes(profile!.uid) &&
+      (s.status === 'scheduled' || s.status === 'open') &&
+      overview.classes.some(
+        (c) => c.id === s.classId && !c.archivedAt && c.studentIds.includes(profile!.uid),
+      ) &&
+      overview.schedules.some(
+        (item) => item.id === s.scheduleId && item.classId === s.classId && !item.archivedAt,
+      ),
   );
   const selected = sessions.find((s) => s.id === sessionId);
+  const attendance = useSubmissionAttendance(selected?.id, profile!.uid);
   const existing = permissions.data.find((p) => p.sessionId === sessionId);
   const title =
     overview.schedules.find((s) => s.id === selected?.scheduleId)?.title ?? 'Pilih sesi';
+  const className = overview.classes.find((c) => c.id === selected?.classId)?.className ?? '';
+  const loading =
+    overview.status === 'loading' || permissions.status === 'loading' ||
+    (!!selected && attendance.status === 'loading');
+  const connectionPending = overview.fromCache || permissions.cached || attendance.cached;
+  const blocked =
+    overview.status !== 'ready' || permissions.status !== 'ready' ||
+    !!overview.syncError || connectionPending || (!!selected && attendance.status !== 'ready');
+  const unavailable = sessionId && !selected && overview.status === 'ready'
+    ? 'Sesi pilihan tidak tersedia untuk izin. Pilih sesi aktif yang kamu ikuti.'
+    : attendance.present
+      ? 'Kamu sudah tercatat hadir pada sesi ini, sehingga tidak dapat mengajukan izin.'
+      : existing
+        ? 'Kamu sudah memiliki pengajuan untuk sesi ini.'
+        : '';
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   function preview() {
     setError('');
     try {
+      if (blocked)
+        throw new Error('Tunggu sampai data terbaru berhasil dimuat sebelum mengajukan izin.');
       if (!selected) throw new Error('Pilih sesi praktikum yang tersedia.');
-      if (existing) throw new Error('Kamu sudah memiliki pengajuan untuk sesi ini.');
-      validateSubmission(reason, kind);
-      setConfirm(true);
+      if (unavailable) throw new Error(unavailable);
+      const clean = validateSubmission(reason, kind);
+      setConfirmation({
+        sessionId: selected.id,
+        ...clean,
+        description: `${profile?.name} · ${profile?.number}\n${title}\n${className}\nMulai: ${dateTime(selected.startAt)}\nSelesai: ${dateTime(selected.endAt)}\n${permissionKinds[clean.kind]}\n\n${clean.reason}\n\nStatus awal akan menjadi Menunggu.`,
+      });
     } catch (cause) {
       setError(permissionError(cause));
     }
   }
   async function submit() {
-    if (guard.current || !profile || !selected) return;
+    if (guard.current || !profile || !confirmation) return;
+    if (blocked || unavailable || selected?.id !== confirmation.sessionId) {
+      setConfirmation(null);
+      setError(unavailable || 'Data sesi berubah. Periksa kembali pengajuanmu.');
+      return;
+    }
     guard.current = true;
     setBusy(true);
-    setConfirm(false);
+    setConfirmation(null);
     setError('');
     try {
       const id = await getPermissionRepository().submit(profile, {
-        sessionId,
-        reason,
-        kind,
+        sessionId: confirmation.sessionId,
+        reason: confirmation.reason,
+        kind: confirmation.kind,
         aiConsent: false,
       });
-      router.replace({ pathname: '/izin/[id]', params: { id, created: '1' } });
+      if (mounted.current) router.replace({ pathname: '/izin/[id]', params: { id, created: '1' } });
     } catch (cause) {
-      setError(permissionError(cause));
+      if (mounted.current) setError(permissionError(cause));
     } finally {
       guard.current = false;
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   }
   return (
@@ -76,10 +132,35 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
         eyebrow="Praktikan · Izin"
         subtitle="Jelaskan halanganmu. Keputusan tetap di tangan asisten."
         onBack={() => {
-          if (!busy) router.back();
+          if (busy) return;
+          if (router.canGoBack()) router.back();
+          else router.replace('/izin');
         }}
       />
       <ScrollView contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
+        <InfoCard label="PENGAJU">
+          <Text style={ui.heading}>{profile?.name}</Text>
+          <Text style={ui.copy}>NIM {profile?.number} · Praktikan</Text>
+          <Text style={ui.meta}>Pengajuan akan disimpan atas nama akun yang sedang masuk.</Text>
+        </InfoCard>
+        {(connectionPending || overview.syncError) && (
+          <InfoCard label="MENUNGGU KONEKSI" tone="peach">
+            <Text accessibilityRole="alert" style={ui.copy}>
+              {overview.syncError ||
+                'Data terbaru belum dikonfirmasi server. Pengajuan belum dapat dikirim. Alasan yang kamu ketik tetap ada selama halaman ini terbuka.'}
+            </Text>
+            <ActionButton
+              title="Periksa koneksi"
+              secondary
+              disabled={busy}
+              onPress={() => {
+                overview.retrySync();
+                permissions.retry();
+                attendance.retry();
+              }}
+            />
+          </InfoCard>
+        )}
         <InfoCard label="01 / PILIH SESI" tone="lime">
           <Text style={ui.copy}>
             Izin dikaitkan ke satu sesi yang kamu ikuti. Sesi ditutup atau dibatalkan tidak menerima
@@ -92,7 +173,7 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
           {overview.status === 'ready' && sessions.length === 0 && (
             <EmptyState
               title="Belum ada sesi yang tersedia"
-              message="Pastikan kamu terdaftar pada kelas dan sesi belum ditutup."
+              message="Pastikan kamu terdaftar pada kelas aktif dan sesi belum ditutup atau dibatalkan."
             />
           )}
           {sessions.map((s) => (
@@ -107,6 +188,19 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
               }}
             />
           ))}
+          {selected && (
+            <Text style={ui.meta}>
+              Waktu sesi: {dateTime(selected.startAt)} — {dateTime(selected.endAt)}
+            </Text>
+          )}
+          {!!unavailable && !existing && (
+            <Text accessibilityRole="alert" style={ui.error}>
+              {unavailable}
+            </Text>
+          )}
+          {selected && attendance.status === 'error' && (
+            <ErrorState message={attendance.error!} onRetry={attendance.retry} />
+          )}
         </InfoCard>
         <InfoCard label="02 / CERITAKAN ALASANMU">
           <View style={ui.wrap}>
@@ -146,6 +240,7 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
         {permissions.status === 'error' && (
           <ErrorState message={permissions.error!} onRetry={permissions.retry} />
         )}
+        {loading && <LoadingState message="Memeriksa sesi, status presensi, dan pengajuanmu…" />}
         {existing && (
           <InfoCard label="PENGAJUAN SUDAH ADA" tone="peach">
             <Text style={ui.copy}>
@@ -166,7 +261,7 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
         <ActionButton
           title={busy ? 'Menyimpan pengajuan…' : 'Periksa & kirim pengajuan'}
           testID="permission-submit-preview"
-          disabled={busy || !!existing || !selected || permissions.status !== 'ready'}
+          disabled={busy || blocked || !!unavailable || !selected}
           onPress={preview}
         />
         <Text style={ui.meta}>
@@ -175,15 +270,19 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
         </Text>
       </ScrollView>
       <ConfirmationModal
-        visible={confirm}
+        visible={!!confirmation}
         eyebrow="KONFIRMASI PENGAJUAN"
-        title="Kirim pengajuan ini?"
-        description={`${profile?.name} · ${profile?.number}\n${title}\n${selected ? dateTime(selected.startAt) : ''}\n${permissionKinds[kind]}\n\n${reason.trim()}\n\nStatus awal akan menjadi Menunggu.`}
-        confirmLabel="Ya, kirim pengajuan"
+        title={blocked || unavailable ? 'Pengajuan belum dapat dikirim' : 'Kirim pengajuan ini?'}
+        description={
+          blocked || unavailable
+            ? `${unavailable || 'Data terbaru belum dapat dipastikan. Periksa koneksi dan coba lagi.'}\n\n${confirmation?.description ?? ''}`
+            : confirmation?.description ?? ''
+        }
+        confirmLabel={blocked || unavailable ? 'Kembali ke formulir' : 'Ya, kirim pengajuan'}
         onConfirm={() => {
           void submit();
         }}
-        onCancel={() => setConfirm(false)}
+        onCancel={() => setConfirmation(null)}
         confirmTestID="permission-confirm-submit"
       />
     </View>

@@ -77,7 +77,12 @@ export function createPermissionRepository(db: Firestore) {
         if (attendance.exists()) throw new Error('Kamu sudah tercatat hadir pada sesi ini.');
         if (existing.exists())
           throw new Error('Kamu sudah mengajukan izin pada sesi ini. Buka status izin yang ada.');
-        if (!schedule.exists() || classItem.data().archivedAt)
+        if (
+          !schedule.exists() ||
+          schedule.data().classId !== s.classId ||
+          schedule.data().archivedAt ||
+          classItem.data().archivedAt
+        )
           throw new Error('Kelas atau jadwal tidak lagi tersedia.');
         tx.set(ref, {
           sessionId: session.id,
@@ -106,6 +111,19 @@ export function createPermissionRepository(db: Firestore) {
         });
       });
       return id;
+    },
+    subscribeOwnAttendance(
+      sessionId: string,
+      userId: string,
+      next: (present: boolean, cached: boolean) => void,
+      fail: (error: Error) => void,
+    ) {
+      return onSnapshot(
+        doc(db, 'attendances', permissionId(sessionId, userId)),
+        { includeMetadataChanges: true },
+        (snapshot) => next(snapshot.exists(), snapshot.metadata.fromCache),
+        fail,
+      );
     },
     async decide(id: string, actor: UserProfile, status: 'approved' | 'rejected', reason: string) {
       const clean = validateDecision(status, reason);
