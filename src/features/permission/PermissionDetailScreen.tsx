@@ -8,7 +8,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { PracticumHeader } from '../practicum/components/PracticumHeader';
 import { EmptyState, ErrorState, LoadingState } from '../practicum/components/StateViews';
 import { getPermissionRepository, usePermission } from './hooks';
-import { decisionBlockReason, permissionError, permissionKinds, permissionLabels, validateDecision } from './model';
+import { decisionBlockReason, permissionError, permissionKinds, permissionLabels, permissionStatusExplanation, validateDecision } from './model';
 import { AiInformation, dateTime, InfoCard, PermissionBadge, ui } from './ui';
 import { PermissionAiRetry } from './PermissionAiControls';
 
@@ -107,6 +107,9 @@ export function PermissionDetailScreen({ id, created = false }: { id: string; cr
                 <Text style={[ui.heading, { flex: 1 }]}>{item.sessionTitle}</Text>
                 <PermissionBadge status={item.status} />
               </View>
+              <Text accessibilityLiveRegion="polite" style={ui.copy}>
+                {permissionStatusExplanation(item.status, resource.cached)}
+              </Text>
               <Text style={ui.copy}>
                 {item.className} · {dateTime(item.sessionStartAt)}
               </Text>

@@ -6,7 +6,7 @@ import { ActionButton } from '../../components/ActionButton';
 import { Text } from '../../components/Text';
 import { useAuth } from '../auth/AuthProvider';
 import { EmptyState, ErrorState, LoadingState } from '../practicum/components/StateViews';
-import { filterPermissions, permissionLabels } from './model';
+import { filterPermissions, permissionLabels, permissionStatusExplanation } from './model';
 import { usePermissions } from './hooks';
 import { ChoiceChip, dateTime, PermissionBadge, ui } from './ui';
 import { colors } from '../../theme/tokens';
@@ -153,6 +153,17 @@ function PermissionListContent() {
             <Text style={ui.copy} numberOfLines={2}>
               {item.reason}
             </Text>
+            {!assistant && (
+              <Text accessibilityLiveRegion="polite" style={ui.meta}>
+                {permissionStatusExplanation(item.status, resource.cached)}
+              </Text>
+            )}
+            {item.decisionReason && (
+              <Text style={ui.copy} numberOfLines={3}>
+                Catatan asisten: {item.decisionReason}
+              </Text>
+            )}
+            {item.decidedAt && <Text style={ui.meta}>Diputuskan {dateTime(item.decidedAt)}</Text>}
             <View style={ui.row}>
               <Text style={[ui.meta, { flex: 1 }]}>{dateTime(item.createdAt)}</Text>
               <Text style={ui.link}>Lihat detail ↗</Text>
