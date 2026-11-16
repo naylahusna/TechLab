@@ -1,6 +1,11 @@
 export type SessionStatus = 'belum-dibuka' | 'dibuka' | 'ditutup';
 
-export type AttendanceStatus = 'belum-presensi' | 'hadir' | 'tidak-hadir';
+export type AttendanceStatus =
+  | 'belum-presensi'
+  | 'hadir'
+  | 'tidak-hadir'
+  | 'izin'
+  | 'izin-menunggu';
 
 export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 

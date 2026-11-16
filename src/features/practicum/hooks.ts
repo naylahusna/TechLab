@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
 import { useAuth } from '../auth/AuthProvider';
+import { usePermissions } from '../permission/hooks';
 import type { SessionWithSummary } from '../assistant/types';
 import type { RiwayatItem } from '../practitioner/types';
 import { getPracticumRepository } from './client';
@@ -179,36 +180,25 @@ function useListResource<T>(
 }
 
 export function useSchedules(classId: string | undefined) {
-  const loader = useCallback(
-    (id: string) => getPracticumRepository().listSchedules(id),
-    [],
-  );
+  const loader = useCallback((id: string) => getPracticumRepository().listSchedules(id), []);
   const subscribe = useCallback<SubscriptionResource>(
-    (id, onChange, onError) =>
-      getPracticumRepository().subscribeToSchedules(id, onChange, onError),
+    (id, onChange, onError) => getPracticumRepository().subscribeToSchedules(id, onChange, onError),
     [],
   );
   return useListResource(classId, loader, subscribe);
 }
 
 export function useSessions(classId: string | undefined) {
-  const loader = useCallback(
-    (id: string) => getPracticumRepository().listSessions(id),
-    [],
-  );
+  const loader = useCallback((id: string) => getPracticumRepository().listSessions(id), []);
   const subscribe = useCallback<SubscriptionResource>(
-    (id, onChange, onError) =>
-      getPracticumRepository().subscribeToSessions(id, onChange, onError),
+    (id, onChange, onError) => getPracticumRepository().subscribeToSessions(id, onChange, onError),
     [],
   );
   return useListResource(classId, loader, subscribe);
 }
 
 export function useParticipants(classId: string | undefined) {
-  const loader = useCallback(
-    (id: string) => getPracticumRepository().listParticipants(id),
-    [],
-  );
+  const loader = useCallback((id: string) => getPracticumRepository().listParticipants(id), []);
   const subscribe = useCallback<SubscriptionResource>(
     (id, onChange, onError) =>
       getPracticumRepository().subscribeToParticipants(id, onChange, onError),
@@ -218,13 +208,9 @@ export function useParticipants(classId: string | undefined) {
 }
 
 export function useRecap(sessionId: string | undefined) {
-  const loader = useCallback(
-    (id: string) => getPracticumRepository().listRecap(id),
-    [],
-  );
+  const loader = useCallback((id: string) => getPracticumRepository().listRecap(id), []);
   const subscribe = useCallback<SubscriptionResource>(
-    (id, onChange, onError) =>
-      getPracticumRepository().subscribeToRecap(id, onChange, onError),
+    (id, onChange, onError) => getPracticumRepository().subscribeToRecap(id, onChange, onError),
     [],
   );
   return useListResource(sessionId, loader, subscribe);
@@ -408,6 +394,23 @@ export function useAssistantRecapOverview() {
     }, [load]),
   );
 
+  useEffect(() => {
+    if (!assistantId) return;
+    return getPracticumRepository().subscribeToScheduleOverview(
+      assistantId,
+      () => {
+        void load();
+      },
+      (error) =>
+        setState({
+          status: 'error',
+          items: [],
+          error: practicumErrorMessage(error),
+          refreshing: false,
+        }),
+    );
+  }, [assistantId, load]);
+
   return { ...state, reload: load };
 }
 
@@ -420,6 +423,7 @@ type PractitionerHistoryState = {
 
 export function usePractitionerHistory() {
   const auth = useAuth();
+  const permissionResource = usePermissions();
   const userId = auth.profile?.role === 'praktikan' ? auth.profile.uid : undefined;
   const [state, setState] = useState<PractitionerHistoryState>({
     status: 'loading',
@@ -431,6 +435,11 @@ export function usePractitionerHistory() {
   const load = useCallback(async () => {
     if (!userId) {
       setState({ status: 'ready', items: [], error: null, refreshing: false });
+      return;
+    }
+    if (permissionResource.status === 'loading') return;
+    if (permissionResource.status === 'error') {
+      setState({ status: 'error', items: [], error: permissionResource.error, refreshing: false });
       return;
     }
     setState((previous) => ({
@@ -450,8 +459,7 @@ export function usePractitionerHistory() {
       await Promise.all(
         sessions
           .filter(
-            (session) =>
-              session.studentIds.includes(userId) && session.status !== 'scheduled',
+            (session) => session.studentIds.includes(userId) && session.status !== 'scheduled',
           )
           .map(async (session) => {
             const record = await repository.getAttendance(session.id, userId);
@@ -466,6 +474,7 @@ export function usePractitionerHistory() {
           sessions,
           attendanceBySession,
           userId,
+          permissionResource.data,
         ),
         error: null,
         refreshing: false,
@@ -478,7 +487,7 @@ export function usePractitionerHistory() {
         refreshing: false,
       });
     }
-  }, [userId]);
+  }, [userId, permissionResource.data, permissionResource.status, permissionResource.error]);
 
   useFocusEffect(
     useCallback(() => {
@@ -486,7 +495,31 @@ export function usePractitionerHistory() {
     }, [load]),
   );
 
-  return { ...state, reload: load };
+  useEffect(() => {
+    if (!userId) return;
+    return getPracticumRepository().subscribeToScheduleOverview(
+      userId,
+      () => {
+        void load();
+      },
+      (error) =>
+        setState({
+          status: 'error',
+          items: [],
+          error: practicumErrorMessage(error),
+          refreshing: false,
+        }),
+    );
+  }, [userId, load]);
+
+  return {
+    ...state,
+    fromCache: permissionResource.cached,
+    reload: () => {
+      permissionResource.retry();
+      void load();
+    },
+  };
 }
 
 type SessionDetailState = {

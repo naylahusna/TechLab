@@ -39,7 +39,7 @@ export function RiwayatScreen({ items, praktikanName, praktikanInitials }: Riway
     <View style={styles.screen}>
       <ScreenHeader
         title="Riwayat Kehadiran"
-        subtitle="Catatan kehadiranmu pada sesi yang pernah diikuti."
+        subtitle="Ringkasan presensi dan izin pada sesi praktikummu."
         greeting={praktikanName}
         initials={praktikanInitials}
         summary={summary}

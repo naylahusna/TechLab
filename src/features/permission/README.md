@@ -1,12 +1,31 @@
 # Permission & AI Integration
 
-Folder ini menjadi lokasi modul izin ketika implementasinya dimulai. Cakupan
-fitur izin dalam SRS aktif meliputi pengajuan, klasifikasi bantuan AI,
-pengelolaan, keputusan, dan pemantauan status.
+Modul izin Sprint 2 menggunakan Firebase Auth sebagai identitas dan collection
+`permissions` di Firestore sebagai sumber data. UI memakai tema biru/lime Sprint 1.
+
+## Kontrak implementasi
+
+- Routes: tab `/izin`, form `/izin/new?sessionId=...`, detail `/izin/[id]`.
+- Satu dokumen per sesi dan praktikan: `${sessionId}_${uid}`.
+- Pengajuan hanya oleh peserta aktif, pada sesi `scheduled`/`open`, belum hadir,
+  dan belum memiliki pengajuan pada sesi yang sama.
+- Keputusan hanya dari asisten kelas terkait, pada status `pending`. Penolakan
+  wajib memiliki alasan. Keputusan final tidak dapat ditimpa/dihapus.
+- Status, pelaku, waktu server, dan catatan keputusan disimpan. Listener dibersihkan
+  saat akun/cakupan berubah. UI tidak menganggap cache sebagai konfirmasi server.
+- Presensi dan izin menunggu/disetujui tidak boleh dibuat bersamaan. Jika izin
+  ditolak, praktikan masih boleh presensi selama sesi dibuka.
+- Tidak ada lampiran wajib pada kebijakan saat ini; formulir berisi jenis dan alasan.
+- API AI pengajar **ditunda atas permintaan owner**. Pengajuan baru menyimpan
+  `aiStatus=unavailable`, tanpa kategori/confidence buatan. Adapter transport ada
+  di `ai.ts` untuk dilengkapi setelah kontrak pengajar tersedia, belum dipanggil UI.
+- Bukti pengujian: `tests/permission.test.ts`, `tests/permission.integration.mjs`,
+  `scripts/smoke-permission-web.mjs`. Smoke browser memakai akun seed **lokal**,
+  sehingga perlu dataset emulator baru sebelum setiap pengujian.
 
 ## Kontribusi prototipe terdahulu
 
-Modul permission belum memiliki implementasi prototipe terdahulu di repository.
+Sprint 1 tidak memiliki modul pengajuan izin.
 
 ## Sprint 2
 

@@ -75,9 +75,12 @@ memberikan akses ke Console.
    `praktikan` dan `asisten`. Pastikan `role` bertipe string bernilai
    `praktikan`. Pertahankan UID, NIM, dan `createdAt`; perbarui `updatedAt`
    dengan timestamp perubahan. Simpan melalui akses petugas di Console.
-5. Jika tersedia entri `userDirectory/{uid}`, pertahankan `role: praktikan`
-   untuk pencarian peserta SRS-07. Nama/NIM direktori harus sesuai profil.
-   Jangan menaruh password/token/email pribadi pada direktori peserta.
+5. Registrasi dan penyimpanan profil menyinkronkan `userDirectory/{uid}`
+   secara atomik untuk pencarian peserta SRS-07. Akun dengan akses Praktikan
+   tetap memiliki `role: praktikan` di direktori pada kedua mode. Akun lama
+   yang belum memiliki entri dapat menyimpannya dengan memperbarui profil.
+   Nama/NIM direktori wajib sesuai profil; rules hanya mengizinkan penyalinan
+   field tersebut, tanpa perubahan izin atau penambahan data pribadi lain.
 6. Pengguna membuka Profil: kedua mode harus tersedia. Asprak mengelola kelas
    melalui fitur kelas yang ada. Akses asprak tidak otomatis menjadikannya
    pengampu seluruh kelas.
@@ -101,6 +104,10 @@ tidak membuat akun atau mengubah izin di Firebase aktif.
 | Membaca profil pribadi akun lain dari aplikasi | Tidak | Tidak | Hanya melalui akses pengelolaan yang ditetapkan |
 
 ## Verifikasi dan penerapan
+
+Integrasi dengan PR #35 mempertahankan UI `SelectionLayout` dan komponen
+bersama Arga. Alur izin memakai mode aktif di UI dan daftar izin tepercaya
+untuk pemeriksaan server. Pilihan mode tidak memindahkan data akun.
 
 - `npm test`: pilihan mode hanya menerima izin yang diberikan, UID tidak
   berubah, pembaruan profil mempertahankan pilihan, pencabutan membatalkan

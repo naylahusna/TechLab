@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createSessionStore, type Account } from '../src/features/auth/session-store';
 import {
   authErrorMessage,
+  directoryRoleFor,
   parseProfile,
   validateCredentials,
   validateProfile,
@@ -222,4 +223,11 @@ test('role parsing supports legacy accounts and rejects malformed permission lis
   ]) {
     assert.throws(() => parseProfile('a', { ...legacy, roles }));
   }
+});
+
+test('a dual-role account stays discoverable as a participant in either mode', () => {
+  const dual = parseProfile('a', { ...profile('a'), roles: ['praktikan', 'asisten'] });
+  assert.equal(directoryRoleFor(dual), 'praktikan');
+  assert.equal(directoryRoleFor({ ...dual, role: 'asisten' }), 'praktikan');
+  assert.equal(directoryRoleFor({ ...dual, role: 'asisten', roles: ['asisten'] }), 'asisten');
 });

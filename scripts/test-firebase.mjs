@@ -15,6 +15,7 @@ for (const args of [
     'tests/practicum.rules.test.mjs',
     'tests/practicum.integration.mjs',
     'tests/firebase-auth.integration.mjs',
+    'tests/permission.integration.mjs',
   ],
 ]) {
   const result = spawnSync(process.execPath, args, { stdio: 'inherit' });

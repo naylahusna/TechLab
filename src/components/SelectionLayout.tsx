@@ -13,6 +13,7 @@ type Props = {
   eyebrow?: string;
   storyTitle?: string;
   storyDescription?: string;
+  footer?: string;
   children: ReactNode;
 };
 
@@ -23,6 +24,7 @@ export function SelectionLayout({
   eyebrow = 'PRESENSI PRAKTIKUM',
   storyTitle = 'Satu praktikum.\nDua peran penting.',
   storyDescription = 'Mulai aktivitas praktikum dengan tampilan yang sesuai peranmu.',
+  footer = 'Demo interaktif menggunakan data contoh.',
   children,
 }: Props) {
   const { width } = useWindowDimensions();
@@ -70,7 +72,7 @@ export function SelectionLayout({
             </Text>
             <Text style={styles.subtitle}>{subtitle}</Text>
             <View style={styles.content}>{children}</View>
-            <Text style={styles.note}>Demo interaktif menggunakan data contoh.</Text>
+            <Text style={styles.note}>{footer}</Text>
           </View>
         </View>
       </ScrollView>

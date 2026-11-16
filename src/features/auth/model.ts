@@ -57,6 +57,11 @@ export function profileWithRole(profile: UserProfile, role: Role): UserProfile {
   return { ...profile, role };
 }
 
+/** Participant lookup follows granted capabilities, independently of the selected mode. */
+export function directoryRoleFor(profile: UserProfile): Role {
+  return profile.roles.includes('praktikan') ? 'praktikan' : 'asisten';
+}
+
 export function authErrorMessage(error: unknown): string {
   const code = (error as { code?: string })?.code;
   switch (code) {

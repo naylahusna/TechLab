@@ -28,6 +28,7 @@ export type ParticipantItem = {
   status: CoreAttendanceStatus;
   statusLabel: string;
   attendedAtLabel: string | null;
+  permissionStatus?: 'pending' | 'approved' | 'rejected';
 };
 
 export type AttendanceSummary = {
