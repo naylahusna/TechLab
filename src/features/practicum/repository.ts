@@ -252,7 +252,7 @@ export function createPracticumRepository(db: Firestore) {
     );
     return snapshot.docs
       .map(toClass)
-      .filter((item) => !item.archivedAt)
+      .filter((item) => !item.archivedAt && item.assistantIds.includes(assistantId))
       .sort((left, right) => left.className.localeCompare(right.className));
   }
 
@@ -260,7 +260,7 @@ export function createPracticumRepository(db: Firestore) {
     const snapshot = await getDocs(query(classes, where('memberIds', 'array-contains', userId)));
     return snapshot.docs
       .map(toClass)
-      .filter((item) => !item.archivedAt)
+      .filter((item) => !item.archivedAt && item.studentIds.includes(userId))
       .sort((left, right) => left.className.localeCompare(right.className));
   }
 

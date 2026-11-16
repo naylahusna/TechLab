@@ -60,10 +60,13 @@ function useAuthSession() {
   const [store] = useState(createAuthSession);
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const [provisioning, setProvisioning] = useState(false);
+  // Keep operation errors above route/boundary unmounts during account changes.
+  const [actionError, setActionError] = useState('');
   useEffect(() => store.start(), [store]);
   const actions = useMemo(
     () => ({
       async login(email: string, password: string) {
+        setActionError('');
         await signInWithEmailAndPassword(
           getFirebaseAuth(),
           validateCredentials(email, password),
@@ -73,19 +76,29 @@ function useAuthSession() {
       async register(email: string, password: string, fields: ProfileFields) {
         const normalized = validateCredentials(email, password, true);
         const clean = validateProfile(fields);
+        setActionError('');
         setProvisioning(true);
+        let accountCreated = false;
         try {
           const { user } = await createUserWithEmailAndPassword(
             getFirebaseAuth(),
             normalized,
             password,
           );
+          accountCreated = true;
           await createOwnProfile(user.uid, clean);
+        } catch (error) {
+          if (accountCreated)
+            setActionError(
+              `Akun sudah dibuat, tetapi profil belum berhasil disimpan. ${authErrorMessage(error)}`,
+            );
+          throw error;
         } finally {
           setProvisioning(false);
         }
       },
       async completeProfile(fields: ProfileFields) {
+        setActionError('');
         const user = getFirebaseAuth().currentUser;
         if (!user) throw new Error('Silakan login kembali.');
         await createOwnProfile(user.uid, fields);
@@ -96,19 +109,25 @@ function useAuthSession() {
         await updateOwnProfile(user.uid, fields);
       },
       async logout() {
+        setActionError('');
         store.suspend();
         try {
           await signOut(getFirebaseAuth());
         } catch (error) {
+          setActionError(`Gagal keluar dari akun. ${authErrorMessage(error)}`);
           store.retry();
           throw error;
         }
       },
-      retry: store.retry,
+      retry: () => {
+        setActionError('');
+        store.retry();
+      },
+      selectRole: store.selectRole,
     }),
     [store],
   );
-  return { ...state, provisioning, ...actions };
+  return { ...state, provisioning, actionError, ...actions };
 }
 
 const AuthContext = createContext<ReturnType<typeof useAuthSession> | null>(null);

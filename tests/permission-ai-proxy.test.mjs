@@ -47,6 +47,7 @@ test('unknown output, rate limits, malformed JSON and timeout remain manual with
 test('intermediary enforces Firebase identity, ownership, consent, CORS and per-user limits before using provider key', async () => {
   const providerCalls = [];
   let owner = 'student-test'; let consent = true; let role = 'praktikan';
+  let roles;
   const server = createPermissionAiServer({ ...config,
     firebaseProjectId: 'techlab-naylahusna-2026', firebaseApiKey: 'firebase-public-test',
     maxRequestsPerMinute: 1,
@@ -56,7 +57,12 @@ test('intermediary enforces Firebase identity, ownership, consent, CORS and per-
         assert.equal(JSON.parse(options.body).idToken, 'firebase-id-token');
         return Response.json({ users: [{ localId: 'student-test' }] });
       }
-      if (url.includes('/users/')) return Response.json({ fields: { role: { stringValue: role } } });
+      if (url.includes('/users/')) return Response.json({ fields: {
+        role: { stringValue: role },
+        ...(roles === undefined ? {} : { roles: Array.isArray(roles)
+          ? { arrayValue: { values: roles.map(value => ({ stringValue: value })) } }
+          : { stringValue: roles } }),
+      } });
       if (url.includes('/permissions/')) return Response.json({ fields: {
         userId: { stringValue: owner }, aiConsent: { booleanValue: consent },
         aiStatus: { stringValue: 'processing' }, aiClassifiedAt: { timestampValue: new Date().toISOString() },
@@ -79,6 +85,10 @@ test('intermediary enforces Firebase identity, ownership, consent, CORS and per-
     owner = 'another-student'; assert.equal((await request(auth)).status, 403); owner = 'student-test';
     consent = false; assert.equal((await request(auth)).status, 403); consent = true;
     role = 'asisten'; assert.equal((await request(auth)).status, 403); role = 'praktikan';
+    for (const invalid of [[], ['asisten'], ['praktikan', 'praktikan'], ['praktikan', 'admin'], 'praktikan']) {
+      roles = invalid; assert.equal((await request(auth)).status, 403);
+    }
+    role = 'asisten'; roles = ['praktikan', 'asisten'];
     assert.equal(providerCalls.length, 0);
     const response = await request({ ...auth, Origin: 'http://localhost:8084' });
     assert.equal(response.status, 200);

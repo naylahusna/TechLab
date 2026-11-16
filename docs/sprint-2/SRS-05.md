@@ -23,6 +23,17 @@ Memungkinkan pengguna melihat dan memperbarui informasi profil yang boleh dikelo
 3. Field terlarang tidak dapat diubah dengan manipulasi UI atau request klien.
 4. Error penyimpanan tidak menampilkan konfirmasi sukses.
 
-## Status
+## Profil dan mode peran
 
-Dokumen ini mencatat kebutuhan Sprint 2; status implementasi harus diverifikasi terpisah.
+Profil menampilkan mode aktif serta izin yang dimiliki akun. Jika akun memiliki
+Praktikan dan Asprak, pemilik dapat berganti mode setelah konfirmasi tanpa
+mengubah UID atau riwayat presensi. Pengguna hanya dapat mengedit nama dan
+NIM/ID; `role`, `roles`, UID, dan waktu pembuatan tetap dilindungi rules.
+Rincian integrasi ada di [ACCOUNT-ROLES.md](ACCOUNT-ROLES.md).
+
+## Status implementasi
+
+Implementasi lokal menampilkan akses dan mode peran pada profil. Penyimpanan
+nama/NIM mempertahankan izin yang diberikan petugas; perubahan field otorisasi
+dari klien ditolak pada pengujian emulator. Interaksi visual pada perangkat
+dan penerapan Firebase aktif tetap memerlukan verifikasi tim.

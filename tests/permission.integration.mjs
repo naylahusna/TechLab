@@ -64,6 +64,7 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
         role: i < 2 ? 'asisten' : 'praktikan',
         name: `Pengguna ${i}`,
         number: `TEST-${i}`,
+        roles: i <= 2 ? ['praktikan', 'asisten'] : ['praktikan'],
       };
       clients.push({
         app,
@@ -76,6 +77,8 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
       await env.withSecurityRulesDisabled(async (context) =>
         adminSetDoc(adminDoc(context.firestore(), 'users', user.uid), {
           ...profile,
+          // Exercise both stored defaults independently of the selected UI mode.
+          role: i === 2 ? 'asisten' : 'praktikan',
           createdAt: adminTimestamp.now(),
           updatedAt: adminTimestamp.now(),
         }),
@@ -93,6 +96,20 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
         studentName: participant.profile.name,
         studentNumber: participant.profile.number,
       });
+    const taughtClassId = await student.practicum.createClass(
+      { className: 'Kelas Diampu Mahasiswa', courseName: 'Kelas Asprak' },
+      student.profile.uid,
+    );
+    assert.deepEqual(
+      (await student.practicum.listClassesForAssistant(student.profile.uid)).map((item) => item.id),
+      [taughtClassId],
+    );
+    assert.deepEqual(
+      (await student.practicum.listClassesForPractitioner(student.profile.uid)).map(
+        (item) => item.id,
+      ),
+      [classId],
+    );
     const scheduleId = await assistant.practicum.createSchedule({
       classId,
       title: 'Sesi Integrasi Izin',
@@ -163,6 +180,17 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
       otherAssistant.permissions.decide(id, otherAssistant.profile, 'approved', ''),
     );
     await assert.rejects(student.permissions.decide(id, student.profile, 'approved', ''));
+    await assert.rejects(
+      student.permissions.decide(
+        id,
+        {
+          ...student.profile,
+          role: 'asisten',
+        },
+        'approved',
+        '',
+      ),
+    );
     await assert.rejects(assistant.permissions.decide(id, assistant.profile, 'rejected', ''));
     await assert.rejects(student.practicum.recordAttendance(sessionId, student.profile.uid));
     let observed;
@@ -210,6 +238,23 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
     const id2 = await student2.permissions.submit(student2.profile, {
       ...input,
       reason: 'Ada acara yang membutuhkan izin asisten.',
+    });
+    await env.withSecurityRulesDisabled(async (context) => {
+      const ref = adminDoc(context.firestore(), 'users', assistant.profile.uid);
+      await adminSetDoc(ref, { roles: ['praktikan'] }, { merge: true });
+    });
+    await assert.rejects(
+      assistant.permissions.decide(
+        id2,
+        assistant.profile,
+        'rejected',
+        'Akses asisten sudah dicabut.',
+      ),
+    );
+    assert.equal((await getDoc(doc(student2.db, 'permissions', id2))).data().status, 'pending');
+    await env.withSecurityRulesDisabled(async (context) => {
+      const ref = adminDoc(context.firestore(), 'users', assistant.profile.uid);
+      await adminSetDoc(ref, { roles: ['praktikan', 'asisten'] }, { merge: true });
     });
     await assistant.permissions.decide(
       id2,

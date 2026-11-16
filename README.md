@@ -178,6 +178,11 @@ Rincian spesifikasi Sprint 2 terdapat di `docs/sprint-2/`.
 
 ### Catatan Integrasi Sprint 2
 
+Satu mahasiswa menggunakan satu akun selama kuliah. Registrasi memberikan
+akses Praktikan; petugas dapat menambahkan akses Asprak pada UID yang sama.
+Pemilik dua akses dapat berganti mode melalui Profil. Lihat
+[alur akun, matriks akses, dan panduan petugas](docs/sprint-2/ACCOUNT-ROLES.md).
+
 - Nomor SRS Sprint 2 memiliki arti berbeda dari nomor yang sama pada tabel Sprint 1; gunakan label sprint atau folder `docs/sprint-2/` saat merujuknya.
 - Kriteria, implementasi, dan pengujian setiap kebutuhan Sprint 2 dicatat pada dokumen masing-masing.
 - Perubahan lintas owner dikoordinasikan bersama sebelum diintegrasikan.

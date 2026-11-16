@@ -16,6 +16,7 @@ import {
   setDoc,
   Timestamp,
   updateDoc,
+  deleteField,
 } from 'firebase/firestore';
 
 let env;
@@ -129,6 +130,34 @@ test('operator-provisioned assistant can edit own profile but cannot change own 
   await assertFails(
     updateDoc(own('assistant'), { role: 'praktikan', updatedAt: serverTimestamp() }),
   );
+});
+
+test('new accounts cannot self-grant asprak and operators retain control of both roles', async () => {
+  await assertSucceeds(setDoc(own(), data('alice', { roles: ['praktikan'] })));
+  for (const roles of [
+    [],
+    ['asisten'],
+    ['praktikan', 'asisten'],
+    ['admin'],
+    ['praktikan', 'praktikan'],
+    'asisten',
+    null,
+    Array(100).fill('praktikan'),
+  ]) {
+    await assertFails(setDoc(own('bob'), data('bob', { roles })));
+    await assertFails(updateDoc(own(), { roles, updatedAt: serverTimestamp() }));
+  }
+  await env.withSecurityRulesDisabled(async (context) => {
+    await updateDoc(doc(context.firestore(), 'users', 'alice'), {
+      roles: ['praktikan', 'asisten'],
+    });
+  });
+  await assertSucceeds(updateDoc(own(), { name: 'Nama Baru', updatedAt: serverTimestamp() }));
+  assert.deepEqual((await getDoc(own())).data().roles, ['praktikan', 'asisten']);
+  for (const fields of [{ roles: ['praktikan'] }, { roles: deleteField() }, { role: 'asisten' }]) {
+    await assertFails(updateDoc(own(), { ...fields, updatedAt: serverTimestamp() }));
+  }
+  await assertFails(getDoc(doc(env.authenticatedContext('bob').firestore(), 'users', 'alice')));
 });
 test('unimplemented feature collections and orphan subcollections are denied', async () => {
   const db = env.authenticatedContext('alice').firestore();

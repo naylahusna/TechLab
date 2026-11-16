@@ -23,6 +23,18 @@ Membatasi layar dan operasi berdasarkan role yang diberikan kepada akun.
 3. Akses langsung ke route atau data tanpa izin ditolak.
 4. Role yang belum ditetapkan menghasilkan akses tertolak, bukan akses bawaan.
 
-## Status
+## Pemilihan mode dan sumber izin
 
-Dokumen ini mencatat kebutuhan Sprint 2; status implementasi harus diverifikasi terpisah.
+Petugas menambahkan `asisten` pada daftar `roles` akun mahasiswa yang ditunjuk,
+sehingga akun tersebut memiliki akses Praktikan dan Asprak. Mode aktif hanya
+dapat dipilih dari daftar izin tersebut. UID tetap sama dan navigasi mengikuti
+mode terpilih. Pergantian mode tidak mengubah hak server atau menulis role
+dari klien. Matriks akses, kompatibilitas akun lama, pemberian/pencabutan izin,
+dan cara pengujian dijelaskan di [ACCOUNT-ROLES.md](ACCOUNT-ROLES.md).
+
+## Status implementasi
+
+Implementasi lokal mendukung daftar izin tepercaya, pilihan mode, kompatibilitas
+profil lama, dan pencabutan akses. Tes unit dan emulator memeriksa penolakan
+eskalasi izin, pembatasan kelas, serta catatan presensi pada UID yang sama.
+Rules yang diperbarui tetap perlu direview dan diterapkan oleh petugas proyek.

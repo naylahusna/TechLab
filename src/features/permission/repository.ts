@@ -10,7 +10,7 @@ import {
   type DocumentSnapshot,
   type Firestore,
 } from 'firebase/firestore';
-import type { UserProfile } from '../auth/model';
+import { parseProfile, type UserProfile } from '../auth/model';
 import {
   permissionId,
   validateDecision,
@@ -62,7 +62,10 @@ export function createPermissionRepository(db: Firestore) {
           tx.get(ref),
           tx.get(doc(db, 'schedules', s.scheduleId)),
         ]);
-        if (!profile.exists() || profile.data().role !== 'praktikan')
+        if (
+          !profile.exists() ||
+          !parseProfile(actor.uid, profile.data()).roles.includes('praktikan')
+        )
           throw new Error('Identitas akun tidak valid.');
         if (
           !classItem.exists() ||

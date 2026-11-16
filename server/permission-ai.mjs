@@ -14,6 +14,18 @@ class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
+function canUsePractitionerAccess(fields) {
+  const role = fields?.role?.stringValue;
+  if (!['praktikan', 'asisten'].includes(role)) return false;
+  if (!Object.hasOwn(fields, 'roles')) return role === 'praktikan';
+  const values = fields.roles?.arrayValue?.values;
+  if (!Array.isArray(values) || values.length < 1 || values.length > 2) return false;
+  const roles = values.map((value) => value?.stringValue);
+  return roles.every((value) => ['praktikan', 'asisten'].includes(value))
+    && new Set(roles).size === roles.length
+    && roles.includes(role) && roles.includes('praktikan');
+}
+
 export function parseProviderCategory(content) {
   if (typeof content !== 'string' || content.length > 2000) throw new Error('Invalid AI response');
   const parsed = JSON.parse(content);
@@ -165,7 +177,7 @@ export function createPermissionAiServer({
         readJson(`${documentBase}/permissions/${encodeURIComponent(id)}`, { headers }),
       ]);
       const fields = permission.fields;
-      if (profile.fields?.role?.stringValue !== 'praktikan' || fields?.userId?.stringValue !== uid ||
+      if (!canUsePractitionerAccess(profile.fields) || fields?.userId?.stringValue !== uid ||
           fields?.aiConsent?.booleanValue !== true || fields?.aiStatus?.stringValue !== 'processing')
         throw new HttpError(403, 'Klasifikasi hanya untuk pengajuan milikmu yang telah disetujui untuk analisis AI.');
       const startedAt = Date.parse(fields.aiClassifiedAt?.timestampValue);

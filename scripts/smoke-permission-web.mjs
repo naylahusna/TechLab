@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
+import { doc, updateDoc } from 'firebase/firestore';
 
 const base = process.env.TECHLAB_SMOKE_URL ?? 'http://localhost:8083';
 if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname))
@@ -26,6 +28,41 @@ let ws;
 let seq = 0;
 const pending = new Map();
 const pages = [];
+const browserErrors = [];
+let roleEnv;
+let studentUid;
+async function grantRoles(roles) {
+  const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+  const firestoreHost = process.env.FIRESTORE_EMULATOR_HOST;
+  for (const host of [authHost, firestoreHost]) {
+    if (!host || !/^(127\.0\.0\.1|localhost):\d+$/.test(host))
+      throw new Error('Role smoke tests require explicit local Firebase emulator hosts.');
+  }
+  if (!studentUid) {
+    const response = await fetch(
+      `http://${authHost}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo-key`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'praktikan2.demo@techlab.test',
+          password: 'TechLab123!',
+          returnSecureToken: true,
+        }),
+      },
+    );
+    if (!response.ok) throw new Error('Cannot authenticate the local demo student.');
+    studentUid = (await response.json()).localId;
+    const [host, port] = firestoreHost.split(':');
+    roleEnv = await initializeTestEnvironment({
+      projectId: 'techlab-naylahusna-2026',
+      firestore: { host, port: Number(port) },
+    });
+  }
+  await roleEnv.withSecurityRulesDisabled((context) =>
+    updateDoc(doc(context.firestore(), 'users', studentUid), { roles }),
+  );
+}
 const delay = (ms) => new Promise((done) => setTimeout(done, ms));
 async function until(check, label, timeout = 60000) {
   const start = Date.now();
@@ -84,7 +121,8 @@ async function page() {
   const navigate = async (path) => {
     await command('Page.navigate', { url: base + path });
   };
-  const waitText = (text) => until(async () => (await body()).includes(text), text);
+  const waitText = (text, timeout = 60000) =>
+    until(async () => (await body()).includes(text), text, timeout);
   const click = async (label) => {
     await until(
       () =>
@@ -99,10 +137,13 @@ async function page() {
     assert.ok(ok, `Button ${label} exists`);
   };
   const input = async (label, value) => {
-    const ok = await evaluate(
-      `(() => {const e=document.querySelector('[aria-label='+${JSON.stringify(JSON.stringify(label))}+']'); if(!e)return false; e.focus(); return true;})()`,
+    await until(
+      () =>
+        evaluate(
+          `(() => {const e=document.querySelector('[aria-label='+${JSON.stringify(JSON.stringify(label))}+']'); if(!e || e.disabled)return false; e.focus(); return true;})()`,
+        ),
+      `Input ${label} is ready`,
     );
-    assert.ok(ok, `Input ${label} exists`);
     await command('Input.insertText', { text: value });
   };
   const screenshot = async (name) => {
@@ -112,11 +153,29 @@ async function page() {
     });
     writeFileSync(resolve(dir, name + '.png'), Buffer.from(data, 'base64'));
   };
-  const result = { command, evaluate, body, navigate, waitText, click, input, screenshot };
+  const tab = async (name) => {
+    const found = await evaluate(`(() => {
+      const el = document.querySelector('[data-testid="tab-${name}"]');
+      if (!el) return false; el.click(); return true;
+    })()`);
+    assert.ok(found, `Tab ${name} exists`);
+  };
+  const result = { command, evaluate, body, navigate, waitText, click, input, screenshot, tab };
   pages.push(result);
   return result;
 }
 try {
+  await until(
+    async () => {
+      try {
+        return (await fetch(base)).ok;
+      } catch {
+        return false;
+      }
+    },
+    'local Metro HTTP server',
+    120000,
+  );
   let version;
   await until(
     async () => {
@@ -135,6 +194,11 @@ try {
   await new Promise((done) => ws.addEventListener('open', done, { once: true }));
   ws.addEventListener('message', ({ data }) => {
     const message = JSON.parse(String(data));
+    if (message.method === 'Runtime.exceptionThrown')
+      browserErrors.push(
+        message.params.exceptionDetails.exception?.description ??
+          message.params.exceptionDetails.text,
+      );
     if (!message.id) return;
     const call = pending.get(message.id);
     if (!call) return;
@@ -145,7 +209,7 @@ try {
   const student = await page();
   const assistant = await page();
   await student.navigate('/');
-  await student.waitText('Selamat datang kembali.');
+  await student.waitText('Selamat datang kembali.', 180000);
   await student.screenshot('01-login-desktop');
   await student.input('Email', 'praktikan2.demo@techlab.test');
   await student.input('Password', 'TechLab123!');
@@ -214,6 +278,109 @@ try {
   await student.waitText('Mengikuti kegiatan organisasi kampus.');
   assert.ok(!(await student.body()).includes(reason));
   console.log('PASS status filter');
+  const newcomer = await page();
+  const newNumber = `IT-${Date.now()}`;
+  await newcomer.navigate('/register');
+  await newcomer.waitText('Mulai perjalananmu.');
+  await newcomer.input('Nama lengkap', 'Mahasiswa Integrasi');
+  await newcomer.input('NIM / ID', newNumber);
+  await newcomer.input('Email', `integrasi-${Date.now()}@techlab.test`);
+  await newcomer.input('Password', 'TechLab123!');
+  await newcomer.input('Konfirmasi password', 'TechLab123!');
+  await newcomer.click('Daftar');
+  await newcomer.waitText('Jadwal Praktikum');
+  await assistant.navigate('/kelas/class-if-a/peserta');
+  await assistant.waitText('Kelola Peserta');
+  await assistant.input('Cari NIM atau nama', newNumber);
+  await assistant.click('Cari Pengguna');
+  await assistant.waitText('Mahasiswa Integrasi');
+  await assistant.click('Tambah');
+  await until(
+    () =>
+      assistant.evaluate(`(() => {
+    const heading = [...document.querySelectorAll('*')].find(el =>
+      el.childElementCount === 0 && el.textContent === 'Peserta Terdaftar');
+    return !!heading?.parentElement?.textContent.includes(${JSON.stringify(newNumber)});
+  })()`),
+    'new participant is listed after saving',
+  );
+  await newcomer.command('Page.reload');
+  await newcomer.waitText('Jadwal Praktikum');
+  console.log('PASS registration, automatic directory sync, participant lookup, and class read');
+  await grantRoles(['praktikan', 'asisten']);
+  await student.command('Emulation.setDeviceMetricsOverride', {
+    width: 1280,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await student.navigate('/profil');
+  await student.waitText('Mode Praktikan');
+  await student.waitText('Gunakan mode Asprak');
+  await student.click('Analisis Sentimen');
+  await student.input('Komentar untuk analisis sentimen', 'Penjelasan asisten mudah dipahami');
+  await student.click('Analisis komentar');
+  await student.waitText('HASIL ANALISIS · EKSPERIMENTAL');
+  assert.ok(
+    await student.evaluate(
+      `document.querySelector('[data-testid="sentiment-result"]')?.textContent.includes('Positif')`,
+    ),
+  );
+  await student.navigate('/profil');
+  await student.waitText('Mode Praktikan');
+  console.log('PASS latest sentiment screen remains accessible from the integrated profile');
+  await student.click('Gunakan mode Asprak');
+  await student.waitText('Gunakan mode Asprak?');
+  await student.click('Batal');
+  await until(
+    async () => !(await student.body()).includes('Gunakan mode Asprak?'),
+    'role cancellation',
+  );
+  assert.ok((await student.body()).includes('Mode Praktikan'));
+  console.log('PASS role switch cancellation');
+  await student.click('Gunakan mode Asprak');
+  await student.click('Ganti mode');
+  await student.waitText('Mode Asprak');
+  await student.screenshot('05-profile-asprak-desktop');
+  await student.tab('izin');
+  await student.waitText('PENGAJUAN DARI KELASMU');
+  assert.ok(
+    !(await student.body()).includes(reason),
+    'Assistant mode does not list own student permission',
+  );
+  await student.tab('profil');
+  await student.waitText('Mode Asprak');
+  await student.click('Gunakan mode Praktikan');
+  await student.click('Ganti mode');
+  await student.waitText('Mode Praktikan');
+  await student.tab('izin');
+  await student.waitText('PENGAJUAN SAYA');
+  await student.waitText(reason);
+  console.log('PASS same-account mode switch, permission scoping, and preserved history');
+  await student.tab('profil');
+  await student.click('Gunakan mode Asprak');
+  await student.click('Ganti mode');
+  await student.waitText('Mode Asprak');
+  await grantRoles(['praktikan']);
+  await student.waitText('Mode Praktikan');
+  assert.ok(!(await student.body()).includes('Gunakan mode Asprak'));
+  console.log('PASS live role revocation');
+  await student.command('Emulation.setDeviceMetricsOverride', {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  await student.screenshot('06-profile-revoked-mobile');
+  await student.click('Keluar dari akun');
+  await student.waitText('Keluar dari TechLab?');
+  await student.click('Keluar');
+  await student.waitText('Selamat datang kembali.');
+  await student.navigate('/izin');
+  await student.waitText('Selamat datang kembali.');
+  assert.ok(!(await student.body()).includes(reason));
+  console.log('PASS logout and protected direct route after logout');
+  assert.deepEqual(browserErrors, [], 'No uncaught browser exceptions during integration');
   console.log(
     'PASS UI smoke: login, submit/cancel, assistant decision, live status, reload, filters, mobile.',
   );
@@ -233,4 +400,5 @@ try {
     ws.close();
   }
   chrome.kill();
+  await roleEnv?.cleanup();
 }

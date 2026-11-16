@@ -3,7 +3,7 @@ import { useFonts } from 'expo-font';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AuthProvider } from '../features/auth/AuthProvider';
+import { AuthProvider, useAuth } from '../features/auth/AuthProvider';
 import { AuthBoundary } from '../features/auth/AuthBoundary';
 import { appFonts } from '../theme/fonts';
 import { colors } from '../theme/tokens';
@@ -25,10 +25,21 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <AuthBoundary>
-          <Stack screenOptions={{ headerShown: false }} />
+          <AccountNavigation />
         </AuthBoundary>
       </AuthProvider>
     </SafeAreaProvider>
+  );
+}
+
+function AccountNavigation() {
+  const { profile } = useAuth();
+  // Drop screens and their subscriptions when switching account or active role.
+  return (
+    <Stack
+      key={`${profile?.uid ?? 'guest'}:${profile?.role ?? ''}`}
+      screenOptions={{ headerShown: false }}
+    />
   );
 }
 

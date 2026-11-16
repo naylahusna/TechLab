@@ -1,5 +1,5 @@
 import { doc, runTransaction, serverTimestamp, type Firestore } from 'firebase/firestore';
-import { validateProfile, type ProfileFields } from './model';
+import { directoryRoleFor, parseProfile, validateProfile, type ProfileFields } from './model';
 
 export function createProfileRepository(db: Firestore) {
   return {
@@ -10,12 +10,12 @@ export function createProfileRepository(db: Firestore) {
       await runTransaction(db, async (transaction) => {
         const existing = await transaction.get(ref);
         if (existing.exists()) {
-          const data = existing.data();
+          const data = parseProfile(uid, existing.data());
           transaction.set(doc(db, 'userDirectory', uid), {
             uid,
             name: data.name,
             number: data.number,
-            role: data.role,
+            role: directoryRoleFor(data),
             updatedAt: serverTimestamp(),
           });
           return;
@@ -24,6 +24,7 @@ export function createProfileRepository(db: Firestore) {
           uid,
           ...clean,
           role: 'praktikan',
+          roles: ['praktikan'],
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
@@ -46,7 +47,7 @@ export function createProfileRepository(db: Firestore) {
         transaction.set(doc(db, 'userDirectory', uid), {
           uid,
           ...clean,
-          role: profile.data().role,
+          role: directoryRoleFor(parseProfile(uid, profile.data())),
           updatedAt: serverTimestamp(),
         });
       });
