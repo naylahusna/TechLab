@@ -108,6 +108,11 @@ tidak membuat akun atau mengubah izin di Firebase aktif.
 Integrasi dengan PR #35 mempertahankan UI `SelectionLayout` dan komponen
 bersama Arga. Alur izin memakai mode aktif di UI dan daftar izin tepercaya
 untuk pemeriksaan server. Pilihan mode tidak memindahkan data akun.
+Pembaruan SRS-13–17 dari `main` juga dipertahankan. Perantara AI memeriksa
+izin Praktikan pada profil tepercaya, termasuk akun dengan dua akses;
+klasifikasi tetap memerlukan kepemilikan pengajuan dan persetujuan pemohon.
+Daftar kelas difilter menurut penugasan mengajar atau keanggotaan peserta,
+sehingga kedua mode tidak mencampur kelas yang diampu dan kelas yang diikuti.
 
 - `npm test`: pilihan mode hanya menerima izin yang diberikan, UID tidak
   berubah, pembaruan profil mempertahankan pilihan, pencabutan membatalkan

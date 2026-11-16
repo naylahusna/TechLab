@@ -1,115 +1,83 @@
-import type { Classification } from './model';
+import { permissionKinds, type Classification } from './model';
 
-export function parseClassification(
-  data: unknown,
-): Pick<Classification, 'aiCategory' | 'aiConfidence'> {
-  // Supported JSON contracts. No category is guessed from the applicant's text.
-  let value = data;
-  if (Array.isArray(value) && Array.isArray(value[0])) value = value[0];
-  if (Array.isArray(value)) {
-    value = [...value].sort(
-      (a, b) => Number(b?.score ?? b?.confidence ?? 0) - Number(a?.score ?? a?.confidence ?? 0),
-    )[0];
-  }
+const empty = { aiCategory: null, aiConfidence: null, aiSource: null } as const;
+
+export function parseClassification(value: unknown): Classification {
   if (!value || typeof value !== 'object') throw new Error('Format hasil AI tidak dikenali.');
-  const record = value as Record<string, unknown>;
-  const category = record.category ?? record.label;
-  const confidence = record.confidence ?? record.score;
-  if (typeof category !== 'string' || !category.trim() || category.length > 100)
-    throw new Error('Kategori AI tidak valid.');
-  if (
-    confidence != null &&
-    (typeof confidence !== 'number' ||
-      !Number.isFinite(confidence) ||
-      confidence < 0 ||
-      confidence > 1)
-  )
-    throw new Error('Nilai keyakinan AI tidak valid.');
+  const data = value as Record<string, unknown>;
+  if (!['completed', 'failed', 'unavailable'].includes(String(data.aiStatus)) ||
+      data.aiConfidence !== null || typeof data.aiSource !== 'string' || data.aiSource.length > 500)
+    throw new Error('Metadata klasifikasi AI tidak valid.');
+  const source = new URL(data.aiSource);
+  if (source.protocol !== 'https:' || source.username || source.password || source.search)
+    throw new Error('Sumber AI tidak valid.');
+  if (data.aiStatus === 'completed') {
+    if (typeof data.aiCategory !== 'string' || !Object.hasOwn(permissionKinds, data.aiCategory) ||
+        data.aiError !== null) throw new Error('Kategori alasan izin tidak valid.');
+    return { ...empty, aiStatus: 'completed', aiCategory: data.aiCategory, aiSource: data.aiSource, aiError: null };
+  }
+  if (data.aiCategory !== null || typeof data.aiError !== 'string' || !data.aiError || data.aiError.length > 300)
+    throw new Error('Status kegagalan AI tidak valid.');
   return {
-    aiCategory: category.trim(),
-    aiConfidence: typeof confidence === 'number' ? confidence : null,
+    ...empty, aiStatus: data.aiStatus as 'failed' | 'unavailable',
+    aiSource: data.aiSource, aiError: data.aiError,
   };
+}
+
+function endpointUrl(endpoint: string) {
+  const url = new URL(endpoint);
+  // HTTP is only for the private development server on a laptop/LAN.
+  const privateHost = ['localhost', '127.0.0.1', '10.0.2.2'].includes(url.hostname) ||
+    /^10\.\d+\.\d+\.\d+$/.test(url.hostname) || /^192\.168\.\d+\.\d+$/.test(url.hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(url.hostname);
+  if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && privateHost)) ||
+      url.username || url.password || url.search || url.hash)
+    throw new Error('Alamat perantara AI tidak valid.');
+  return url;
 }
 
 export function createPermissionClassifier({
-  endpoint,
-  timeoutMs = 15000,
-  fetcher = fetch,
+  endpoint, timeoutMs = 45000, fetcher = fetch,
 }: { endpoint?: string; timeoutMs?: number; fetcher?: typeof fetch } = {}) {
-  return async (reason: string, consent: boolean): Promise<Classification> => {
-    const base = { aiCategory: null, aiConfidence: null, aiSource: null };
-    if (!consent)
-      return {
-        ...base,
-        aiStatus: 'unavailable',
-        aiError: 'Klasifikasi tidak diminta. Asisten dapat memeriksa alasan secara manual.',
-      };
-    if (!endpoint)
-      return {
-        ...base,
-        aiStatus: 'unavailable',
-        aiError: 'API AI pengajar belum dikonfigurasi. Pengajuan tetap dapat ditinjau manual.',
-      };
-    let url: URL;
-    try {
-      url = new URL(endpoint);
-      if (
-        url.protocol !== 'https:' &&
-        !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '10.0.2.2'].includes(url.hostname))
-      )
-        throw new Error();
-      if (url.username || url.password || url.search) throw new Error();
-    } catch {
-      return {
-        ...base,
-        aiStatus: 'unavailable',
-        aiError: 'Alamat layanan AI belum valid. Hubungi pengelola.',
-      };
-    }
+  return async (permissionId: string, consent: boolean, idToken: string): Promise<Classification> => {
+    if (!consent || !endpoint) return {
+      ...empty, aiStatus: 'unavailable',
+      aiError: !consent ? 'Analisis AI tidak disetujui. Asisten dapat meninjau secara manual.'
+        : 'Perantara AI belum dikonfigurasi. Pengajuan tetap dapat ditinjau manual.',
+    };
+    try { endpointUrl(endpoint); }
+    catch { return { ...empty, aiStatus: 'unavailable', aiError: 'Alamat perantara AI belum valid. Hubungi pengelola.' }; }
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        controller.abort();
-        reject(new Error('timeout'));
-      }, timeoutMs);
+      timer = setTimeout(() => { controller.abort(); reject(new Error('timeout')); }, timeoutMs);
     });
     try {
-      const result = await Promise.race([
+      return await Promise.race([
         (async () => {
+          if (!idToken) throw new Error('Login diperlukan.');
           const response = await fetcher(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            // Only the reason is transmitted; never UID, name, email or attachments.
-            body: JSON.stringify({ text: reason }),
-            signal: controller.signal,
+            method: 'POST', signal: controller.signal, redirect: 'error',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            // The intermediary reads the stored reason under the caller's Firestore permissions.
+            body: JSON.stringify({ permissionId }),
           });
-          if (!response.ok) throw new Error('AI service error');
+          if (!response.ok) throw new Error('AI intermediary unavailable');
           return parseClassification(await response.json());
-        })(),
-        timeout,
+        })(), timeout,
       ]);
-      return {
-        ...result,
-        aiStatus: 'completed',
-        aiSource: url.origin + url.pathname,
-        aiError: null,
-      };
     } catch {
       return {
-        ...base,
-        aiStatus: 'failed',
-        aiSource: url.origin + url.pathname,
+        ...empty, aiStatus: 'failed',
         aiError: controller.signal.aborted
-          ? 'Layanan AI tidak merespons tepat waktu. Silakan tinjau manual atau coba lagi.'
-          : 'Klasifikasi AI gagal atau respons tidak valid. Pengajuan tetap tersimpan untuk tinjauan manual.',
+          ? 'Analisis AI tidak merespons tepat waktu. Pengajuan tetap tersedia untuk tinjauan manual.'
+          : 'Analisis AI belum berhasil. Periksa koneksi atau coba lagi nanti. Pengajuan tetap tersimpan.',
       };
-    } finally {
-      clearTimeout(timer);
-    }
+    } finally { clearTimeout(timer); }
   };
 }
 
+export const permissionAiConfigured = !!process.env.EXPO_PUBLIC_PERMISSION_AI_URL;
 export const classifyPermission = createPermissionClassifier({
   endpoint: process.env.EXPO_PUBLIC_PERMISSION_AI_URL,
 });

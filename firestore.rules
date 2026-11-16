@@ -305,9 +305,8 @@ service cloud.firestore {
         && request.resource.data.aiSource == null && request.resource.data.aiClassifiedAt == null
         && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
       allow update: if validPermission(request.resource.data)
-        && resource.data.status == 'pending'
         && request.resource.data.updatedAt == request.time
-        && (permissionDecision() || permissionClassification());
+        && ((resource.data.status == 'pending' && permissionDecision()) || permissionClassification());
       allow delete: if false;
     }
 
@@ -342,13 +341,15 @@ service cloud.firestore {
       let s = get(/databases/$(database)/documents/sessions/$(d.sessionId)).data;
       let c = get(/databases/$(database)/documents/classes/$(d.classId)).data;
       let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let schedule = get(/databases/$(database)/documents/schedules/$(s.scheduleId)).data;
       return s.classId == d.classId && s.status in ['scheduled', 'open']
         && request.auth.uid in s.studentIds && request.auth.uid in c.studentIds && c.archivedAt == null
         && get(/databases/$(database)/documents/participants/$(d.classId + '_' + request.auth.uid)).data.leftAt == null
         && !exists(/databases/$(database)/documents/attendances/$(d.sessionId + '_' + request.auth.uid))
         && d.studentName == p.name && d.studentNumber == p.number
         && d.className == c.className && d.sessionStartAt == s.startAt
-        && d.sessionTitle == get(/databases/$(database)/documents/schedules/$(s.scheduleId)).data.title;
+        && schedule.classId == s.classId && schedule.archivedAt == null
+        && d.sessionTitle == schedule.title;
     }
     function permissionDecision() {
       return isAssignedAssistant(resource.data.classId)
@@ -359,6 +360,10 @@ service cloud.firestore {
     }
     function permissionClassification() {
       return isPractitioner() && resource.data.userId == request.auth.uid && resource.data.aiConsent
+        && request.resource.data.aiConfidence == null
+        && (request.resource.data.aiCategory == null || request.resource.data.aiCategory in ['sakit', 'keluarga', 'kegiatan-kampus', 'lainnya'])
+        && (resource.data.status == 'pending'
+          || (resource.data.aiStatus == 'processing' && request.resource.data.aiStatus in ['completed', 'failed', 'unavailable']))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['aiStatus', 'aiCategory', 'aiConfidence', 'aiSource', 'aiClassifiedAt', 'aiError', 'updatedAt'])
         && request.resource.data.aiClassifiedAt == request.time;
     }

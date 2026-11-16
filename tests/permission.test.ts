@@ -3,12 +3,55 @@ import test from 'node:test';
 import { createPermissionClassifier, parseClassification } from '../src/features/permission/ai';
 import {
   filterPermissions,
+  decisionBlockReason,
+  permissionStatusExplanation,
+  permissionReadVisibility,
   permissionId,
   validateDecision,
   validateSubmission,
   type Permission,
 } from '../src/features/permission/model';
 import { getAttendanceAction } from '../src/features/practitioner/lib/attendance-action';
+
+test('SRS-17 explains stored status while cached data never claims a confirmed decision', () => {
+  assert.match(permissionStatusExplanation('pending', false), /menunggu pemeriksaan/);
+  assert.match(permissionStatusExplanation('approved', false), /menyetujui/);
+  assert.match(permissionStatusExplanation('rejected', false), /alasan penolakan/);
+  for (const status of ['pending', 'approved', 'rejected'] as const)
+    assert.match(permissionStatusExplanation(status, true), /belum dikonfirmasi server/);
+});
+
+test('SRS-17 never exposes another practitioner record or unverified assistant cache after account switch', () => {
+  assert.equal(permissionReadVisibility('praktikan', 'b', 'a', true, false), 'deny');
+  assert.equal(permissionReadVisibility('praktikan', 'b', 'a', false, true), 'deny');
+  assert.equal(permissionReadVisibility('praktikan', 'a', 'a', true, false), 'show');
+  assert.equal(permissionReadVisibility('asisten', 'assistant-b', 'a', true, false), 'wait');
+  assert.equal(permissionReadVisibility('asisten', 'assistant-b', 'a', false, false), 'show');
+  assert.equal(permissionReadVisibility('asisten', 'assistant-b', 'a', true, true), 'show');
+  assert.equal(permissionReadVisibility('asisten', 'assistant-b', undefined, true, false), 'wait');
+});
+
+test('SRS-16 decision availability rejects stale, missing, offline and practitioner actions', () => {
+  assert.equal(decisionBlockReason('asisten', 'pending', false), '');
+  for (const [role, status, cached] of [
+    ['praktikan', 'pending', false], ['asisten', 'approved', false],
+    ['asisten', 'rejected', false], ['asisten', undefined, false], ['asisten', 'pending', true],
+  ] as const) assert.ok(decisionBlockReason(role, status, cached));
+  assert.throws(() => validateDecision('rejected', '  no '));
+  assert.equal(validateDecision('rejected', '  Bukti belum memadai.  ').decisionReason, 'Bukti belum memadai.');
+});
+
+test('SRS-15 combines class, session, status and search filters without mutating records', () => {
+  const items = Object.freeze([
+    Object.freeze({ classId: 'a', sessionId: 'one', status: 'pending', studentName: 'Alya', studentNumber: '123', className: 'A', sessionTitle: 'PPK' }),
+    Object.freeze({ classId: 'a', sessionId: 'two', status: 'approved', studentName: 'Bima', studentNumber: '456', className: 'A', sessionTitle: 'PPK' }),
+    Object.freeze({ classId: 'b', sessionId: 'one', status: 'pending', studentName: 'Alya', studentNumber: '789', className: 'B', sessionTitle: 'PPK' }),
+  ]) as unknown as readonly Permission[];
+  assert.deepEqual(filterPermissions(items, 'pending', ' ALYA ', { classId: 'a', sessionId: 'one' }), [items[0]]);
+  assert.equal(filterPermissions(items, 'all', '', { classId: 'missing' }).length, 0);
+  assert.equal(filterPermissions(items, 'all', '').length, 3);
+  assert.equal(items[1].status, 'approved');
+});
 
 test('permission input validation, deterministic IDs, rejection reasons and immutable filters', () => {
   assert.deepEqual(validateSubmission('  Saya sakit demam sejak pagi.  ', 'sakit'), {
@@ -46,36 +89,41 @@ test('permission input validation, deterministic IDs, rejection reasons and immu
   assert.ok(getAttendanceAction('dibuka', 'izin-menunggu').disabled);
 });
 
-test('reserved AI adapter sends only reason, parses supported JSON and cannot produce a decision', async () => {
+test('permission AI sends only an identifier and Firebase token to the intermediary, never a provider key', async () => {
   let sent = '';
+  let headers: HeadersInit | undefined;
+  const response = {
+    aiStatus: 'completed', aiCategory: 'sakit', aiConfidence: null,
+    aiSource: 'https://teacher.example/v1/chat/completions#test-model', aiError: null,
+  };
   const classify = createPermissionClassifier({
     endpoint: 'https://teacher.example/classify',
     fetcher: (async (_url, options) => {
       sent = String(options?.body);
-      return new Response(JSON.stringify({ category: 'sakit', confidence: 0.9 }));
+      headers = options?.headers;
+      return new Response(JSON.stringify(response));
     }) as typeof fetch,
   });
-  const result = await classify('Demam dan perlu istirahat.', true);
-  assert.deepEqual(JSON.parse(sent), { text: 'Demam dan perlu istirahat.' });
+  const result = await classify('session-a_user-a', true, 'firebase-test-token');
+  assert.deepEqual(JSON.parse(sent), { permissionId: 'session-a_user-a' });
+  assert.equal(new Headers(headers).get('Authorization'), 'Bearer firebase-test-token');
   assert.equal(result.aiStatus, 'completed');
   assert.equal(result.aiCategory, 'sakit');
   assert.ok(!('status' in result));
-  assert.deepEqual(
-    parseClassification([
-      [
-        { label: 'a', score: 0.1 },
-        { label: 'b', score: 0.9 },
-      ],
-    ]),
-    { aiCategory: 'b', aiConfidence: 0.9 },
-  );
+  assert.deepEqual(parseClassification(response), response);
+  for (const invalid of [
+    { ...response, aiCategory: 'positif' },
+    { ...response, aiCategory: 'approved' },
+    { ...response, aiConfidence: 0.9 },
+    { ...response, aiSource: 'https://user:secret@example.com/' },
+  ]) assert.throws(() => parseClassification(invalid));
   assert.throws(() => parseClassification({ label: 'approved', score: 4 }));
   assert.throws(() => parseClassification({ decision: 'approved' }));
 });
 
 test('AI disabled, no consent, invalid endpoints, HTTP errors, malformed JSON and timeout stay manual', async () => {
   const disabled = createPermissionClassifier();
-  assert.equal((await disabled('Alasan', true)).aiStatus, 'unavailable');
+  assert.equal((await disabled('permission', true, 'token')).aiStatus, 'unavailable');
   let calls = 0;
   const forbidden = createPermissionClassifier({
     endpoint: 'https://teacher.example/classify',
@@ -84,14 +132,14 @@ test('AI disabled, no consent, invalid endpoints, HTTP errors, malformed JSON an
       throw new Error();
     }) as typeof fetch,
   });
-  assert.equal((await forbidden('Alasan', false)).aiStatus, 'unavailable');
+  assert.equal((await forbidden('permission', false, 'token')).aiStatus, 'unavailable');
   assert.equal(calls, 0);
   assert.equal(
-    (await createPermissionClassifier({ endpoint: 'http://public.example/unsafe' })('x', true))
+    (await createPermissionClassifier({ endpoint: 'http://public.example/unsafe' })('x', true, 'token'))
       .aiStatus,
     'unavailable',
   );
-  assert.equal((await forbidden('Alasan', true)).aiStatus, 'failed');
+  assert.equal((await forbidden('permission', true, 'token')).aiStatus, 'failed');
   for (const response of [
     new Response('bad', { status: 503 }),
     new Response('not json'),
@@ -101,12 +149,12 @@ test('AI disabled, no consent, invalid endpoints, HTTP errors, malformed JSON an
       endpoint: 'https://teacher.example/classify',
       fetcher: (async () => response) as typeof fetch,
     });
-    assert.equal((await classify('Alasan', true)).aiStatus, 'failed');
+    assert.equal((await classify('permission', true, 'token')).aiStatus, 'failed');
   }
   const hanging = createPermissionClassifier({
     endpoint: 'https://teacher.example/classify',
     timeoutMs: 10,
     fetcher: (() => new Promise(() => {})) as typeof fetch,
   });
-  assert.equal((await hanging('Alasan', true)).aiStatus, 'failed');
+  assert.equal((await hanging('permission', true, 'token')).aiStatus, 'failed');
 });

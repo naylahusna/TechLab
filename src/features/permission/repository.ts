@@ -80,7 +80,12 @@ export function createPermissionRepository(db: Firestore) {
         if (attendance.exists()) throw new Error('Kamu sudah tercatat hadir pada sesi ini.');
         if (existing.exists())
           throw new Error('Kamu sudah mengajukan izin pada sesi ini. Buka status izin yang ada.');
-        if (!schedule.exists() || classItem.data().archivedAt)
+        if (
+          !schedule.exists() ||
+          schedule.data().classId !== s.classId ||
+          schedule.data().archivedAt ||
+          classItem.data().archivedAt
+        )
           throw new Error('Kelas atau jadwal tidak lagi tersedia.');
         tx.set(ref, {
           sessionId: session.id,
@@ -103,12 +108,27 @@ export function createPermissionRepository(db: Firestore) {
           aiSource: null,
           aiClassifiedAt: null,
           aiError:
-            'Integrasi API AI pengajar belum diaktifkan. Asisten dapat meninjau pengajuan secara manual.',
+            input.aiConsent
+              ? 'Analisis AI belum selesai. Kamu dapat mencoba lagi dari detail pengajuan.'
+              : 'Pemohon tidak memilih analisis AI. Asisten dapat meninjau pengajuan secara manual.',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
       });
       return id;
+    },
+    subscribeOwnAttendance(
+      sessionId: string,
+      userId: string,
+      next: (present: boolean, cached: boolean) => void,
+      fail: (error: Error) => void,
+    ) {
+      return onSnapshot(
+        doc(db, 'attendances', permissionId(sessionId, userId)),
+        { includeMetadataChanges: true },
+        (snapshot) => next(snapshot.exists(), snapshot.metadata.fromCache),
+        fail,
+      );
     },
     async decide(id: string, actor: UserProfile, status: 'approved' | 'rejected', reason: string) {
       const clean = validateDecision(status, reason);
@@ -133,7 +153,25 @@ export function createPermissionRepository(db: Firestore) {
         });
       });
     },
-    // Reserved for SRS-14 after the teacher supplies the API contract. Never changes a decision.
+    async beginClassification(id: string, actor: UserProfile) {
+      return runTransaction(db, async (tx) => {
+        const ref = doc(permissions, id);
+        const snapshot = await tx.get(ref);
+        if (!snapshot.exists()) throw new Error('Pengajuan tidak ditemukan.');
+        const p = snapshot.data();
+        if (actor.role !== 'praktikan' || p.userId !== actor.uid || !p.aiConsent || p.status !== 'pending')
+          throw new Error('Analisis AI tidak dapat dimulai untuk pengajuan ini.');
+        if (p.aiStatus === 'completed' || (p.aiStatus === 'processing' &&
+            Date.now() - (p.aiClassifiedAt?.toMillis() ?? 0) < 60000)) return false;
+        tx.update(ref, {
+          aiStatus: 'processing', aiCategory: null, aiConfidence: null, aiSource: null,
+          aiError: 'Analisis AI sedang berjalan. Keputusan tetap dibuat oleh asisten.',
+          aiClassifiedAt: serverTimestamp(), updatedAt: serverTimestamp(),
+        });
+        return true;
+      });
+    },
+    // Only AI metadata changes, even if an assistant decides while a request is in flight.
     async saveClassification(id: string, actor: UserProfile, classification: Classification) {
       await runTransaction(db, async (tx) => {
         const ref = doc(permissions, id);
@@ -144,7 +182,7 @@ export function createPermissionRepository(db: Firestore) {
           actor.role !== 'praktikan' ||
           p.userId !== actor.uid ||
           !p.aiConsent ||
-          p.status !== 'pending'
+          (p.status !== 'pending' && p.aiStatus !== 'processing')
         )
           throw new Error('Klasifikasi tidak dapat diubah untuk pengajuan ini.');
         tx.update(ref, {

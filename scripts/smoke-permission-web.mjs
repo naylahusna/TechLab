@@ -317,6 +317,18 @@ try {
   await student.navigate('/profil');
   await student.waitText('Mode Praktikan');
   await student.waitText('Gunakan mode Asprak');
+  await student.click('Analisis Sentimen');
+  await student.input('Komentar untuk analisis sentimen', 'Penjelasan asisten mudah dipahami');
+  await student.click('Analisis komentar');
+  await student.waitText('HASIL ANALISIS · EKSPERIMENTAL');
+  assert.ok(
+    await student.evaluate(
+      `document.querySelector('[data-testid="sentiment-result"]')?.textContent.includes('Positif')`,
+    ),
+  );
+  await student.navigate('/profil');
+  await student.waitText('Mode Praktikan');
+  console.log('PASS latest sentiment screen remains accessible from the integrated profile');
   await student.click('Gunakan mode Asprak');
   await student.waitText('Gunakan mode Asprak?');
   await student.click('Batal');
