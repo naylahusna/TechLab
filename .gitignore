@@ -11,6 +11,7 @@ AGENTS.local.md
 # Expo
 .expo/
 .firebase/
+/firebase-export-*/
 dist/
 web-build/
 expo-env.d.ts

@@ -23,4 +23,4 @@ function run(args) {
 
 run([require.resolve('typescript/bin/tsc'), '-p', 'tsconfig.test.json']);
 // Run only current source tests, even when dist contains artifacts from another branch.
-run(['--test', ...testFiles, 'tests/permission-ai-proxy.test.mjs']);
+run(['--test', ...testFiles, 'tests/permission-ai-proxy.test.mjs', 'tests/emulator-export.test.mjs']);

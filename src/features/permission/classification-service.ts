@@ -1,6 +1,7 @@
 import { getFirebaseAuth } from '../../services/firebase/auth';
 import type { UserProfile } from '../auth/model';
-import { classifyPermission, permissionAiConfigured } from './ai';
+import { createPermissionClassifier, permissionAiConfigured } from './ai';
+import { developmentServiceUrl } from '../../services/firebase/app';
 import { getPermissionRepository } from './hooks';
 
 export async function classifySavedPermission(id: string, actor: UserProfile) {
@@ -12,7 +13,10 @@ export async function classifySavedPermission(id: string, actor: UserProfile) {
   const repository = getPermissionRepository();
   const started = await repository.beginClassification(id, actor);
   if (!started) return false;
-  const result = await classifyPermission(id, true, token);
+  const classify = createPermissionClassifier({
+    endpoint: developmentServiceUrl(process.env.EXPO_PUBLIC_PERMISSION_AI_URL),
+  });
+  const result = await classify(id, true, token);
   await repository.saveClassification(id, actor, result);
   return true;
 }

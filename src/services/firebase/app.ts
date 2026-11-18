@@ -1,4 +1,6 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
+import Constants from 'expo-constants';
+import { resolveDevelopmentHost, resolveLocalServiceUrl } from './development-host';
 
 // Explicit property access is required for Expo's public environment substitution.
 const config = {
@@ -22,4 +24,11 @@ export function getFirebaseApp() {
 }
 
 export const useEmulators = __DEV__ && process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-export const emulatorHost = process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST || '127.0.0.1';
+const configuredHost = process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST || '127.0.0.1';
+export const emulatorHost = useEmulators
+  ? resolveDevelopmentHost(configuredHost, Constants.expoConfig?.hostUri)
+  : configuredHost;
+
+export function developmentServiceUrl(endpoint: string | undefined) {
+  return resolveLocalServiceUrl(endpoint, configuredHost, emulatorHost, useEmulators);
+}
