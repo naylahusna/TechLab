@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Redirect, useRouter } from 'expo-router';
-import { ScrollView, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../components/Text';
 import { ActionButton } from '../../components/ActionButton';
 import { ConfirmationModal } from '../../components/ConfirmationModal';
@@ -8,12 +8,11 @@ import { useAuth } from '../auth/AuthProvider';
 import { useScheduleOverview } from '../practicum';
 import { PracticumHeader } from '../practicum/components/PracticumHeader';
 import { ErrorState, LoadingState, EmptyState } from '../practicum/components/StateViews';
-import { permissionError, permissionKinds, validateSubmission, type PermissionKind } from './model';
+import { permissionError, validateSubmission, type PermissionKind } from './model';
 import { getPermissionRepository, usePermissions } from './hooks';
-import { ChoiceChip, dateTime, InfoCard, ui } from './ui';
+import { dateTime, InfoCard, ui } from './ui';
 import { useSubmissionAttendance } from './useSubmissionAttendance';
 import { classifySavedPermission } from './classification-service';
-import { PermissionAiConsent } from './PermissionAiControls';
 
 type SubmissionPreview = {
   sessionId: string;
@@ -40,12 +39,11 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
   const overview = useScheduleOverview();
   const permissions = usePermissions();
   const [sessionId, setSessionId] = useState(initialSessionId ?? '');
-  const [kind, setKind] = useState<PermissionKind>('sakit');
   const [reason, setReason] = useState('');
-  const [aiConsent, setAiConsent] = useState(false);
   const [error, setError] = useState('');
   const [confirmation, setConfirmation] = useState<SubmissionPreview | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sessionPickerVisible, setSessionPickerVisible] = useState(false);
   const guard = useRef(false);
   const mounted = useRef(true);
   const sessions = overview.sessions.filter(
@@ -63,8 +61,12 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
   const attendance = useSubmissionAttendance(selected?.id, profile!.uid);
   const existing = permissions.data.find((p) => p.sessionId === sessionId);
   const title =
-    overview.schedules.find((s) => s.id === selected?.scheduleId)?.title ?? 'Pilih sesi';
+    overview.schedules.find((s) => s.id === selected?.scheduleId)?.title ??
+    'Pilih jadwal praktikum';
   const className = overview.classes.find((c) => c.id === selected?.classId)?.className ?? '';
+  const isExpired = selected ? selected.endAt.toMillis() <= Date.now() : false;
+  const isSelectable = (session: (typeof sessions)[number]) =>
+    session.status !== 'closed' && session.status !== 'cancelled' && session.endAt.toMillis() > Date.now();
   const loading =
     overview.status === 'loading' || permissions.status === 'loading' ||
     (!!selected && attendance.status === 'loading');
@@ -73,12 +75,14 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
     overview.status !== 'ready' || permissions.status !== 'ready' ||
     !!overview.syncError || connectionPending || (!!selected && attendance.status !== 'ready');
   const unavailable = sessionId && !selected && overview.status === 'ready'
-    ? 'Sesi pilihan tidak tersedia untuk izin. Pilih sesi aktif yang kamu ikuti.'
-    : attendance.present
-      ? 'Kamu sudah tercatat hadir pada sesi ini, sehingga tidak dapat mengajukan izin.'
-      : existing
-        ? 'Kamu sudah memiliki pengajuan untuk sesi ini.'
-        : '';
+    ? 'Jadwal pilihan tidak tersedia untuk izin. Pilih jadwal yang masih berlaku.'
+    : selected && (selected.status === 'closed' || isExpired)
+      ? 'Jadwal ini sudah ditutup atau kadaluarsa, sehingga pengajuan izin tidak tersedia.'
+      : attendance.present
+        ? 'Kamu sudah tercatat hadir pada sesi ini, sehingga tidak dapat mengajukan izin.'
+        : existing
+          ? 'Kamu sudah memiliki pengajuan untuk jadwal ini.'
+          : '';
 
   useEffect(() => {
     mounted.current = true;
@@ -91,14 +95,16 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
     try {
       if (blocked)
         throw new Error('Tunggu sampai data terbaru berhasil dimuat sebelum mengajukan izin.');
-      if (!selected) throw new Error('Pilih sesi praktikum yang tersedia.');
+      if (!selected) throw new Error('Pilih jadwal praktikum yang masih berlaku.');
       if (unavailable) throw new Error(unavailable);
-      const clean = validateSubmission(reason, kind);
+      // The category is intentionally neutral here; the AI result is the source
+      // of classification shown after submission.
+      const clean = validateSubmission(reason, 'lainnya');
       setConfirmation({
         sessionId: selected.id,
         ...clean,
-        aiConsent,
-        description: `${profile?.name} · ${profile?.number}\n${title}\n${className}\nMulai: ${dateTime(selected.startAt)}\nSelesai: ${dateTime(selected.endAt)}\n${permissionKinds[clean.kind]}\n\n${clean.reason}\n\nAnalisis AI eksternal: ${aiConsent ? 'disetujui' : 'tidak diminta'}.\nStatus awal akan menjadi Menunggu.`,
+        aiConsent: true,
+        description: `${profile?.name} · ${profile?.number}\n${title}\n${className}\nMulai: ${dateTime(selected.startAt)}\nSelesai: ${dateTime(selected.endAt)}\nKlasifikasi: dianalisis AI setelah pengajuan\n\n${clean.reason}\n\nAnalisis AI akan berjalan otomatis setelah pengajuan tersimpan.\nStatus awal akan menjadi Menunggu.`,
       });
     } catch (cause) {
       setError(permissionError(cause));
@@ -171,10 +177,10 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
             />
           </InfoCard>
         )}
-        <InfoCard label="01 / PILIH SESI" tone="lime">
+        <InfoCard label="01 / PILIH JADWAL PRAKTIKUM" tone="lime">
           <Text style={ui.copy}>
-            Izin dikaitkan ke satu sesi kelas yang kamu ikuti. Sesi yang belum dibuka, sedang dibuka,
-            atau sudah ditutup tersedia untuk dipilih; sesi yang dibatalkan tidak menerima pengajuan.
+            Pilih jadwal praktikum yang ingin kamu ajukan izinnya. Jadwal yang sudah ditutup atau
+            kadaluarsa tidak dapat menerima pengajuan.
           </Text>
           {overview.status === 'loading' && <LoadingState message="Memuat sesi yang kamu ikuti…" />}
           {overview.status === 'error' && (
@@ -186,22 +192,26 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
               message="Pastikan kamu terdaftar pada kelas aktif yang memiliki sesi."
             />
           )}
-          {sessions.map((s) => (
-            <ChoiceChip
-              key={s.id}
-              disabled={busy}
-              label={`${overview.classes.find((item) => item.id === s.classId)?.className ?? 'Kelas'} · ${overview.schedules.find((item) => item.id === s.scheduleId)?.title ?? 'Sesi praktikum'} · ${s.status === 'scheduled' ? 'Belum dibuka' : s.status === 'open' ? 'Sedang dibuka' : 'Sudah ditutup'} · ${dateTime(s.startAt)}`}
-              selected={sessionId === s.id}
-              onPress={() => {
-                setSessionId(s.id);
-                setError('');
-              }}
-            />
-          ))}
-          {selected && (
-            <Text style={ui.meta}>
-              Waktu sesi: {dateTime(selected.startAt)} — {dateTime(selected.endAt)}
-            </Text>
+          <ActionButton
+            title={selected ? 'Ganti jadwal praktikum' : 'Pilih jadwal praktikum'}
+            secondary
+            disabled={busy || overview.status !== 'ready'}
+            onPress={() => setSessionPickerVisible(true)}
+          />
+          {selected ? (
+            <View style={styles.selectedSchedule}>
+              <Text style={styles.selectedScheduleTitle}>
+                {className} · {title}
+              </Text>
+              <Text style={ui.meta}>
+                {dateTime(selected.startAt)} — {dateTime(selected.endAt)}
+              </Text>
+              <Text style={unavailable ? ui.error : ui.success}>
+                {unavailable || 'Jadwal siap dipilih untuk pengajuan.'}
+              </Text>
+            </View>
+          ) : (
+            <Text style={ui.meta}>Belum ada jadwal yang dipilih.</Text>
           )}
           {!!unavailable && !existing && (
             <Text accessibilityRole="alert" style={ui.error}>
@@ -212,18 +222,11 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
             <ErrorState message={attendance.error!} onRetry={attendance.retry} />
           )}
         </InfoCard>
-        <InfoCard label="02 / CERITAKAN ALASANMU">
-          <View style={ui.wrap}>
-            {Object.entries(permissionKinds).map(([value, label]) => (
-              <ChoiceChip
-                key={value}
-                disabled={busy}
-                label={label}
-                selected={kind === value}
-                onPress={() => setKind(value as PermissionKind)}
-              />
-            ))}
-          </View>
+        {selected && !unavailable ? <InfoCard label="02 / CERITAKAN ALASANMU">
+          <Text style={ui.copy}>
+            Tulis alasan ketidakhadiranmu secara lengkap. Kategori alasan akan diprediksi oleh AI
+            sebagai informasi pendukung untuk pemeriksaan asisten.
+          </Text>
           <TextInput
             accessibilityLabel="Alasan izin"
             placeholder="Contoh: Saya sedang sakit dan perlu beristirahat sesuai anjuran dokter…"
@@ -239,8 +242,19 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
             {reason.trim().length}/2000 karakter · minimal 10 karakter. Hindari informasi pribadi
             yang tidak diperlukan.
           </Text>
-        </InfoCard>
-        <PermissionAiConsent checked={aiConsent} onChange={setAiConsent} disabled={busy} />
+        </InfoCard> : null}
+        {selected && !unavailable ? (
+          <InfoCard label="ANALISIS ALASAN · AI" tone="lavender">
+            <Text style={ui.copy}>
+              Setelah pengajuan tersimpan, AI akan menganalisis alasanmu secara otomatis sebagai
+              informasi pendukung untuk pemeriksaan asisten.
+            </Text>
+            <Text style={ui.meta}>
+              AI tidak menentukan izin diterima atau ditolak. Keputusan akhir tetap dilakukan oleh
+              asisten.
+            </Text>
+          </InfoCard>
+        ) : null}
         {permissions.status === 'error' && (
           <ErrorState message={permissions.error!} onRetry={permissions.retry} />
         )}
@@ -289,6 +303,168 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
         onCancel={() => setConfirmation(null)}
         confirmTestID="permission-confirm-submit"
       />
+      <Modal
+        visible={sessionPickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSessionPickerVisible(false)}
+      >
+        <View style={styles.pickerRoot}>
+          <Pressable
+            style={styles.pickerBackdrop}
+            onPress={() => setSessionPickerVisible(false)}
+          />
+          <View style={styles.pickerCard}>
+            <Text style={styles.pickerEyebrow}>PILIH JADWAL PRAKTIKUM</Text>
+            <Text style={styles.pickerTitle}>Jadwal yang kamu ikuti</Text>
+            <Text style={ui.meta}>
+              Pilih jadwal yang masih berlaku untuk melanjutkan pengajuan izin.
+            </Text>
+            <ScrollView
+              style={styles.pickerList}
+              contentContainerStyle={styles.pickerListContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {sessions.map((session) => {
+                const scheduleTitle =
+                  overview.schedules.find((item) => item.id === session.scheduleId)?.title ??
+                  'Jadwal praktikum';
+                const sessionClass =
+                  overview.classes.find((item) => item.id === session.classId)?.className ??
+                  'Kelas praktikum';
+                const available = isSelectable(session);
+                const statusLabel = available
+                  ? session.status === 'open'
+                    ? 'Sedang dibuka'
+                    : 'Belum dibuka'
+                  : session.status === 'closed' || session.endAt.toMillis() <= Date.now()
+                    ? 'Ditutup / kadaluarsa'
+                    : 'Tidak tersedia';
+                return (
+                  <Pressable
+                    key={session.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${sessionClass} ${scheduleTitle}`}
+                    accessibilityState={{ disabled: !available, selected: session.id === sessionId }}
+                    disabled={!available || busy}
+                    onPress={() => {
+                      setSessionId(session.id);
+                      setError('');
+                      setSessionPickerVisible(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.scheduleOption,
+                      session.id === sessionId && styles.scheduleOptionSelected,
+                      !available && styles.scheduleOptionDisabled,
+                      pressed && available && styles.scheduleOptionPressed,
+                    ]}
+                  >
+                    <View style={styles.scheduleOptionCopy}>
+                      <Text style={styles.scheduleOptionTitle}>
+                        {sessionClass} · {scheduleTitle}
+                      </Text>
+                      <Text style={ui.meta}>
+                        {dateTime(session.startAt)} — {dateTime(session.endAt)}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.scheduleOptionStatus,
+                        !available && styles.scheduleOptionStatusDisabled,
+                      ]}
+                    >
+                      {statusLabel}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              {sessions.length === 0 && overview.status === 'ready' ? (
+                <Text style={ui.meta}>Belum ada jadwal praktikum yang tersedia.</Text>
+              ) : null}
+            </ScrollView>
+            <ActionButton
+              title="Tutup"
+              secondary
+              onPress={() => setSessionPickerVisible(false)}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  selectedSchedule: {
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#CFE685',
+    borderRadius: 18,
+    backgroundColor: '#F6FFD1',
+    padding: 16,
+  },
+  selectedScheduleTitle: {
+    color: '#20251F',
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '800',
+  },
+  pickerRoot: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  pickerBackdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#20251F80',
+  },
+  pickerCard: {
+    maxHeight: '82%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 26,
+    padding: 22,
+    gap: 12,
+  },
+  pickerEyebrow: {
+    color: '#4268E8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+  },
+  pickerTitle: {
+    color: '#20251F',
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '800',
+  },
+  pickerList: { maxHeight: 420 },
+  pickerListContent: { gap: 10 },
+  scheduleOption: {
+    minHeight: 78,
+    borderWidth: 1,
+    borderColor: '#E5E8E0',
+    borderRadius: 18,
+    padding: 14,
+    gap: 8,
+    backgroundColor: '#F5F6F2',
+  },
+  scheduleOptionSelected: {
+    borderColor: '#4268E8',
+    backgroundColor: '#EDF1FF',
+  },
+  scheduleOptionDisabled: { opacity: 0.55 },
+  scheduleOptionPressed: { opacity: 0.78 },
+  scheduleOptionCopy: { gap: 3 },
+  scheduleOptionTitle: {
+    color: '#20251F',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+  scheduleOptionStatus: {
+    color: '#4268E8',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  scheduleOptionStatusDisabled: { color: '#A33030' },
+});

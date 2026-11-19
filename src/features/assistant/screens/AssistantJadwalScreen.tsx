@@ -1,7 +1,6 @@
 import { FlatList, StyleSheet, View } from 'react-native';
 
 import { ScreenHeader, type ScreenSummaryItem } from '../../practitioner/components/ScreenHeader';
-import { AssistantButton } from '../components/AssistantButton';
 import { AssistantEmptyState } from '../components/AssistantEmptyState';
 import { AssistantSessionCard } from '../components/AssistantSessionCard';
 import { colors, spacing } from '../theme';
@@ -39,23 +38,14 @@ export function AssistantJadwalScreen({
   return (
     <View style={styles.screen}>
       <ScreenHeader
-        title="Sesi Praktikum"
-        subtitle="Pilih sesi untuk membuka presensi, menutup sesi, atau melihat rekap."
+        title="Selamat datang!"
         roleLabel="Asisten"
         greeting={assistantName}
         initials={assistantInitials}
         summary={summary}
+        actionLabel="Kelola kelas & peserta"
+        onAction={onManageClasses}
       />
-
-      {onManageClasses ? (
-        <View style={styles.manageRow}>
-          <AssistantButton
-            label="Kelola Kelas"
-            variant="secondary"
-            onPress={onManageClasses}
-          />
-        </View>
-      ) : null}
 
       <FlatList
         data={sessions}
@@ -91,10 +81,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xxl,
     paddingBottom: spacing.xxxl,
-  },
-  manageRow: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
   },
   separator: {
     height: spacing.lg,

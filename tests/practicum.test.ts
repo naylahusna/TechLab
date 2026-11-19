@@ -380,21 +380,20 @@ test('schedule conflict detects overlap in the same class only', () => {
   );
 });
 
-test('session open window enforces real-time schedule bounds with 15-minute early buffer', () => {
+test('session can be opened before or during its schedule, but not after it ends', () => {
   const window = {
     startAt: at('2026-11-19T08:00:00+07:00'),
     endAt: at('2026-11-19T10:00:00+07:00'),
   };
 
-  const tooEarly = validateSessionOpenWindow(window, new Date('2026-11-19T07:44:59+07:00'));
-  assert.equal(tooEarly.ok, false);
-  if (!tooEarly.ok) assert.equal(tooEarly.reason, 'too-early');
+  const beforeSchedule = validateSessionOpenWindow(window, new Date('2026-11-19T06:00:00+07:00'));
+  assert.deepEqual(beforeSchedule, { ok: true });
 
-  const earlyBufferStart = validateSessionOpenWindow(
+  const beforeScheduleStart = validateSessionOpenWindow(
     window,
-    new Date('2026-11-19T07:45:00+07:00'),
+    new Date('2026-11-19T07:59:59+07:00'),
   );
-  assert.deepEqual(earlyBufferStart, { ok: true });
+  assert.deepEqual(beforeScheduleStart, { ok: true });
 
   const duringSchedule = validateSessionOpenWindow(window, new Date('2026-11-19T09:00:00+07:00'));
   assert.deepEqual(duringSchedule, { ok: true });

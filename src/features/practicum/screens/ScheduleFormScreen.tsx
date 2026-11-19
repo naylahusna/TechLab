@@ -6,6 +6,8 @@ import { ActionButton } from '../../../components/ActionButton';
 import { Text } from '../../../components/Text';
 import { getPracticumRepository } from '../client';
 import { formatDateInput, formatTimeInput, parseDateTime } from '../date-input';
+import { DatePickerField } from '../components/DatePickerField';
+import { OptionPickerField } from '../components/OptionPickerField';
 import { PracticumField } from '../components/PracticumField';
 import { PracticumHeader } from '../components/PracticumHeader';
 import { ErrorState, LoadingState } from '../components/StateViews';
@@ -18,6 +20,14 @@ type ScheduleFormScreenProps = {
   mode: 'create' | 'edit';
   scheduleId?: string;
 };
+
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const hour = Math.floor(index / 2);
+  const minute = index % 2 === 0 ? '00' : '30';
+  return `${String(hour).padStart(2, '0')}:${minute}`;
+});
+
+const LAB_OPTIONS = ['Lab A', 'Lab B', 'Lab C', 'Lab D', 'AP LT 5'];
 
 export function ScheduleFormScreen({
   classId,
@@ -144,49 +154,44 @@ export function ScheduleFormScreen({
               editable={!submitting}
               maxLength={120}
             />
-            <PracticumField
+            <DatePickerField
               label="Tanggal"
               value={date}
-              onChangeText={setDate}
-              placeholder="YYYY-MM-DD"
-              editable={!submitting}
-              maxLength={10}
-              autoCapitalize="none"
+              onChange={setDate}
+              disabled={submitting}
             />
             <View style={styles.timeRow}>
               <View style={styles.timeField}>
-                <PracticumField
+                <OptionPickerField
                   label="Mulai"
                   value={startTime}
-                  onChangeText={setStartTime}
-                  placeholder="HH:mm"
-                  editable={!submitting}
-                  maxLength={5}
-                  autoCapitalize="none"
+                  options={TIME_OPTIONS}
+                  placeholder="Pilih jam"
+                  onChange={setStartTime}
+                  disabled={submitting}
                 />
               </View>
               <View style={styles.timeField}>
-                <PracticumField
+                <OptionPickerField
                   label="Selesai"
                   value={endTime}
-                  onChangeText={setEndTime}
-                  placeholder="HH:mm"
-                  editable={!submitting}
-                  maxLength={5}
-                  autoCapitalize="none"
+                  options={TIME_OPTIONS}
+                  placeholder="Pilih jam"
+                  onChange={setEndTime}
+                  disabled={submitting}
                 />
               </View>
             </View>
-            <PracticumField
+            <OptionPickerField
               label="Lokasi"
               value={location}
-              onChangeText={setLocation}
-              placeholder="Contoh: Lab Komputasi 1"
-              editable={!submitting}
-              maxLength={120}
+              options={LAB_OPTIONS}
+              placeholder="Pilih lab"
+              onChange={setLocation}
+              disabled={submitting}
             />
             <Text style={styles.note}>
-              Format tanggal: YYYY-MM-DD. Format jam: HH:mm (24 jam).
+              Pilih tanggal, jam, dan lab dari pilihan yang tersedia.
             </Text>
             {error ? (
               <Text accessibilityRole="alert" style={styles.error}>

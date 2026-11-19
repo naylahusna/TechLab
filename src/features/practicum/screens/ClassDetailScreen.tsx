@@ -121,10 +121,23 @@ export function ClassDetailScreen({ classId }: { classId: string }) {
 
           {!item.archivedAt ? (
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Kelola</Text>
+              <Text style={styles.cardTitle}>Kelola kelas</Text>
+              <Text style={styles.cardDescription}>
+                Atur peserta dan jadwal untuk kelas praktikum ini.
+              </Text>
               <View style={styles.linkRow}>
-                <InlineAction label="Peserta" onPress={goParticipants} />
-                <InlineAction label="Jadwal" onPress={goSchedules} />
+                <InlineAction
+                  label="Kelola peserta"
+                  variant="lime"
+                  large
+                  onPress={goParticipants}
+                />
+                <InlineAction
+                  label="Kelola jadwal"
+                  variant="primary"
+                  large
+                  onPress={goSchedules}
+                />
               </View>
             </View>
           ) : null}
@@ -227,9 +240,13 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge,
     fontWeight: fontWeights.bold,
   },
+  cardDescription: {
+    color: colors.textMuted,
+    fontSize: typography.secondary,
+    lineHeight: lineHeights.body,
+  },
   linkRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   row: {

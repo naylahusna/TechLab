@@ -8,7 +8,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { PracticumHeader } from '../practicum/components/PracticumHeader';
 import { EmptyState, ErrorState, LoadingState } from '../practicum/components/StateViews';
 import { getPermissionRepository, usePermission } from './hooks';
-import { decisionBlockReason, permissionError, permissionKinds, permissionLabels, permissionStatusExplanation, validateDecision } from './model';
+import { decisionBlockReason, permissionError, permissionLabels, permissionStatusExplanation, validateDecision } from './model';
 import { AiInformation, dateTime, InfoCard, PermissionBadge, ui } from './ui';
 import { PermissionAiRetry } from './PermissionAiControls';
 
@@ -115,7 +115,6 @@ export function PermissionDetailScreen({ id, created = false }: { id: string; cr
               </Text>
               <Text style={ui.heading}>{item.studentName}</Text>
               <Text style={ui.meta}>NIM {item.studentNumber}</Text>
-              <Text style={ui.eyebrow}>{permissionKinds[item.kind]}</Text>
               <Text selectable style={ui.copy}>
                 {item.reason}
               </Text>
@@ -135,9 +134,6 @@ export function PermissionDetailScreen({ id, created = false }: { id: string; cr
                   ? '02 · Menunggu pemeriksaan asisten'
                   : `02 · ${permissionLabels[item.status]} — ${dateTime(item.decidedAt)}`}
               </Text>
-              {item.decidedBy && (
-                <Text selectable style={ui.meta}>Dicatat oleh asisten kelas · ID {item.decidedBy}</Text>
-              )}
               {item.decisionReason && (
                 <>
                   <Text style={ui.eyebrow}>CATATAN ASISTEN</Text>
