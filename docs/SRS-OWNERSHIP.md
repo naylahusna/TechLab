@@ -156,7 +156,7 @@ dikoordinasikan dengan owner autentikasi dan praktikum/presensi.
 
 Dokumen SRS-01–25 di `docs/sprint-1/` mencatat kebutuhan prototipe presensi
 Sprint 1. SRS-00–17 di `docs/sprint-2/` adalah kebutuhan Sprint 2, sedangkan
-SRS-01–15 di `docs/sprint-3/` adalah kebutuhan baru Sprint 3 dengan arti nomor
+SRS-01–16 di `docs/sprint-3/` adalah kebutuhan baru Sprint 3 dengan arti nomor
 yang terpisah per sprint.
 
 Owner Sprint 1 di atas mengacu pada dokumen pembagian tanggung jawab dan
@@ -184,16 +184,17 @@ Spesifikasi tiap kebutuhan berada di folder `docs/sprint-3/`.
 Spesifikasi: `docs/sprint-3/SRS-01.md` sampai `docs/sprint-3/SRS-05.md`.
 README terkait: `src/features/practicum/README.md`, `src/features/practitioner/README.md`, dan `src/features/assistant/README.md`.
 
-### Programmer 2 — Nayla Husna: Interactive Laboratory Maps & Live Lab Activity
+### Programmer 2 — Nayla Husna: Interactive Laboratory Maps, Live Lab Activity & Lab Admin RBAC
 
 - SRS-06: Interactive Laboratory Map Page
 - SRS-07: Laboratory Markers and Detail Selection
 - SRS-08: Live User Location Tracking on Map
 - SRS-09: Laboratory Ongoing and Upcoming Activity Information
 - SRS-10: Real-Time Map Activity Sync and Map Device Handling
+- SRS-16: Lab Admin Role and Assistant Account Management
 
-Spesifikasi: `docs/sprint-3/SRS-06.md` sampai `docs/sprint-3/SRS-10.md`.
-Modul baru direncanakan di `src/features/maps/` dan route Maps terintegrasi pada navigasi aplikasi.
+Spesifikasi: `docs/sprint-3/SRS-06.md` sampai `docs/sprint-3/SRS-10.md` dan `docs/sprint-3/SRS-16.md`.
+Modul baru direncanakan di `src/features/maps/` dan integrasi role Admin Lab di `src/features/auth/` serta `firestore.rules`.
 
 ### Programmer 3 — Arga Yura Danendra: Push Notification & Device Condition Handling
 

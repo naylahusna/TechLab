@@ -205,12 +205,13 @@ Rincian spesifikasi Sprint 3 terdapat di `docs/sprint-3/`.
 | SRS-13 | Schedule Change Push Notification | Arga Yura Danendra | 3/5 (Berurut) |
 | SRS-14 | Permission Decision Push Notification | Arga Yura Danendra | 4/5 (Berurut) |
 | SRS-15 | Notification Permission, Delivery, and Error Handling | Arga Yura Danendra | 5/5 (Berurut) |
+| SRS-16 | Lab Admin Role and Assistant Account Management | Nayla Husna | 6/6 (Setelah SRS-10) |
 
 ### Susunan Tim — Sprint 3
 
 - **Project Manager (PM):** **Muhammad Zaidaan Ardiyansyah** — Koordinasi kontrak data Firestore, review/merge PR, dan verifikasi integrasi Sprint 3.
 1. **Muhammad Fahri (Programmer 1) — Laboratory Location & Location-Based Attendance:** SRS-01 sampai SRS-05.
-2. **Nayla Husna (Programmer 2) — Interactive Laboratory Maps & Live Lab Activity:** SRS-06 sampai SRS-10.
+2. **Nayla Husna (Programmer 2) — Interactive Laboratory Maps, Live Lab Activity & Lab Admin RBAC:** SRS-06 sampai SRS-10, dan SRS-16.
 3. **Arga Yura Danendra (Programmer 3) — Push Notification & Device Condition Handling:** SRS-11 sampai SRS-15.
 
 ### Target Demonstrasi Sprint 3

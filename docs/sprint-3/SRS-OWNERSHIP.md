@@ -1,6 +1,6 @@
 # SRS Ownership — Sprint 3
 
-Dokumen ini mencatat susunan tim dan owner `SRS-01` sampai `SRS-15` untuk Sprint 3 (*Location-Based Attendance, Maps, and Push Notification*). Nomor-nomor tersebut menggunakan penomoran khusus Sprint 3 dan memiliki arti berbeda dari SRS Sprint 1 (`../sprint-1/`) maupun Sprint 2 (`../sprint-2/`).
+Dokumen ini mencatat susunan tim dan owner `SRS-01` sampai `SRS-16` untuk Sprint 3 (*Location-Based Attendance, Maps, and Push Notification* + *Lab Admin Role*). Nomor-nomor tersebut menggunakan penomoran khusus Sprint 3 dan memiliki arti berbeda dari SRS Sprint 1 (`../sprint-1/`) maupun Sprint 2 (`../sprint-2/`).
 
 ## Project Manager (PM)
 
@@ -18,13 +18,14 @@ Dokumen ini mencatat susunan tim dan owner `SRS-01` sampai `SRS-15` untuk Sprint
 
 ## Programmer 2 — Nayla Husna
 
-**Bidang:** Interactive Laboratory Maps & Live Lab Activity
+**Bidang:** Interactive Laboratory Maps, Live Lab Activity & Lab Admin RBAC
 
 - [SRS-06 — Interactive Laboratory Map Page](./SRS-06.md)
 - [SRS-07 — Laboratory Markers and Detail Selection](./SRS-07.md)
 - [SRS-08 — Live User Location Tracking on Map](./SRS-08.md)
 - [SRS-09 — Laboratory Ongoing and Upcoming Activity Information](./SRS-09.md)
 - [SRS-10 — Real-Time Map Activity Sync and Map Device Handling](./SRS-10.md)
+- [SRS-16 — Lab Admin Role and Assistant Account Management](./SRS-16.md) *(Tambahan — dikerjakan setelah alur Maps `SRS-06`–`10` stabil)*
 
 ## Programmer 3 — Arga Yura Danendra
 

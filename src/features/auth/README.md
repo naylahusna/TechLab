@@ -48,3 +48,9 @@ implementasi historis tercatat di atas; SRS Sprint 1 lengkap ada pada
 - Dokumen SRS-00–05 di `docs/sprint-2/` menjelaskan target Sprint 2; tidak menyatakan Firebase sudah aktif atau implementasi telah selesai.
 - Pertahankan alur prototipe yang ada sampai pengganti autentikasi berhasil diintegrasikan.
 - Perubahan autentikasi dan role dikoordinasikan dengan owner fitur yang bergantung padanya.
+
+## Sprint 3
+
+Pada Sprint 3, sistem RBAC diperluas dengan menambahkan role **Admin Lab (`admin`)** untuk mengelola penetapan akun asisten (`praktikan` ↔ `asisten`) langsung dari aplikasi:
+
+- [SRS-16: Lab Admin Role and Assistant Account Management](../../../docs/sprint-3/SRS-16.md) (Owner: Nayla Husna).
