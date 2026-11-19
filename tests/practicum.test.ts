@@ -18,6 +18,7 @@ import {
   validateClassInput,
   validateParticipantInput,
   validateScheduleInput,
+  validateSessionOpenWindow,
 } from '../src/features/practicum/validation';
 
 test('practicum IDs are deterministic and safe for Firestore paths', () => {
@@ -377,4 +378,31 @@ test('schedule conflict detects overlap in the same class only', () => {
     }),
     null,
   );
+});
+
+test('session open window enforces real-time schedule bounds with 15-minute early buffer', () => {
+  const window = {
+    startAt: at('2026-11-19T08:00:00+07:00'),
+    endAt: at('2026-11-19T10:00:00+07:00'),
+  };
+
+  const tooEarly = validateSessionOpenWindow(window, new Date('2026-11-19T07:44:59+07:00'));
+  assert.equal(tooEarly.ok, false);
+  if (!tooEarly.ok) assert.equal(tooEarly.reason, 'too-early');
+
+  const earlyBufferStart = validateSessionOpenWindow(
+    window,
+    new Date('2026-11-19T07:45:00+07:00'),
+  );
+  assert.deepEqual(earlyBufferStart, { ok: true });
+
+  const duringSchedule = validateSessionOpenWindow(window, new Date('2026-11-19T09:00:00+07:00'));
+  assert.deepEqual(duringSchedule, { ok: true });
+
+  const atEnd = validateSessionOpenWindow(window, new Date('2026-11-19T10:00:00+07:00'));
+  assert.deepEqual(atEnd, { ok: true });
+
+  const tooLate = validateSessionOpenWindow(window, new Date('2026-11-19T10:00:01+07:00'));
+  assert.equal(tooLate.ok, false);
+  if (!tooLate.ok) assert.equal(tooLate.reason, 'too-late');
 });

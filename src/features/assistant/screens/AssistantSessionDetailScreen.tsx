@@ -151,12 +151,14 @@ export function AssistantSessionDetailScreen({
           {session.status === 'upcoming' ? (
             <View style={styles.actionSection}>
               <Text style={styles.actionHint}>
-                Sesi belum dibuka. Buka sesi agar praktikan yang terdaftar dapat
-                segera melakukan presensi kehadiran.
+                {session.canOpenSession === false && session.openWindowMessage
+                  ? session.openWindowMessage
+                  : 'Sesi belum dibuka. Buka sesi agar praktikan yang terdaftar dapat segera melakukan presensi kehadiran.'}
               </Text>
               <AssistantButton
                 label="Buka Sesi Praktikum"
                 variant="primary"
+                disabled={session.canOpenSession === false}
                 onPress={() => handleOpenModal('open')}
                 testID="btn-open-session"
               />

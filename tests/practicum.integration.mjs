@@ -108,13 +108,20 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       studentName: 'Praktikan Demo',
       studentNumber: '240101001',
     });
+    const activeStartAt = new Date(Date.now() - 10 * 60_000);
+    const activeEndAt = new Date(Date.now() + 110 * 60_000);
     const scheduleId = await assistantRepo.createSchedule({
       classId,
       title: 'Pertemuan 5',
-      startAt: new Date('2026-11-16T08:00:00+07:00'),
-      endAt: new Date('2026-11-16T10:00:00+07:00'),
+      startAt: activeStartAt,
+      endAt: activeEndAt,
       location: 'Lab Komputasi 1',
     });
+    const autoCreatedSession = await assistantRepo.getSession(scheduleId);
+    assert.ok(autoCreatedSession);
+    assert.equal(autoCreatedSession.status, 'scheduled');
+    assert.deepEqual(autoCreatedSession.studentIds, [practitionerId]);
+
     const sessionId = await assistantRepo.createSessionFromSchedule(scheduleId, assistantId);
     await assistantRepo.openSession(sessionId, assistantId);
     const openedSession = await assistantRepo.getSession(sessionId);
@@ -149,6 +156,14 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       endAt: new Date('2026-12-01T10:00:00+07:00'),
       location: 'Lab Komputasi 2',
     });
+    await assert.rejects(
+      () => assistantRepo.openSession(firstScheduleId, assistantId, new Date('2026-11-19T08:00:00+07:00')),
+      /jadwal praktikum/i,
+    );
+    await assert.rejects(
+      () => assistantRepo.openSession(firstScheduleId, assistantId, new Date('2026-12-01T10:05:00+07:00')),
+      /sudah lewat/i,
+    );
     await assert.rejects(
       () =>
         assistantRepo.createSchedule({

@@ -18,6 +18,8 @@ export type AssistantSessionItem = {
   status: CoreSessionStatus;
   statusLabel: string;
   studentCount: number;
+  canOpenSession?: boolean;
+  openWindowMessage?: string | null;
 };
 
 export type ParticipantItem = {

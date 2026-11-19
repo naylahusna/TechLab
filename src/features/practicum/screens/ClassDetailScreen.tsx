@@ -40,10 +40,6 @@ export function ClassDetailScreen({ classId }: { classId: string }) {
     router.push(`/kelas/${classId}/jadwal`);
   }
 
-  function goSessions() {
-    router.push(`/kelas/${classId}/sesi`);
-  }
-
   async function archive() {
     if (archiving) return;
     setArchiving(true);
@@ -129,7 +125,6 @@ export function ClassDetailScreen({ classId }: { classId: string }) {
               <View style={styles.linkRow}>
                 <InlineAction label="Peserta" onPress={goParticipants} />
                 <InlineAction label="Jadwal" onPress={goSchedules} />
-                <InlineAction label="Sesi" onPress={goSessions} />
               </View>
             </View>
           ) : null}

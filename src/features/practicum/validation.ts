@@ -55,3 +55,45 @@ export function validateScheduleInput(input: PracticumScheduleInput) {
     throw new Error('Waktu selesai harus setelah waktu mulai.');
   return { classId, title, startAt: input.startAt, endAt: input.endAt, location };
 }
+
+export const SESSION_OPEN_EARLY_BUFFER_MS = 15 * 60 * 1000;
+
+export type SessionOpenWindowResult =
+  | Readonly<{ ok: true }>
+  | Readonly<{ ok: false; reason: 'too-early' | 'too-late'; message: string }>;
+
+export function validateSessionOpenWindow(
+  scheduleWindow: {
+    startAt: Date | { toDate(): Date };
+    endAt: Date | { toDate(): Date };
+  },
+  now: Date = new Date(),
+): SessionOpenWindowResult {
+  const start =
+    scheduleWindow.startAt instanceof Date
+      ? scheduleWindow.startAt
+      : scheduleWindow.startAt.toDate();
+  const end =
+    scheduleWindow.endAt instanceof Date
+      ? scheduleWindow.endAt
+      : scheduleWindow.endAt.toDate();
+  const nowMs = now.getTime();
+  const earliestOpenMs = start.getTime() - SESSION_OPEN_EARLY_BUFFER_MS;
+
+  if (nowMs < earliestOpenMs) {
+    return {
+      ok: false,
+      reason: 'too-early',
+      message:
+        'Sesi belum dapat dibuka karena masih jauh dari jadwal praktikum (dibuka mulai 15 menit sebelum jadwal).',
+    };
+  }
+  if (nowMs > end.getTime()) {
+    return {
+      ok: false,
+      reason: 'too-late',
+      message: 'Sesi tidak dapat dibuka karena waktu jadwal praktikum sudah lewat.',
+    };
+  }
+  return { ok: true };
+}

@@ -37,9 +37,12 @@ export {
   sessionIdForSchedule,
 } from './ids';
 export {
+  SESSION_OPEN_EARLY_BUFFER_MS,
   validateClassInput,
   validateParticipantInput,
   validateScheduleInput,
+  validateSessionOpenWindow,
+  type SessionOpenWindowResult,
 } from './validation';
 export type {
   PracticumActionResult,

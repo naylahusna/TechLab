@@ -96,8 +96,8 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
     const scheduleId = await assistant.practicum.createSchedule({
       classId,
       title: 'Sesi Integrasi Izin',
-      startAt: new Date('2026-12-01T08:00:00+07:00'),
-      endAt: new Date('2026-12-01T10:00:00+07:00'),
+      startAt: new Date(Date.now() - 10 * 60_000),
+      endAt: new Date(Date.now() + 110 * 60_000),
       location: 'Lab 1',
     });
     const sessionId = await assistant.practicum.createSessionFromSchedule(
