@@ -53,16 +53,39 @@ Gunakan npm dan `package-lock.json` yang tersedia agar dependency seluruh anggot
 
 ## Pengembangan dengan EAS
 
-Konfigurasi akun Expo, proyek EAS, dan build belum dilakukan pada fondasi awal ini.
+Proyek sudah terhubung ke EAS melalui `projectId` di `app.json`. Gunakan akun
+Expo yang memiliki akses ke proyek tersebut dan pasang dependency dengan
+`npm ci`. Untuk mengecek versi paket Expo sebelum build:
 
-Programmer yang menangani fondasi bertanggung jawab untuk:
+```bash
+npx expo install --check
+```
 
-1. Menyiapkan konfigurasi EAS pada akun yang disepakati tim.
-2. Menyiapkan development build jika digunakan untuk pengembangan.
-3. Menyiapkan build APK untuk demonstrasi.
-4. Memperbarui bagian ini dengan langkah menjalankan yang sudah diuji.
+Build APK Android untuk dibagikan atau dipasang di perangkat:
 
-Seluruh anggota menggunakan proyek EAS yang sama. Pergantian PM tidak memerlukan pembuatan proyek EAS baru.
+```bash
+npx eas-cli build --platform android --profile preview
+```
+
+Build pertama mungkin meminta login ke Expo. Setelah selesai, unduh APK dari
+tautan hasil build EAS. Untuk build produksi (AAB untuk distribusi store):
+
+```bash
+npx eas-cli build --platform android --profile production
+```
+
+Build cloud perlu konfigurasi Firebase client melalui environment EAS, karena
+file `.env` lokal tidak dikirim otomatis. Tambahkan
+`EXPO_PUBLIC_FIREBASE_API_KEY`, `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`,
+`EXPO_PUBLIC_FIREBASE_PROJECT_ID`, `EXPO_PUBLIC_FIREBASE_APP_ID`, dan
+`EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` pada environment yang digunakan
+(`preview` atau `production`) di dashboard Expo. Jangan aktifkan emulator
+Firebase untuk build yang dipasang di perangkat. Jika fitur klasifikasi AI
+dipakai, `EXPO_PUBLIC_PERMISSION_AI_URL` juga harus menunjuk ke server HTTPS
+yang dapat dijangkau perangkat, bukan `localhost`.
+
+Seluruh anggota menggunakan proyek EAS yang sama; pergantian PM tidak
+memerlukan pembuatan proyek EAS baru.
 
 ## Software Requirements Specification — Sprint 1
 
