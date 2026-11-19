@@ -23,10 +23,10 @@ export function PermissionAiConsent({ checked, onChange, disabled }: {
         testID="permission-ai-consent"
         accessibilityRole="checkbox"
         accessibilityLabel="Setuju alasan izin dianalisis oleh AI eksternal"
-        accessibilityState={{ checked, disabled: disabled || !permissionAiConfigured }}
+        accessibilityState={{ checked, disabled }}
         aria-checked={checked}
-        aria-disabled={disabled || !permissionAiConfigured}
-        disabled={disabled || !permissionAiConfigured}
+        aria-disabled={disabled}
+        disabled={disabled}
         style={ui.notice}
         onPress={() => onChange(!checked)}
       >
@@ -35,7 +35,7 @@ export function PermissionAiConsent({ checked, onChange, disabled }: {
       <Text style={ui.meta}>
         {permissionAiConfigured
           ? 'Tanpa persetujuan, alasan tidak dikirim ke AI. Pengajuan tetap bisa diperiksa manual. Hasil AI tidak menerima atau menolak izin.'
-          : 'Layanan AI belum dikonfigurasi. Pengajuan tetap bisa diperiksa secara manual.'}
+          : 'Persetujuan tetap dapat disimpan. Layanan AI belum aktif; pengajuanmu akan diperiksa secara manual.'}
       </Text>
     </InfoCard>
   );

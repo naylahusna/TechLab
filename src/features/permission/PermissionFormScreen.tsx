@@ -51,7 +51,7 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
   const sessions = overview.sessions.filter(
     (s) =>
       s.studentIds.includes(profile!.uid) &&
-      (s.status === 'scheduled' || s.status === 'open') &&
+      s.status !== 'cancelled' &&
       overview.classes.some(
         (c) => c.id === s.classId && !c.archivedAt && c.studentIds.includes(profile!.uid),
       ) &&
@@ -173,8 +173,8 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
         )}
         <InfoCard label="01 / PILIH SESI" tone="lime">
           <Text style={ui.copy}>
-            Izin dikaitkan ke satu sesi yang kamu ikuti. Sesi ditutup atau dibatalkan tidak menerima
-            pengajuan baru.
+            Izin dikaitkan ke satu sesi kelas yang kamu ikuti. Sesi yang belum dibuka, sedang dibuka,
+            atau sudah ditutup tersedia untuk dipilih; sesi yang dibatalkan tidak menerima pengajuan.
           </Text>
           {overview.status === 'loading' && <LoadingState message="Memuat sesi yang kamu ikuti…" />}
           {overview.status === 'error' && (
@@ -182,15 +182,15 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
           )}
           {overview.status === 'ready' && sessions.length === 0 && (
             <EmptyState
-              title="Belum ada sesi yang tersedia"
-              message="Pastikan kamu terdaftar pada kelas aktif dan sesi belum ditutup atau dibatalkan."
+              title="Belum ada sesi kelas"
+              message="Pastikan kamu terdaftar pada kelas aktif yang memiliki sesi."
             />
           )}
           {sessions.map((s) => (
             <ChoiceChip
               key={s.id}
               disabled={busy}
-              label={`${overview.schedules.find((item) => item.id === s.scheduleId)?.title ?? 'Sesi praktikum'} · ${overview.classes.find((item) => item.id === s.classId)?.className ?? ''} · ${dateTime(s.startAt)}`}
+              label={`${overview.classes.find((item) => item.id === s.classId)?.className ?? 'Kelas'} · ${overview.schedules.find((item) => item.id === s.scheduleId)?.title ?? 'Sesi praktikum'} · ${s.status === 'scheduled' ? 'Belum dibuka' : s.status === 'open' ? 'Sedang dibuka' : 'Sudah ditutup'} · ${dateTime(s.startAt)}`}
               selected={sessionId === s.id}
               onPress={() => {
                 setSessionId(s.id);

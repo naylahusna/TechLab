@@ -61,6 +61,8 @@ export function toSessionListItem(session: ArgaSession): SessionListItem {
     lab: session.lab,
     dateLabel: formatDateLabel(session.startsAt),
     timeRangeLabel: `${formatTimeLabel(session.startsAt)} - ${formatTimeLabel(session.endsAt)}`,
+    startsAt: session.startsAt,
+    endsAt: session.endsAt,
     status: mapSessionStatus(session.status),
   };
 }

@@ -22,9 +22,7 @@ const apiKey = 'demo-key';
 const password = 'TechLab123!';
 const assistantEmail = 'asisten.demo@techlab.test';
 const studentEmails = [
-  'praktikan1.demo@techlab.test',
-  'praktikan2.demo@techlab.test',
-  'praktikan3.demo@techlab.test',
+  ...Array.from({ length: 10 }, (_, index) => `praktikan${index + 1}.demo@techlab.test`),
 ];
 
 async function ensureAuthUser(email) {
@@ -62,10 +60,10 @@ const SCHEDULE_B1 = 'schedule-b-1';
 const assistantId = await ensureAuthUser(assistantEmail);
 const studentIds = [];
 for (const email of studentEmails) studentIds.push(await ensureAuthUser(email));
-const studentNumbers = studentIds.map((_, index) => `24010100${index + 1}`);
+const studentNumbers = studentIds.map((_, index) => `240101${String(index + 1).padStart(3, '0')}`);
 const studentNames = studentIds.map((_, index) => `Praktikan Demo ${index + 1}`);
 const classAStudents = [...studentIds];
-const classBStudents = studentIds.length > 1 ? studentIds.slice(0, 2) : [];
+const classBStudents = studentIds.length > 1 ? [...studentIds] : [];
 
 const env = await initializeTestEnvironment({
   projectId,
@@ -352,6 +350,37 @@ try {
           updatedAt: at('2026-11-15T20:00:00+07:00'),
         }),
       );
+    }
+    // Extra praktikan provide independent identities for manual edge-case testing:
+    // no attendance/permission, plus multiple permission states on each session status.
+    const additionalPermissions = [
+      { student: 3, session: SCHEDULE_B1, classId: CLASS_B, scheduleIndex: 2, status: 'pending', aiConsent: true },
+      { student: 4, session: SCHEDULE_B1, classId: CLASS_B, scheduleIndex: 2, status: 'approved', aiConsent: false },
+      { student: 5, session: SCHEDULE_B1, classId: CLASS_B, scheduleIndex: 2, status: 'rejected', aiConsent: false },
+      { student: 6, session: SCHEDULE_A2, classId: CLASS_A, scheduleIndex: 1, status: 'pending', aiConsent: false },
+      { student: 7, session: SCHEDULE_A2, classId: CLASS_A, scheduleIndex: 1, status: 'approved', aiConsent: true },
+      { student: 8, session: SCHEDULE_A2, classId: CLASS_A, scheduleIndex: 1, status: 'rejected', aiConsent: true },
+      { student: 9, session: SCHEDULE_A1, classId: CLASS_A, scheduleIndex: 0, status: 'pending', aiConsent: false },
+    ];
+    for (const item of additionalPermissions) {
+      const decided = item.status !== 'pending';
+      const created = at('2026-11-15T18:30:00+07:00');
+      permissionWrites.push(setDoc(doc(db, 'permissions', `${item.session}_${studentIds[item.student]}`), {
+        sessionId: item.session,
+        classId: item.classId,
+        userId: studentIds[item.student],
+        reason: item.student === 3 ? 'Demam dan perlu beristirahat.' : 'Keperluan keluarga yang perlu ditangani.',
+        ...permissionFields(item.student, item.scheduleIndex),
+        className: item.classId === CLASS_B ? 'Informatika B' : 'Informatika A',
+        aiConsent: item.aiConsent,
+        aiError: item.aiConsent ? 'Seed uji: klasifikasi belum dijalankan.' : 'Pemohon tidak memilih analisis AI.',
+        status: item.status,
+        decidedBy: decided ? assistantId : null,
+        decidedAt: decided ? at('2026-11-15T19:00:00+07:00') : null,
+        decisionReason: item.status === 'rejected' ? 'Silakan lengkapi bukti atau hubungi asisten.' : null,
+        createdAt: created,
+        updatedAt: decided ? at('2026-11-15T19:00:00+07:00') : created,
+      }));
     }
     await Promise.all(permissionWrites);
 

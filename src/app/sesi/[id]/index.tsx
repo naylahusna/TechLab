@@ -1,5 +1,6 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../../features/auth/AuthProvider';
 import { AssistantSessionDetailScreen } from '../../../features/assistant';
@@ -32,6 +33,7 @@ export default function SesiRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const auth = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const sessionId = typeof id === 'string' ? id : undefined;
   const detail = useSessionDetail(sessionId);
   const permissionResource = usePermissions();
@@ -165,10 +167,17 @@ export default function SesiRoute() {
         fromCache={detail.fromCache}
         onRetry={detail.retrySync}
       />
+      <SessionDetailScreen
+        session={practitionerSession}
+        praktikan={praktikan}
+        onBack={goBack}
+        onConfirmAttendance={confirmAttendance}
+      />
       <View
         style={{
           paddingHorizontal: 16,
-          paddingVertical: 10,
+          paddingTop: 4,
+          paddingBottom: Math.max(insets.bottom, 16),
           gap: 8,
           width: '100%',
           maxWidth: 900,
@@ -189,7 +198,6 @@ export default function SesiRoute() {
             title="Berhalangan hadir? Ajukan izin"
             secondary
             disabled={
-              session.status === 'closed' ||
               session.status === 'cancelled' ||
               !!detail.attendance.length ||
               permissionResource.status !== 'ready'
@@ -200,12 +208,6 @@ export default function SesiRoute() {
           />
         )}
       </View>
-      <SessionDetailScreen
-        session={practitionerSession}
-        praktikan={praktikan}
-        onBack={goBack}
-        onConfirmAttendance={confirmAttendance}
-      />
     </View>
   );
 }

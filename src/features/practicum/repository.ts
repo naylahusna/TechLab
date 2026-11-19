@@ -614,7 +614,8 @@ export function createPracticumRepository(db: Firestore) {
           query(
             userDirectory,
             where('role', '==', 'praktikan'),
-            where('number', '==', normalized),
+            where('number', '>=', normalized),
+            where('number', '<=', `${normalized}\uf8ff`),
             limit(10),
           ),
         ),
@@ -1206,6 +1207,12 @@ export function createPracticumRepository(db: Firestore) {
           throw new PracticumError(
             'SESSION_NOT_OPEN',
             'Presensi hanya dapat dilakukan saat sesi dibuka.',
+          );
+        const now = Timestamp.now().toMillis();
+        if (now < session.startAt.toMillis() || now > session.endAt.toMillis())
+          throw new PracticumError(
+            'SESSION_NOT_OPEN',
+            'Presensi hanya dapat dilakukan dalam rentang waktu kelas.',
           );
 
         const participantRef = doc(participants, participantId(session.classId, userId));

@@ -72,8 +72,8 @@ export function createPermissionRepository(db: Firestore) {
           !classItem.data().studentIds.includes(actor.uid)
         )
           throw new Error('Kamu bukan peserta aktif pada sesi ini.');
-        if (s.status !== 'scheduled' && s.status !== 'open')
-          throw new Error('Izin hanya dapat diajukan sebelum sesi ditutup atau dibatalkan.');
+        if (s.status === 'cancelled')
+          throw new Error('Sesi yang dibatalkan tidak menerima pengajuan izin.');
         if (attendance.exists()) throw new Error('Kamu sudah tercatat hadir pada sesi ini.');
         if (existing.exists())
           throw new Error('Kamu sudah mengajukan izin pada sesi ini. Buka status izin yang ada.');
