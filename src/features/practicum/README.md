@@ -152,22 +152,40 @@ Rules untuk `classes`, `participants`, `schedules`, `sessions`, dan
 client/test. Script emulator memakai data yang sama secara inline karena proses
 rules-disabled berjalan di instance Firestore ESM.
 
-Jalankan seed emulator:
+Jalankan emulator dan seed di terminal terpisah agar emulator tetap hidup saat
+aplikasi dibuka:
 
 ```bash
-npm run seed:emulator:exec
+npm run emulators:start
 ```
 
-Script membuat akun demo di Auth emulator, dua kelas, tiga jadwal, sesi
-`closed`/`open`/`scheduled`, dua presensi contoh, `userDirectory`, dan tiga izin
-(`approved`/`pending`/`rejected`), lalu mencetak kredensial:
+Di terminal kedua, jalankan:
+
+```bash
+npm run seed:emulator
+```
+
+Seed membuat akun demo asisten di Auth emulator dan profil berperan `asisten`,
+serta dua kelas, tiga jadwal, sesi `closed`/`open`/`scheduled`, presensi contoh,
+`userDirectory`, dan izin demo. Seed mengosongkan data Firestore emulator
+sebelum mengisi ulang. Kredensial:
 
 - `asisten.demo@techlab.test` / `TechLab123!`
 - `praktikan1.demo@techlab.test` / `TechLab123!`
 - `praktikan2.demo@techlab.test` / `TechLab123!`
 - `praktikan3.demo@techlab.test` / `TechLab123!`
 
-Aktifkan `EXPO_PUBLIC_USE_FIREBASE_EMULATORS=true` di `.env` sebelum membuka app.
+Salin `.env.example` ke `.env`, isi konfigurasi Firebase client, lalu aktifkan:
+
+```env
+EXPO_PUBLIC_USE_FIREBASE_EMULATORS=true
+EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=127.0.0.1
+```
+
+Jalankan aplikasi web di terminal ketiga dengan `npm run web`, lalu login
+menggunakan akun asisten di atas. Untuk Android emulator, ubah host menjadi
+`10.0.2.2`; untuk perangkat fisik, gunakan alamat IP LAN komputer. Host web
+lokal tetap `127.0.0.1`. Setelah mengubah `.env`, restart Expo.
 
 ## Real-time
 
