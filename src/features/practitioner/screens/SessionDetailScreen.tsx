@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -83,13 +83,25 @@ function SessionDetailContent({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [now, setNow] = useState(Date.now());
   const submittingRef = useRef(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const effectiveAttendance = resolveAttendance(session.myAttendance, success);
 
   const sessionStatus = SESSION_STATUS_META[session.status];
   const attendanceStatus = ATTENDANCE_STATUS_META[effectiveAttendance.status];
-  const attendanceAction = getAttendanceAction(session.status, effectiveAttendance.status);
+  const attendanceAction = getAttendanceAction(
+    session.status,
+    effectiveAttendance.status,
+    session.startsAt,
+    session.endsAt,
+    now,
+  );
 
   function handleBack() {
     if (!submittingRef.current) {

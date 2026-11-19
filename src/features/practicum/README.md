@@ -158,14 +158,27 @@ Jalankan seed emulator:
 npm run seed:emulator:exec
 ```
 
-Script membuat akun demo di Auth emulator, dua kelas, tiga jadwal, sesi
-`closed`/`open`/`scheduled`, dua presensi contoh, `userDirectory`, dan tiga izin
-(`approved`/`pending`/`rejected`), lalu mencetak kredensial:
+Script membuat akun demo di Auth emulator (satu asisten dan sepuluh praktikan),
+dua kelas, tiga jadwal, sesi `closed`/`open`/`scheduled`, dua presensi contoh,
+`userDirectory`, serta izin pending/approved/rejected dengan dan tanpa persetujuan
+AI. Skenario utamanya:
+
+1. Praktikan 1: sudah hadir pada sesi tertutup dan sesi terbuka.
+2. Praktikan 2: izin disetujui pada sesi tertutup dan ditolak pada sesi terbuka.
+3. Praktikan 3: izin menunggu pada sesi tertutup.
+4. Praktikan 4: izin menunggu dengan persetujuan AI pada sesi belum dibuka.
+5. Praktikan 5: izin disetujui pada sesi belum dibuka.
+6. Praktikan 6: izin ditolak pada sesi belum dibuka.
+7. Praktikan 7: izin menunggu tanpa persetujuan AI pada sesi terbuka.
+8. Praktikan 8: izin disetujui dengan persetujuan AI pada sesi terbuka.
+9. Praktikan 9: izin ditolak dengan persetujuan AI pada sesi terbuka.
+10. Praktikan 10: izin menunggu pada sesi tertutup; praktikan 11? Tidak ada akun tambahan.
+
+Semua akun praktikan juga menjadi peserta pada kedua kelas agar dapat dipakai
+untuk mencoba pencarian/tambah peserta, jadwal, dan rekap. Kredensial:
 
 - `asisten.demo@techlab.test` / `TechLab123!`
-- `praktikan1.demo@techlab.test` / `TechLab123!`
-- `praktikan2.demo@techlab.test` / `TechLab123!`
-- `praktikan3.demo@techlab.test` / `TechLab123!`
+- `praktikan1.demo@techlab.test` sampai `praktikan10.demo@techlab.test` / `TechLab123!`
 
 Aktifkan `EXPO_PUBLIC_USE_FIREBASE_EMULATORS=true` di `.env` sebelum membuka app.
 

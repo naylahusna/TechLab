@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
@@ -27,6 +27,7 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
   const [pendingRemove, setPendingRemove] = useState<PracticumParticipant | null>(null);
+  const searchSequence = useRef(0);
 
   function goBack() {
     if (router.canGoBack()) router.back();
@@ -34,20 +35,34 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
   }
 
   async function search() {
-    if (!term.trim() || searching) return;
+    const query = term.trim();
+    const sequence = ++searchSequence.current;
+    if (!query) {
+      setResults([]);
+      setSearchError('');
+      setSearching(false);
+      return;
+    }
     setSearching(true);
     setSearchError('');
     setResults([]);
     try {
-      const users = await getPracticumRepository().searchDirectoryUsers(term);
+      const users = await getPracticumRepository().searchDirectoryUsers(query);
+      if (sequence !== searchSequence.current) return;
       setResults(users);
       if (users.length === 0) setSearchError('Pengguna tidak ditemukan.');
     } catch (cause) {
+      if (sequence !== searchSequence.current) return;
       setSearchError(practicumErrorMessage(cause));
     } finally {
-      setSearching(false);
+      if (sequence === searchSequence.current) setSearching(false);
     }
   }
+
+  useEffect(() => {
+    const timer = setTimeout(() => { void search(); }, term.trim() ? 250 : 0);
+    return () => clearTimeout(timer);
+  }, [term]);
 
   async function add(user: PracticumDirectoryUser) {
     if (busyId) return;
@@ -134,7 +149,12 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
             <PracticumField
               label="Cari NIM atau nama"
               value={term}
-              onChangeText={setTerm}
+              onChangeText={(value) => {
+                searchSequence.current += 1;
+                setTerm(value);
+                setResults([]);
+                setSearchError('');
+              }}
               placeholder="Contoh: 240101001 atau Alya"
               autoCapitalize="none"
             />
@@ -169,6 +189,9 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
                   </View>
                 ))}
               </View>
+            ) : null}
+            {searching && results.length === 0 ? (
+              <Text style={styles.meta}>Mencari peserta...</Text>
             ) : null}
           </View>
 

@@ -248,6 +248,8 @@ service cloud.firestore {
         && attendanceId == request.resource.data.sessionId + '_' + request.auth.uid
         && exists(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId))
         && get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.status == 'open'
+        && get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.startAt <= request.time
+        && request.time <= get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.endAt
         && get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.classId == request.resource.data.classId
         && exists(/databases/$(database)/documents/participants/$(request.resource.data.classId + '_' + request.auth.uid))
         && get(/databases/$(database)/documents/participants/$(request.resource.data.classId + '_' + request.auth.uid)).data.leftAt == null
@@ -328,7 +330,7 @@ service cloud.firestore {
       let c = get(/databases/$(database)/documents/classes/$(d.classId)).data;
       let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       let schedule = get(/databases/$(database)/documents/schedules/$(s.scheduleId)).data;
-      return s.classId == d.classId && s.status in ['scheduled', 'open']
+      return s.classId == d.classId && s.status in ['scheduled', 'open', 'closed']
         && request.auth.uid in s.studentIds && request.auth.uid in c.studentIds && c.archivedAt == null
         && get(/databases/$(database)/documents/participants/$(d.classId + '_' + request.auth.uid)).data.leftAt == null
         && !exists(/databases/$(database)/documents/attendances/$(d.sessionId + '_' + request.auth.uid))

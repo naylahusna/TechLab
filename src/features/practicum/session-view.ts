@@ -96,6 +96,8 @@ export function toPractitionerSessionListItem(
     lab: schedule?.location ?? '-',
     dateLabel: timestampDateLabel(session.startAt),
     timeRangeLabel: sessionTimeRange(session),
+    startsAt: session.startAt.toDate().toISOString(),
+    endsAt: session.endAt.toDate().toISOString(),
     status: practitionerStatus[session.status],
   };
 }

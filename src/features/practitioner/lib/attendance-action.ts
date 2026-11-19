@@ -4,6 +4,7 @@ export type AttendanceActionKind =
   | 'available'
   | 'already-attended'
   | 'not-open'
+  | 'outside-time'
   | 'closed'
   | 'unavailable';
 
@@ -23,6 +24,9 @@ export type AttendanceAction = {
 export function getAttendanceAction(
   sessionStatus: SessionStatus,
   attendanceStatus: AttendanceStatus,
+  startsAt?: string,
+  endsAt?: string,
+  now = Date.now(),
 ): AttendanceAction {
   if (attendanceStatus === 'izin' || attendanceStatus === 'izin-menunggu')
     return {
@@ -47,6 +51,15 @@ export function getAttendanceAction(
       label: 'Sesi Belum Dibuka',
       disabled: true,
       reason: 'Presensi dapat dilakukan setelah asisten membuka sesi.',
+    };
+  }
+
+  if (startsAt && endsAt && (now < Date.parse(startsAt) || now > Date.parse(endsAt))) {
+    return {
+      kind: 'outside-time',
+      label: 'Di luar waktu presensi',
+      disabled: true,
+      reason: `Presensi hanya tersedia pada rentang waktu kelas (${new Date(startsAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}–${new Date(endsAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}).`,
     };
   }
 

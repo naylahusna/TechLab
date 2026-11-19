@@ -21,6 +21,8 @@ export type SessionListItem = {
   lab: string;
   dateLabel: string;
   timeRangeLabel: string;
+  startsAt?: string;
+  endsAt?: string;
   status: SessionStatus;
 };
 
