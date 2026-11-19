@@ -1,3 +1,4 @@
+import { getAuth } from 'firebase/auth';
 import {
   collection,
   doc,
@@ -39,7 +40,12 @@ import type {
   PracticumSessionStatus,
 } from './types';
 import { findScheduleConflict } from './schedule-conflict';
-import { validateClassInput, validateParticipantInput, validateScheduleInput } from './validation';
+import {
+  validateClassInput,
+  validateParticipantInput,
+  validateScheduleInput,
+  validateSessionOpenWindow,
+} from './validation';
 
 type SubscriptionListener = (fromCache: boolean) => void;
 type SubscriptionErrorHandler = (error: Error) => void;
@@ -365,10 +371,114 @@ export function createPracticumRepository(db: Firestore) {
     return `Jadwal bentrok dengan "${conflict.title}". Pilih waktu lain.`;
   }
 
+  function currentAuthUid(): string | undefined {
+    try {
+      return getAuth(db.app).currentUser?.uid ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  function sameStringList(left: readonly string[], right: readonly string[]): boolean {
+    return left.length === right.length && left.every((item, index) => item === right[index]);
+  }
+
+  async function ensureSessionForSchedule(
+    scheduleId: string,
+    createdBy?: string,
+  ): Promise<string> {
+    return runTransaction(db, async (transaction) => {
+      const scheduleRef = doc(schedules, scheduleId);
+      const scheduleSnapshot = await transaction.get(scheduleRef);
+      if (!scheduleSnapshot.exists())
+        throw new PracticumError('NOT_FOUND', 'Jadwal praktikum tidak ditemukan.');
+      const schedule = toSchedule(scheduleSnapshot);
+      if (schedule.archivedAt)
+        throw new PracticumError('INVALID_INPUT', 'Jadwal sudah diarsipkan.');
+
+      const classRef = doc(classes, schedule.classId);
+      const classSnapshot = await transaction.get(classRef);
+      if (!classSnapshot.exists())
+        throw new PracticumError('NOT_FOUND', 'Kelas tidak ditemukan.');
+      const classItem = toClass(classSnapshot);
+
+      const actorUid =
+        createdBy?.trim() || currentAuthUid() || classItem.assistantIds[0] || '';
+      if (!actorUid)
+        throw new PracticumError('INVALID_INPUT', 'Pelaku pembuatan sesi tidak valid.');
+
+      const sessionId = sessionIdForSchedule(scheduleId);
+      const sessionRef = doc(sessions, sessionId);
+      const existing = await transaction.get(sessionRef);
+      if (existing.exists()) {
+        const currentSession = toSession(existing);
+        if (
+          (currentSession.status === 'scheduled' || currentSession.status === 'open') &&
+          (!sameStringList(currentSession.studentIds, classItem.studentIds) ||
+            currentSession.startAt.toMillis() !== schedule.startAt.toMillis() ||
+            currentSession.endAt.toMillis() !== schedule.endAt.toMillis())
+        ) {
+          transaction.update(sessionRef, {
+            studentIds: classItem.studentIds,
+            startAt: schedule.startAt,
+            endAt: schedule.endAt,
+            updatedAt: serverTimestamp(),
+          });
+        }
+        return sessionId;
+      }
+
+      transaction.set(sessionRef, {
+        scheduleId,
+        classId: schedule.classId,
+        studentIds: classItem.studentIds,
+        startAt: schedule.startAt,
+        endAt: schedule.endAt,
+        status: 'scheduled',
+        openedAt: null,
+        closedAt: null,
+        cancelledAt: null,
+        openedBy: null,
+        closedBy: null,
+        cancelledBy: null,
+        createdBy: actorUid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      return sessionId;
+    });
+  }
+
+  async function syncActiveSessionStudents(classId: string): Promise<void> {
+    const [classSnapshot, sessionSnapshots] = await Promise.all([
+      getDoc(doc(classes, classId)),
+      getDocs(query(sessions, where('classId', '==', classId))),
+    ]);
+    if (!classSnapshot.exists()) return;
+    const classItem = toClass(classSnapshot);
+    await Promise.all(
+      sessionSnapshots.docs.map(async (snapshot) => {
+        const session = toSession(snapshot);
+        if (
+          (session.status === 'scheduled' || session.status === 'open') &&
+          !sameStringList(session.studentIds, classItem.studentIds)
+        ) {
+          await updateDoc(doc(sessions, session.id), {
+            studentIds: classItem.studentIds,
+            startAt: session.startAt,
+            endAt: session.endAt,
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }),
+    );
+  }
+
   async function transitionSession(
     sessionId: string,
     next: 'open' | 'closed' | 'cancelled',
     actorId: string,
+    now: Date = new Date(),
   ): Promise<void> {
     if (!actorId.trim())
       throw new PracticumError('INVALID_INPUT', 'Pelaku perubahan sesi tidak valid.');
@@ -389,11 +499,22 @@ export function createPracticumRepository(db: Firestore) {
           'Status sesi tidak dapat diubah dari kondisi saat ini.',
         );
 
+      if (next === 'open') {
+        const windowCheck = validateSessionOpenWindow(session, now);
+        if (!windowCheck.ok) {
+          throw new PracticumError('INVALID_TIME', windowCheck.message);
+        }
+      }
+
       const patch: Record<string, unknown> = {
         status: next,
         updatedAt: serverTimestamp(),
       };
       if (next === 'open') {
+        const classSnapshot = await transaction.get(doc(classes, session.classId));
+        if (classSnapshot.exists()) {
+          patch.studentIds = toClass(classSnapshot).studentIds;
+        }
         patch.openedAt = serverTimestamp();
         patch.openedBy = actorId;
       }
@@ -517,7 +638,7 @@ export function createPracticumRepository(db: Firestore) {
 
     async addParticipant(input: PracticumParticipantInput): Promise<string> {
       const clean = validateParticipantInput(input);
-      return runTransaction(db, async (transaction) => {
+      const addedId = await runTransaction(db, async (transaction) => {
         const classRef = doc(classes, clean.classId);
         const classSnapshot = await transaction.get(classRef);
         if (!classSnapshot.exists())
@@ -557,6 +678,8 @@ export function createPracticumRepository(db: Firestore) {
         }
         return ref.id;
       });
+      await syncActiveSessionStudents(clean.classId);
+      return addedId;
     },
 
     async removeParticipant(classId: string, userId: string): Promise<void> {
@@ -578,6 +701,7 @@ export function createPracticumRepository(db: Firestore) {
           updatedAt: serverTimestamp(),
         });
       });
+      await syncActiveSessionStudents(classId);
     },
 
     // SRS-08 — Schedule Management
@@ -624,7 +748,7 @@ export function createPracticumRepository(db: Firestore) {
         .sort(byStartAt);
     },
 
-    async createSchedule(input: PracticumScheduleInput): Promise<string> {
+    async createSchedule(input: PracticumScheduleInput, createdBy?: string): Promise<string> {
       const clean = validateScheduleInput(input);
       const conflict = findScheduleConflict(await schedulesForClass(clean.classId), {
         classId: clean.classId,
@@ -645,6 +769,7 @@ export function createPracticumRepository(db: Firestore) {
         updatedAt: serverTimestamp(),
         archivedAt: null,
       });
+      await ensureSessionForSchedule(ref.id, createdBy);
       return ref.id;
     },
 
@@ -666,13 +791,32 @@ export function createPracticumRepository(db: Firestore) {
       if (conflict)
         throw new PracticumError('SCHEDULE_CONFLICT', scheduleConflictMessage(conflict));
 
+      const nextStartAt = Timestamp.fromDate(clean.startAt);
+      const nextEndAt = Timestamp.fromDate(clean.endAt);
       await updateDoc(doc(schedules, scheduleId), {
         title: clean.title,
-        startAt: Timestamp.fromDate(clean.startAt),
-        endAt: Timestamp.fromDate(clean.endAt),
+        startAt: nextStartAt,
+        endAt: nextEndAt,
         location: clean.location,
         updatedAt: serverTimestamp(),
       });
+
+      const sessionRef = doc(sessions, sessionIdForSchedule(scheduleId));
+      const [sessionSnapshot, classSnapshot] = await Promise.all([
+        getDoc(sessionRef),
+        getDoc(doc(classes, current.classId)),
+      ]);
+      if (sessionSnapshot.exists() && classSnapshot.exists()) {
+        const session = toSession(sessionSnapshot);
+        if (session.status === 'scheduled' || session.status === 'open') {
+          await updateDoc(sessionRef, {
+            studentIds: toClass(classSnapshot).studentIds,
+            startAt: nextStartAt,
+            endAt: nextEndAt,
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }
     },
 
     async archiveSchedule(scheduleId: string): Promise<void> {
@@ -689,77 +833,80 @@ export function createPracticumRepository(db: Firestore) {
     },
 
     async listSessions(classId: string): Promise<PracticumSession[]> {
-      const snapshot = await getDocs(
-        query(sessions, where('classId', '==', classId), orderBy('startAt', 'asc')),
+      const [sessionSnapshot, scheduleSnapshot] = await Promise.all([
+        getDocs(query(sessions, where('classId', '==', classId), orderBy('startAt', 'asc'))),
+        getDocs(query(schedules, where('classId', '==', classId))),
+      ]);
+      const archivedScheduleIds = new Set(
+        scheduleSnapshot.docs
+          .map(toSchedule)
+          .filter((item) => item.archivedAt !== null)
+          .map((item) => item.id),
       );
-      return snapshot.docs.map(toSession).sort(byStartAt);
+      return sessionSnapshot.docs
+        .map(toSession)
+        .filter((item) => !archivedScheduleIds.has(item.scheduleId))
+        .sort(byStartAt);
     },
 
     async listSessionsForAssistant(assistantId: string): Promise<PracticumSession[]> {
       const assistantClasses = await classesForAssistant(assistantId);
-      const snapshots = await Promise.all(
-        assistantClasses.map((classItem) =>
-          getDocs(query(sessions, where('classId', '==', classItem.id), orderBy('startAt', 'asc'))),
+      const [sessionSnapshots, scheduleSnapshots] = await Promise.all([
+        Promise.all(
+          assistantClasses.map((classItem) =>
+            getDocs(
+              query(sessions, where('classId', '==', classItem.id), orderBy('startAt', 'asc')),
+            ),
+          ),
         ),
+        Promise.all(
+          assistantClasses.map((classItem) =>
+            getDocs(query(schedules, where('classId', '==', classItem.id))),
+          ),
+        ),
+      ]);
+      const archivedScheduleIds = new Set(
+        scheduleSnapshots
+          .flatMap((snapshot) => snapshot.docs.map(toSchedule))
+          .filter((item) => item.archivedAt !== null)
+          .map((item) => item.id),
       );
-      return snapshots.flatMap((snapshot) => snapshot.docs.map(toSession)).sort(byStartAt);
+      return sessionSnapshots
+        .flatMap((snapshot) => snapshot.docs.map(toSession))
+        .filter((item) => !archivedScheduleIds.has(item.scheduleId))
+        .sort(byStartAt);
     },
 
     async listSessionsForPractitioner(userId: string): Promise<PracticumSession[]> {
       const classIds = await classIdsForPractitioner(userId);
-      const snapshots = await Promise.all(
-        classIds.map((classId) =>
-          getDocs(query(sessions, where('classId', '==', classId), orderBy('startAt', 'asc'))),
+      const [sessionSnapshots, scheduleSnapshots] = await Promise.all([
+        Promise.all(
+          classIds.map((classId) =>
+            getDocs(query(sessions, where('classId', '==', classId), orderBy('startAt', 'asc'))),
+          ),
         ),
+        Promise.all(
+          classIds.map((classId) => getDocs(query(schedules, where('classId', '==', classId)))),
+        ),
+      ]);
+      const archivedScheduleIds = new Set(
+        scheduleSnapshots
+          .flatMap((snapshot) => snapshot.docs.map(toSchedule))
+          .filter((item) => item.archivedAt !== null)
+          .map((item) => item.id),
       );
-      return snapshots.flatMap((snapshot) => snapshot.docs.map(toSession)).sort(byStartAt);
+      return sessionSnapshots
+        .flatMap((snapshot) => snapshot.docs.map(toSession))
+        .filter((item) => !archivedScheduleIds.has(item.scheduleId))
+        .sort(byStartAt);
     },
 
     async createSessionFromSchedule(scheduleId: string, createdBy: string): Promise<string> {
-      return runTransaction(db, async (transaction) => {
-        const scheduleRef = doc(schedules, scheduleId);
-        const scheduleSnapshot = await transaction.get(scheduleRef);
-        if (!scheduleSnapshot.exists())
-          throw new PracticumError('NOT_FOUND', 'Jadwal praktikum tidak ditemukan.');
-        const schedule = toSchedule(scheduleSnapshot);
-        if (schedule.archivedAt)
-          throw new PracticumError('INVALID_INPUT', 'Jadwal sudah diarsipkan.');
-
-        const classRef = doc(classes, schedule.classId);
-        const classSnapshot = await transaction.get(classRef);
-        if (!classSnapshot.exists())
-          throw new PracticumError('NOT_FOUND', 'Kelas tidak ditemukan.');
-        const classItem = toClass(classSnapshot);
-
-        const sessionId = sessionIdForSchedule(scheduleId);
-        const sessionRef = doc(sessions, sessionId);
-        const existing = await transaction.get(sessionRef);
-        if (existing.exists())
-          throw new PracticumError('DUPLICATE', 'Sesi untuk jadwal ini sudah dibuat.');
-
-        transaction.set(sessionRef, {
-          scheduleId,
-          classId: schedule.classId,
-          studentIds: classItem.studentIds,
-          startAt: schedule.startAt,
-          endAt: schedule.endAt,
-          status: 'scheduled',
-          openedAt: null,
-          closedAt: null,
-          cancelledAt: null,
-          openedBy: null,
-          closedBy: null,
-          cancelledBy: null,
-          createdBy,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        return sessionId;
-      });
+      return ensureSessionForSchedule(scheduleId, createdBy);
     },
 
-    openSession(sessionId: string, actorId: string): Promise<void> {
-      return transitionSession(sessionId, 'open', actorId);
+    openSession(sessionId: string, actorId: string, now?: Date): Promise<void> {
+      return transitionSession(sessionId, 'open', actorId, now);
     },
 
     closeSession(sessionId: string, actorId: string): Promise<void> {

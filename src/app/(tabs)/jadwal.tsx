@@ -42,9 +42,13 @@ export default function ScheduleRoute() {
 
   const classById = new Map(overview.classes.map((item) => [item.id, item]));
   const scheduleById = new Map(overview.schedules.map((item) => [item.id, item]));
+  const activeSessions = overview.sessions.filter((session) => {
+    const schedule = scheduleById.get(session.scheduleId);
+    return !schedule || !schedule.archivedAt;
+  });
 
   if (auth.profile.role === 'asisten') {
-    const sessions = overview.sessions.flatMap((session) => {
+    const sessions = activeSessions.flatMap((session) => {
       const classItem = classById.get(session.classId);
       if (!classItem) return [];
       return [
@@ -74,7 +78,7 @@ export default function ScheduleRoute() {
     );
   }
 
-  const sessions = overview.sessions.flatMap((session) => {
+  const sessions = activeSessions.flatMap((session) => {
     const classItem = classById.get(session.classId);
     if (!classItem) return [];
     return [

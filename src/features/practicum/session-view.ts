@@ -25,6 +25,7 @@ import type {
   PracticumSchedule,
   PracticumSession,
 } from './types';
+import { validateSessionOpenWindow } from './validation';
 
 export function timestampDateLabel(timestamp: Timestamp): string {
   return formatDateLabel(timestamp.toDate().toISOString());
@@ -63,7 +64,9 @@ export function toAssistantSessionItem(
   session: PracticumSession,
   classItem: PracticumClass,
   schedule: PracticumSchedule | null,
+  now: Date = new Date(),
 ): AssistantSessionItem {
+  const openWindow = validateSessionOpenWindow(session, now);
   return {
     id: session.id,
     practicalName: classItem.courseName,
@@ -75,6 +78,8 @@ export function toAssistantSessionItem(
     status: assistantStatus[session.status],
     statusLabel: sessionStatusLabel[session.status],
     studentCount: session.studentIds.length,
+    canOpenSession: openWindow.ok,
+    openWindowMessage: openWindow.ok ? null : openWindow.message,
   };
 }
 

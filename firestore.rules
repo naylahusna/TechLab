@@ -180,6 +180,31 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function isSessionStatusTransition() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'studentIds', 'openedAt', 'closedAt', 'cancelledAt', 'openedBy', 'closedBy', 'cancelledBy', 'updatedAt'])
+        && (request.resource.data.studentIds == resource.data.studentIds
+          || request.resource.data.studentIds == get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.studentIds)
+        && ((resource.data.status == 'scheduled' && request.resource.data.status in ['open', 'cancelled'])
+          || (resource.data.status == 'open' && request.resource.data.status in ['closed', 'cancelled']))
+        && (request.resource.data.status != 'open' || (request.resource.data.openedAt == request.time && request.resource.data.openedBy == request.auth.uid))
+        && (request.resource.data.status != 'closed' || (request.resource.data.closedAt == request.time && request.resource.data.closedBy == request.auth.uid))
+        && (request.resource.data.status != 'cancelled' || (request.resource.data.cancelledAt == request.time && request.resource.data.cancelledBy == request.auth.uid))
+        && (request.resource.data.status == 'open' || request.resource.data.openedAt == resource.data.openedAt)
+        && (request.resource.data.status == 'closed' || request.resource.data.closedAt == resource.data.closedAt)
+        && (request.resource.data.status == 'cancelled' || request.resource.data.cancelledAt == resource.data.cancelledAt)
+        && (request.resource.data.status == 'open' || request.resource.data.openedBy == resource.data.openedBy)
+        && (request.resource.data.status == 'closed' || request.resource.data.closedBy == resource.data.closedBy)
+        && (request.resource.data.status == 'cancelled' || request.resource.data.cancelledBy == resource.data.cancelledBy);
+    }
+
+    function isSessionMetadataSync() {
+      return resource.data.status in ['scheduled', 'open']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentIds', 'startAt', 'endAt', 'updatedAt'])
+        && request.resource.data.studentIds == getAfter(/databases/$(database)/documents/classes/$(resource.data.classId)).data.studentIds
+        && request.resource.data.startAt == getAfter(/databases/$(database)/documents/schedules/$(resource.data.scheduleId)).data.startAt
+        && request.resource.data.endAt == getAfter(/databases/$(database)/documents/schedules/$(resource.data.scheduleId)).data.endAt;
+    }
+
     match /sessions/{sessionId} {
       allow get: if isAuthenticated()
         && ((resource != null
@@ -206,19 +231,8 @@ service cloud.firestore {
         && request.resource.data.cancelledBy == null;
       allow update: if isAssignedAssistant(resource.data.classId)
         && isValidSession(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'openedAt', 'closedAt', 'cancelledAt', 'openedBy', 'closedBy', 'cancelledBy', 'updatedAt'])
         && request.resource.data.updatedAt == request.time
-        && ((resource.data.status == 'scheduled' && request.resource.data.status in ['open', 'cancelled'])
-          || (resource.data.status == 'open' && request.resource.data.status in ['closed', 'cancelled']))
-        && (request.resource.data.status != 'open' || (request.resource.data.openedAt == request.time && request.resource.data.openedBy == request.auth.uid))
-        && (request.resource.data.status != 'closed' || (request.resource.data.closedAt == request.time && request.resource.data.closedBy == request.auth.uid))
-        && (request.resource.data.status != 'cancelled' || (request.resource.data.cancelledAt == request.time && request.resource.data.cancelledBy == request.auth.uid))
-        && (request.resource.data.status == 'open' || request.resource.data.openedAt == resource.data.openedAt)
-        && (request.resource.data.status == 'closed' || request.resource.data.closedAt == resource.data.closedAt)
-        && (request.resource.data.status == 'cancelled' || request.resource.data.cancelledAt == resource.data.cancelledAt)
-        && (request.resource.data.status == 'open' || request.resource.data.openedBy == resource.data.openedBy)
-        && (request.resource.data.status == 'closed' || request.resource.data.closedBy == resource.data.closedBy)
-        && (request.resource.data.status == 'cancelled' || request.resource.data.cancelledBy == resource.data.cancelledBy);
+        && (isSessionStatusTransition() || isSessionMetadataSync());
       allow delete: if false;
     }
 
