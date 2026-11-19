@@ -58,3 +58,10 @@ Ardiyansyah, sebagaimana dicatat pada commit di bagian kontribusi di atas.
 - SRS-06–12 adalah kebutuhan Sprint 2; dokumen tidak menyatakan seluruhnya sudah diimplementasikan.
 - Sinkronisasi kehadiran real-time harus menggunakan sumber data yang disepakati bersama.
 - Integrasi autentikasi dan izin ke flow praktikan dilakukan bersama owner SRS terkait.
+
+## Sprint 3
+
+Pada Sprint 3, alur presensi praktikan diperluas melalui `docs/sprint-3/`:
+
+- **Muhammad Fahri (`SRS-02`–`05`):** Halaman khusus presensi yang terpisah dari detail sesi, permintaan izin & pengambilan koordinat GPS, validasi radius laboratorium, serta pencatatan presensi yang mewajibkan lolos validasi lokasi.
+- **Arga Yura Danendra (`SRS-11`–`15`):** Penerimaan *push notification* saat sesi dibuka, jadwal berubah, atau izin diputuskan.

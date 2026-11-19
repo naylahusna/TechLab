@@ -181,3 +181,49 @@ Rincian spesifikasi Sprint 2 terdapat di `docs/sprint-2/`.
 - Nomor SRS Sprint 2 memiliki arti berbeda dari nomor yang sama pada tabel Sprint 1; gunakan label sprint atau folder `docs/sprint-2/` saat merujuknya.
 - Kriteria, implementasi, dan pengujian setiap kebutuhan Sprint 2 dicatat pada dokumen masing-masing.
 - Perubahan lintas owner dikoordinasikan bersama sebelum diintegrasikan.
+
+## Software Requirements Specification — Sprint 3
+
+Sprint 3 (**Location-Based Attendance, Maps, and Push Notification**) mengembangkan aplikasi dari Sprint 1 dan Sprint 2 dengan memanfaatkan lokasi perangkat (*geolocation*), peta interaktif (*Maps*) persebaran laboratorium Informatika beserta aktivitas praktikumnya, serta *push notification* untuk peristiwa penting aplikasi. Daftar ini adalah kebutuhan baru Sprint 3; tidak menggantikan kebutuhan dan pembagian Sprint 1 maupun Sprint 2 di atas.
+
+Rincian spesifikasi Sprint 3 terdapat di `docs/sprint-3/`.
+
+| Kode SRS Sprint 3 | Kebutuhan | Owner | Urutan Kerja |
+|---|---|---|---|
+| SRS-01 | Laboratory Location and Radius Management | Muhammad Fahri | 1/5 (Wajib Paling Awal) |
+| SRS-02 | Dedicated Attendance Page | Muhammad Fahri | 2/5 (Berurut) |
+| SRS-03 | Device Geolocation and Location Permission Handling | Muhammad Fahri | 3/5 (Berurut) |
+| SRS-04 | Attendance Radius Validation | Muhammad Fahri | 4/5 (Berurut) |
+| SRS-05 | Location-Verified Attendance Recording | Muhammad Fahri | 5/5 (Berurut) |
+| SRS-06 | Interactive Laboratory Map Page | Nayla Husna | 1/5 (Setelah SRS-01) |
+| SRS-07 | Laboratory Markers and Detail Selection | Nayla Husna | 2/5 (Berurut) |
+| SRS-08 | Live User Location Tracking on Map | Nayla Husna | 3/5 (Berurut) |
+| SRS-09 | Laboratory Ongoing and Upcoming Activity Information | Nayla Husna | 4/5 (Berurut) |
+| SRS-10 | Real-Time Map Activity Sync and Map Device Handling | Nayla Husna | 5/5 (Berurut) |
+| SRS-11 | Push Notification Foundation and Device Token Management | Arga Yura Danendra | 1/5 (Langsung Mulai) |
+| SRS-12 | Session Opened Push Notification | Arga Yura Danendra | 2/5 (Berurut) |
+| SRS-13 | Schedule Change Push Notification | Arga Yura Danendra | 3/5 (Berurut) |
+| SRS-14 | Permission Decision Push Notification | Arga Yura Danendra | 4/5 (Berurut) |
+| SRS-15 | Notification Permission, Delivery, and Error Handling | Arga Yura Danendra | 5/5 (Berurut) |
+
+### Susunan Tim — Sprint 3
+
+- **Project Manager (PM):** **Muhammad Zaidaan Ardiyansyah** — Koordinasi kontrak data Firestore, review/merge PR, dan verifikasi integrasi Sprint 3.
+1. **Muhammad Fahri (Programmer 1) — Laboratory Location & Location-Based Attendance:** SRS-01 sampai SRS-05.
+2. **Nayla Husna (Programmer 2) — Interactive Laboratory Maps & Live Lab Activity:** SRS-06 sampai SRS-10.
+3. **Arga Yura Danendra (Programmer 3) — Push Notification & Device Condition Handling:** SRS-11 sampai SRS-15.
+
+### Target Demonstrasi Sprint 3
+
+1. **Alur 1 — Presensi Berbasis Lokasi (`SRS-01`–`05`):** Asisten membuka sesi praktikum → praktikan membuka halaman khusus presensi → aplikasi memeriksa lokasi perangkat dan radius laboratorium → presensi berhasil dicatat apabila seluruh ketentuan terpenuhi → asisten melihat rekap kehadiran praktikan.
+2. **Alur 2 — Peta dan Informasi Laboratorium (`SRS-06`–`10`):** Pengguna membuka halaman Maps → aplikasi menampilkan posisi pengguna (*live*) dan marker laboratorium → pengguna memilih salah satu marker laboratorium → aplikasi menampilkan praktikum yang sedang berlangsung dan praktikum berikutnya (nama praktikum, kelas, waktu pelaksanaan, status sesi) berdasarkan data Firestore.
+3. **Alur 3 — Notifikasi Kegiatan (`SRS-11`–`15`):** Asisten membuka sesi, mengubah jadwal, atau memberikan keputusan izin (diterima/ditolak) → sistem mendeteksi peristiwa tersebut → sistem mengirimkan *push notification* kepada pengguna terkait → pengguna menerima pemberitahuan.
+
+### Catatan Integrasi Sprint 3
+
+- Nomor SRS Sprint 3 memiliki arti berbeda dari nomor yang sama pada Sprint 1 dan Sprint 2; gunakan label sprint atau folder `docs/sprint-3/` saat merujuknya.
+- Validasi lokasi wajib menjadi bagian dari proses pencatatan presensi ke Firestore, bukan sekadar informasi visual pada antarmuka.
+- Urutan kerja dan ketergantungan lintas programmer dicatat pada `docs/sprint-3/SRS-PR-ORDER.md`.
+- Referensi materi:
+  - Push Notification: https://medium.com/@silverskytechnology/rich-push-notifications-in-react-native-a-complete-guide-797dd9747366
+  - Maps: https://medium.com/@silverskytechnology/implementing-google-maps-and-routes-tracking-in-react-native-a-starter-guide-9768282594b8

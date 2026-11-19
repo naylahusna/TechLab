@@ -155,9 +155,53 @@ dikoordinasikan dengan owner autentikasi dan praktikum/presensi.
 ## Catatan versi SRS
 
 Dokumen SRS-01–25 di `docs/sprint-1/` mencatat kebutuhan prototipe presensi
-Sprint 1. SRS-00–17 di `docs/sprint-2/` adalah kebutuhan baru Sprint 2 dengan
-arti nomor yang berbeda.
+Sprint 1. SRS-00–17 di `docs/sprint-2/` adalah kebutuhan Sprint 2, sedangkan
+SRS-01–15 di `docs/sprint-3/` adalah kebutuhan baru Sprint 3 dengan arti nomor
+yang terpisah per sprint.
 
 Owner Sprint 1 di atas mengacu pada dokumen pembagian tanggung jawab dan
-riwayat commit implementasi. Commit menunjukkan kontribusi prototipe, sedangkan
-pembagian Sprint 2 mengikuti owner yang ditetapkan pada bagian Sprint 2.
+riwayat commit implementasi. Pembagian Sprint 2 dan Sprint 3 mengikuti owner
+yang ditetapkan pada bagian masing-masing sprint.
+
+## Sprint 3 — Location-Based Attendance, Maps, and Push Notification
+
+Pembagian berikut menggunakan penomoran terpisah dari Sprint 1 dan Sprint 2.
+Spesifikasi tiap kebutuhan berada di folder `docs/sprint-3/`.
+
+### Project Manager — Muhammad Zaidaan Ardiyansyah
+
+- Koordinasi kontrak skema Firestore (`laboratories`, relasi jadwal/sesi, presensi berlokasi, dan token notifikasi).
+- Review & merge Pull Request dari ketiga programmer serta pengujian 3 alur demonstrasi Sprint 3.
+
+### Programmer 1 — Muhammad Fahri: Laboratory Location & Location-Based Attendance
+
+- SRS-01: Laboratory Location and Radius Management
+- SRS-02: Dedicated Attendance Page
+- SRS-03: Device Geolocation and Location Permission Handling
+- SRS-04: Attendance Radius Validation
+- SRS-05: Location-Verified Attendance Recording
+
+Spesifikasi: `docs/sprint-3/SRS-01.md` sampai `docs/sprint-3/SRS-05.md`.
+README terkait: `src/features/practicum/README.md`, `src/features/practitioner/README.md`, dan `src/features/assistant/README.md`.
+
+### Programmer 2 — Nayla Husna: Interactive Laboratory Maps & Live Lab Activity
+
+- SRS-06: Interactive Laboratory Map Page
+- SRS-07: Laboratory Markers and Detail Selection
+- SRS-08: Live User Location Tracking on Map
+- SRS-09: Laboratory Ongoing and Upcoming Activity Information
+- SRS-10: Real-Time Map Activity Sync and Map Device Handling
+
+Spesifikasi: `docs/sprint-3/SRS-06.md` sampai `docs/sprint-3/SRS-10.md`.
+Modul baru direncanakan di `src/features/maps/` dan route Maps terintegrasi pada navigasi aplikasi.
+
+### Programmer 3 — Arga Yura Danendra: Push Notification & Device Condition Handling
+
+- SRS-11: Push Notification Foundation and Device Token Management
+- SRS-12: Session Opened Push Notification
+- SRS-13: Schedule Change Push Notification
+- SRS-14: Permission Decision Push Notification
+- SRS-15: Notification Permission, Delivery, and Error Handling
+
+Spesifikasi: `docs/sprint-3/SRS-11.md` sampai `docs/sprint-3/SRS-15.md`.
+Modul baru direncanakan di `src/features/notification/` dan terintegrasi dengan modul `practicum`, `permission`, serta `profile`/`auth`.

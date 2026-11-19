@@ -45,3 +45,10 @@ pada commit di atas.
 - SRS-06–12 adalah kebutuhan Sprint 2; dokumen tidak menyatakan seluruhnya sudah diimplementasikan.
 - Pertahankan perilaku prototipe sampai pengganti terintegrasi dan tervalidasi.
 - Integrasi autentikasi dan permission dilakukan bersama owner SRS terkait bila diperlukan.
+
+## Sprint 3
+
+Pada Sprint 3, alur asisten diperluas melalui `docs/sprint-3/`:
+
+- **Muhammad Fahri (`SRS-01`):** Pengelolaan lokasi, koordinat, dan radius presensi laboratorium di Cloud Firestore.
+- **Arga Yura Danendra (`SRS-12`–`13`):** Pengiriman *push notification* saat asisten membuka sesi praktikum atau mengubah jadwal.
