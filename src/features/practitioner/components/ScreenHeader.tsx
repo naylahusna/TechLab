@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '../../../components/Text';
@@ -18,6 +18,8 @@ type ScreenHeaderProps = {
   initials?: string;
   roleLabel?: string;
   summary?: ScreenSummaryItem[];
+  actionLabel?: string;
+  onAction?: () => void;
 };
 
 export function ScreenHeader({
@@ -27,6 +29,8 @@ export function ScreenHeader({
   initials,
   roleLabel = 'Praktikan',
   summary,
+  actionLabel,
+  onAction,
 }: ScreenHeaderProps) {
   const insets = useSafeAreaInsets();
 
@@ -111,6 +115,18 @@ export function ScreenHeader({
             );
           })}
         </View>
+      ) : null}
+
+      {actionLabel && onAction ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+          onPress={onAction}
+          style={({ pressed }) => [styles.actionButton, pressed && styles.actionPressed]}
+        >
+          <Text style={styles.actionLabel}>{actionLabel}</Text>
+          <Text style={styles.actionArrow}>→</Text>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -260,5 +276,28 @@ const styles = StyleSheet.create({
   },
   summaryDangerText: {
     color: colors.danger,
+  },
+  actionButton: {
+    marginTop: spacing.lg,
+    minHeight: 44,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.successSoft,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  actionPressed: {
+    opacity: 0.82,
+  },
+  actionLabel: {
+    color: colors.text,
+    fontSize: typography.body,
+    fontWeight: fontWeights.bold,
+  },
+  actionArrow: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: fontWeights.bold,
   },
 });

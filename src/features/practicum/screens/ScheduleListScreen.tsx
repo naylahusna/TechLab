@@ -127,21 +127,23 @@ export function ScheduleListScreen({ classId }: { classId: string }) {
             const session = sessionByScheduleId.get(item.id);
             const meta = STATUS_META[session?.status ?? 'scheduled'];
             return (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Buka detail jadwal ${item.title}`}
-                onPress={() => openDetail(item.id)}
-                style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-              >
-                <View style={styles.topRow}>
-                  <Text style={styles.cardTitle}>{item.title}</Text>
-                  <Badge label={meta.label} tone={meta.tone} />
-                </View>
-                <Text style={styles.meta}>
-                  {timestampDateLabel(item.startAt)} · {timestampTimeLabel(item.startAt)} -{' '}
-                  {timestampTimeLabel(item.endAt)}
-                </Text>
-                <Text style={styles.meta}>{item.location}</Text>
+              <View style={styles.card}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Buka detail jadwal ${item.title}`}
+                  onPress={() => openDetail(item.id)}
+                  style={({ pressed }) => [styles.cardMain, pressed && styles.pressed]}
+                >
+                  <View style={styles.topRow}>
+                    <Text style={styles.cardTitle}>{item.title}</Text>
+                    <Badge label={meta.label} tone={meta.tone} />
+                  </View>
+                  <Text style={styles.meta}>
+                    {timestampDateLabel(item.startAt)} · {timestampTimeLabel(item.startAt)} -{' '}
+                    {timestampTimeLabel(item.endAt)}
+                  </Text>
+                  <Text style={styles.meta}>{item.location}</Text>
+                </Pressable>
                 <View style={styles.actions}>
                   <InlineAction
                     label="Kelola Presensi"
@@ -157,7 +159,7 @@ export function ScheduleListScreen({ classId }: { classId: string }) {
                     onPress={() => setPendingArchive(item)}
                   />
                 </View>
-              </Pressable>
+              </View>
             );
           }}
           ListEmptyComponent={
@@ -217,6 +219,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.sm,
   },
+  cardMain: { gap: spacing.sm },
   pressed: { opacity: 0.85 },
   topRow: {
     flexDirection: 'row',

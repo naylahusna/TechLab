@@ -27,21 +27,33 @@ function getAttendanceLabel(item: RiwayatItem): string {
 export function HistoryCard({ item }: HistoryCardProps) {
   const status = ATTENDANCE_STATUS_META[item.status];
   const attendanceLabel = getAttendanceLabel(item);
-  const isPresent = item.status === 'hadir';
+  const isApproved = item.status === 'hadir' || item.status === 'izin';
+  const isPending = item.status === 'izin-menunggu';
+  const markStyle = isApproved
+    ? styles.markPresent
+    : isPending
+      ? styles.markPending
+      : styles.markAbsent;
+  const markTextStyle = isApproved
+    ? styles.markPresentText
+    : isPending
+      ? styles.markPendingText
+      : styles.markAbsentText;
+  const markIcon = isApproved ? '✓' : isPending ? '◷' : '!';
 
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.identity}>
           <View
-            style={[styles.mark, isPresent ? styles.markPresent : styles.markAbsent]}
+            style={[styles.mark, markStyle]}
             accessible={false}
             importantForAccessibility="no-hide-descendants"
           >
             <Text
-              style={[styles.markText, isPresent ? styles.markPresentText : styles.markAbsentText]}
+              style={[styles.markText, markTextStyle]}
             >
-              {isPresent ? '✓' : '!'}
+              {markIcon}
             </Text>
           </View>
 
@@ -103,6 +115,9 @@ const styles = StyleSheet.create({
   markAbsent: {
     backgroundColor: colors.dangerSoft,
   },
+  markPending: {
+    backgroundColor: colors.infoSoft,
+  },
   markText: {
     fontSize: typography.bodyLarge,
     fontWeight: fontWeights.bold,
@@ -112,6 +127,9 @@ const styles = StyleSheet.create({
   },
   markAbsentText: {
     color: colors.danger,
+  },
+  markPendingText: {
+    color: colors.info,
   },
   titleGroup: {
     flex: 1,

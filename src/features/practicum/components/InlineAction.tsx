@@ -6,8 +6,9 @@ import { colors, fontWeights, radius, spacing, typography } from '../theme';
 type InlineActionProps = {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'danger' | 'lime';
   disabled?: boolean;
+  large?: boolean;
 };
 
 export function InlineAction({
@@ -15,6 +16,7 @@ export function InlineAction({
   onPress,
   variant = 'secondary',
   disabled = false,
+  large = false,
 }: InlineActionProps) {
   return (
     <Pressable
@@ -25,7 +27,14 @@ export function InlineAction({
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
-        variant === 'primary' ? styles.primary : variant === 'danger' ? styles.danger : styles.secondary,
+        variant === 'primary'
+          ? styles.primary
+          : variant === 'danger'
+            ? styles.danger
+            : variant === 'lime'
+              ? styles.lime
+              : styles.secondary,
+        large && styles.large,
         disabled && styles.disabled,
         pressed && !disabled && styles.pressed,
       ]}
@@ -33,7 +42,13 @@ export function InlineAction({
       <Text
         style={[
           styles.label,
-          variant === 'primary' ? styles.primaryLabel : variant === 'danger' ? styles.dangerLabel : styles.secondaryLabel,
+          variant === 'primary'
+            ? styles.primaryLabel
+            : variant === 'danger'
+              ? styles.dangerLabel
+              : variant === 'lime'
+                ? styles.limeLabel
+                : styles.secondaryLabel,
         ]}
       >
         {label}
@@ -55,10 +70,18 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.primary, borderColor: colors.primary },
   secondary: { backgroundColor: colors.surface, borderColor: colors.border },
   danger: { backgroundColor: colors.surface, borderColor: colors.danger },
+  lime: { backgroundColor: colors.successSoft, borderColor: '#CFE685' },
+  large: {
+    flex: 1,
+    minHeight: 56,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+  },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.8 },
   label: { fontSize: typography.caption, fontWeight: fontWeights.bold },
   primaryLabel: { color: colors.white },
   secondaryLabel: { color: colors.text },
   dangerLabel: { color: colors.danger },
+  limeLabel: { color: colors.text },
 });

@@ -36,9 +36,8 @@ after(async () => {
   await env?.cleanup();
 });
 
-const at = (iso) => Timestamp.fromDate(new Date(iso));
-const startAt = at('2026-11-16T08:00:00+07:00');
-const endAt = at('2026-11-16T10:00:00+07:00');
+const startAt = Timestamp.fromMillis(Date.now() - 10 * 60 * 1000);
+const endAt = Timestamp.fromMillis(Date.now() + 110 * 60 * 1000);
 
 async function seedUser(uid, role = 'praktikan', number = '240101001') {
   await env.withSecurityRulesDisabled(async (context) => {

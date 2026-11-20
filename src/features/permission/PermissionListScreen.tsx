@@ -101,9 +101,6 @@ function PermissionListContent() {
           </View>
         </View>
       )}
-      <ActionButton title="Reset pencarian dan filter" secondary
-        disabled={!search && filter === 'all' && !classId && !sessionId}
-        onPress={() => { setSearch(''); setFilter('all'); setClassId(''); setSessionId(''); }} />
       {resource.status === 'ready' && <Text accessibilityLiveRegion="polite" style={ui.meta}>
         Menampilkan {items.length} dari {resource.data.length} pengajuan dalam cakupanmu.
       </Text>}

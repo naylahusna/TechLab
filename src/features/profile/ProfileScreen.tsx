@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../../components/Text';
 import { ActionButton } from '../../components/ActionButton';
@@ -12,7 +12,6 @@ import { colors } from '../../theme/tokens';
 
 export function ProfileScreen() {
   const auth = useAuth();
-  const router = useRouter();
   const [draft, setDraft] = useState<{ name: string; number: string } | null>(null);
   const name = draft?.name ?? auth.profile?.name ?? '';
   const number = draft?.number ?? auth.profile?.number ?? '';
@@ -53,7 +52,6 @@ export function ProfileScreen() {
     <AppPage title="Profil pengguna" subtitle="Kelola identitas akun TechLab kamu.">
       <View style={styles.card}>
         <Text style={styles.role}>{auth.profile.role === 'asisten' ? 'Asisten' : 'Praktikan'}</Text>
-        <Text style={styles.copy}>{auth.account?.email}</Text>
         <FormField
           label="Nama lengkap"
           value={name}
@@ -101,20 +99,9 @@ export function ProfileScreen() {
         <ActionButton
           title="Keluar dari akun"
           secondary
+          danger
           disabled={busy}
           onPress={() => setConfirmLogout(true)}
-        />
-      </View>
-      <View style={[styles.card, { backgroundColor: colors.lime }]}>
-        <Text style={styles.role}>Lab eksperimen</Text>
-        <Text style={styles.copy}>
-          Coba analisis sentimen komentar secara lokal. Model masih eksperimental dan terpisah
-          dari pengajuan izin.
-        </Text>
-        <ActionButton
-          title="Analisis Sentimen"
-          testID="open-sentiment-analysis"
-          onPress={() => router.push('/analisis-sentimen')}
         />
       </View>
       <ConfirmationModal

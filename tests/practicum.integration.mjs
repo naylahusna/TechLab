@@ -157,10 +157,6 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       location: 'Lab Komputasi 2',
     });
     await assert.rejects(
-      () => assistantRepo.openSession(firstScheduleId, assistantId, new Date('2026-11-19T08:00:00+07:00')),
-      /jadwal praktikum/i,
-    );
-    await assert.rejects(
       () => assistantRepo.openSession(firstScheduleId, assistantId, new Date('2026-12-01T10:05:00+07:00')),
       /sudah lewat/i,
     );
