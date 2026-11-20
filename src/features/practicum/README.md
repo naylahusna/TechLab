@@ -234,3 +234,13 @@ rules + integrasi Auth/Firestore/repository secara berurutan.
   Rules membatasi proyeksi direktori agar cocok dengan profil pemiliknya;
   akun praktikan baru dapat dicari oleh asisten tanpa seed produksi.
 - Jangan membuat state praktikum paralel di `src/core`; gunakan repository ini.
+
+## Sprint 3
+
+Pada Sprint 3 (*Location-Based Attendance, Maps, and Push Notification*), modul ini berintegrasi dengan tiga jalur pekerjaan berikut:
+
+- **Muhammad Fahri (`SRS-01`–`05`):** Pengelolaan koleksi lokasi & radius laboratorium di Cloud Firestore, halaman presensi khusus yang terpisah dari detail sesi, serta validasi radius lokasi pada pencatatan presensi.
+- **Nayla Husna (`SRS-06`–`10`):** Pembacaan data kelas, jadwal, dan sesi secara *real-time* untuk menampilkan praktikum yang sedang berlangsung dan berikutnya pada halaman Maps laboratorium.
+- **Arga Yura Danendra (`SRS-12`–`13`):** Pemicu *push notification* ketika sesi dibuka oleh asisten atau jadwal praktikum mengalami perubahan.
+
+Spesifikasi rinci tersedia di `docs/sprint-3/`.

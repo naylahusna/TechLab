@@ -41,3 +41,10 @@ referensi implementasi.
 - Perubahan profil Sprint 2 harus mengikuti autentikasi dan aturan akses pada SRS-00–04 Sprint 2.
 - Integrasi informasi izin dari SRS-17, bila diperlukan, dilakukan bersama owner permission.
 - Implementasi prototipe Sprint 1 bukan bukti bahwa SRS-05 Sprint 2 sudah selesai.
+
+## Sprint 3
+
+Pada Sprint 3, alur profil dan logout terintegrasi dengan pengelolaan token perangkat dan status izin *push notification* (Owner: Arga Yura Danendra):
+
+- [SRS-11: Push Notification Foundation and Device Token Management](../../../docs/sprint-3/SRS-11.md) (pembersihan/penonaktifan token perangkat saat logout).
+- [SRS-15: Notification Permission, Delivery, and Error Handling](../../../docs/sprint-3/SRS-15.md) (informasi status izin notifikasi perangkat).

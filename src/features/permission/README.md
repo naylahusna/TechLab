@@ -59,3 +59,10 @@ Modul permission belum menjadi bagian dari prototipe presensi Sprint 1.
 - Akses data izin harus mengikuti matriks role dan security rules.
 - Persetujuan pemakaian layanan AI eksternal dan data yang boleh dikirim harus ditetapkan sebelum integrasi.
 - Status implementasi setiap kebutuhan harus diverifikasi; dokumentasi ini tidak menyatakan fitur sudah selesai.
+
+## Sprint 3
+
+Pada Sprint 3, keputusan persetujuan dan penolakan izin pada modul ini terintegrasi dengan *push notification* (Owner: Arga Yura Danendra):
+
+- [SRS-14: Permission Decision Push Notification](../../../docs/sprint-3/SRS-14.md)
+- [SRS-15: Notification Permission, Delivery, and Error Handling](../../../docs/sprint-3/SRS-15.md)
