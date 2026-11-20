@@ -13,19 +13,19 @@ import { PracticumHeader } from '../components/PracticumHeader';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import { practicumErrorMessage } from '../errors';
 import { colors, lineHeights, spacing, typography } from '../theme';
-import { validateScheduleInput } from '../validation';
+import {
+  getAvailableEndTimes,
+  getAvailableStartTimes,
+  getMinScheduleDate,
+  validateScheduleInput,
+  validateScheduleNotInPast,
+} from '../validation';
 
 type ScheduleFormScreenProps = {
   classId: string;
   mode: 'create' | 'edit';
   scheduleId?: string;
 };
-
-const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
-  const hour = Math.floor(index / 2);
-  const minute = index % 2 === 0 ? '00' : '30';
-  return `${String(hour).padStart(2, '0')}:${minute}`;
-});
 
 const LAB_OPTIONS = ['Lab A', 'Lab B', 'Lab C', 'Lab D', 'AP LT 5'];
 
@@ -40,11 +40,44 @@ export function ScheduleFormScreen({
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
+  const [now, setNow] = useState(() => new Date());
   const [loading, setLoading] = useState(mode === 'edit');
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const minSelectableDate = getMinScheduleDate(now);
+  const availableStartTimes = getAvailableStartTimes(date, now);
+  const availableEndTimes = getAvailableEndTimes(date, startTime, now);
+
+  function handleDateChange(nextDate: string) {
+    setDate(nextDate);
+    setError('');
+    const currentNow = new Date();
+    setNow(currentNow);
+    const nextStarts = getAvailableStartTimes(nextDate, currentNow);
+    const validStart = nextStarts.includes(startTime) ? startTime : '';
+    if (validStart !== startTime) setStartTime(validStart);
+    const nextEnds = getAvailableEndTimes(nextDate, validStart, currentNow);
+    if (endTime && !nextEnds.includes(endTime)) setEndTime('');
+  }
+
+  function handleStartTimeChange(nextStartTime: string) {
+    setStartTime(nextStartTime);
+    setError('');
+    const currentNow = new Date();
+    setNow(currentNow);
+    const nextEnds = getAvailableEndTimes(date, nextStartTime, currentNow);
+    if (endTime && !nextEnds.includes(endTime)) setEndTime('');
+  }
 
   useEffect(() => {
     if (mode !== 'edit' || !scheduleId) return;
@@ -107,6 +140,7 @@ export function ScheduleFormScreen({
         endAt,
         location,
       });
+      validateScheduleNotInPast(clean.startAt, new Date());
       if (mode === 'create') {
         await getPracticumRepository().createSchedule(clean);
       } else if (scheduleId) {
@@ -157,7 +191,8 @@ export function ScheduleFormScreen({
             <DatePickerField
               label="Tanggal"
               value={date}
-              onChange={setDate}
+              minDate={minSelectableDate}
+              onChange={handleDateChange}
               disabled={submitting}
             />
             <View style={styles.timeRow}>
@@ -165,20 +200,27 @@ export function ScheduleFormScreen({
                 <OptionPickerField
                   label="Mulai"
                   value={startTime}
-                  options={TIME_OPTIONS}
+                  options={availableStartTimes}
                   placeholder="Pilih jam"
-                  onChange={setStartTime}
+                  onChange={handleStartTimeChange}
                   disabled={submitting}
+                  includeCurrentValue={false}
+                  emptyMessage="Tidak ada jam mulai tersisa untuk tanggal ini. Pilih tanggal berikutnya."
                 />
               </View>
               <View style={styles.timeField}>
                 <OptionPickerField
                   label="Selesai"
                   value={endTime}
-                  options={TIME_OPTIONS}
+                  options={availableEndTimes}
                   placeholder="Pilih jam"
-                  onChange={setEndTime}
+                  onChange={(nextEndTime) => {
+                    setEndTime(nextEndTime);
+                    setError('');
+                  }}
                   disabled={submitting}
+                  includeCurrentValue={false}
+                  emptyMessage="Pilih jam mulai terlebih dahulu agar pilihan jam selesai tersedia."
                 />
               </View>
             </View>
@@ -191,7 +233,7 @@ export function ScheduleFormScreen({
               disabled={submitting}
             />
             <Text style={styles.note}>
-              Pilih tanggal, jam, dan lab dari pilihan yang tersedia.
+              Tanggal dan jam hanya dapat dipilih mulai dari waktu sekarang ke depan.
             </Text>
             {error ? (
               <Text accessibilityRole="alert" style={styles.error}>

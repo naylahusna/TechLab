@@ -37,9 +37,14 @@ export {
   sessionIdForSchedule,
 } from './ids';
 export {
+  SCHEDULE_TIME_OPTIONS,
+  getAvailableEndTimes,
+  getAvailableStartTimes,
+  getMinScheduleDate,
   validateClassInput,
   validateParticipantInput,
   validateScheduleInput,
+  validateScheduleNotInPast,
   validateSessionOpenWindow,
   type SessionOpenWindowResult,
 } from './validation';

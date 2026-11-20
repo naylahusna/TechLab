@@ -54,21 +54,21 @@ export function getAttendanceAction(
     };
   }
 
-  if (startsAt && endsAt && (now < Date.parse(startsAt) || now > Date.parse(endsAt))) {
-    return {
-      kind: 'outside-time',
-      label: 'Di luar waktu presensi',
-      disabled: true,
-      reason: `Presensi hanya tersedia pada rentang waktu kelas (${new Date(startsAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}–${new Date(endsAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}).`,
-    };
-  }
-
   if (sessionStatus === 'ditutup') {
     return {
       kind: 'closed',
       label: 'Sesi Telah Ditutup',
       disabled: true,
       reason: 'Sesi sudah ditutup sehingga presensi baru tidak dapat dicatat.',
+    };
+  }
+
+  if (startsAt && endsAt && (now < Date.parse(startsAt) || now > Date.parse(endsAt))) {
+    return {
+      kind: 'outside-time',
+      label: 'Di luar waktu presensi',
+      disabled: true,
+      reason: `Presensi hanya tersedia pada rentang waktu kelas (${new Date(startsAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}–${new Date(endsAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}).`,
     };
   }
 

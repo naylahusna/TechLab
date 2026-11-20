@@ -126,6 +126,7 @@ export function ScheduleListScreen({ classId }: { classId: string }) {
           renderItem={({ item }) => {
             const session = sessionByScheduleId.get(item.id);
             const meta = STATUS_META[session?.status ?? 'scheduled'];
+            const canEdit = session?.status !== 'closed' && session?.status !== 'cancelled';
             return (
               <View style={styles.card}>
                 <Pressable
@@ -151,7 +152,9 @@ export function ScheduleListScreen({ classId }: { classId: string }) {
                     onPress={() => openDetail(item.id)}
                   />
                   <InlineAction label="Rekap" onPress={() => openRecap(item.id)} />
-                  <InlineAction label="Edit" onPress={() => openEdit(item.id)} />
+                  {canEdit ? (
+                    <InlineAction label="Edit" onPress={() => openEdit(item.id)} />
+                  ) : null}
                   <InlineAction
                     label="Arsip"
                     variant="danger"

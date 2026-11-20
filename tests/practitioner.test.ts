@@ -54,6 +54,29 @@ test('attendance action follows session and attendance state', () => {
   assert.equal(getAttendanceAction('dibuka', 'hadir').disabled, true);
   assert.equal(getAttendanceAction('belum-dibuka', 'belum-presensi').kind, 'not-open');
   assert.equal(getAttendanceAction('ditutup', 'tidak-hadir').kind, 'closed');
+
+  const startsAt = '2026-11-20T21:30:00+07:00';
+  const endsAt = '2026-11-20T22:30:00+07:00';
+  assert.equal(
+    getAttendanceAction('dibuka', 'belum-presensi', startsAt, endsAt, Date.parse('2026-11-20T21:15:00+07:00')).kind,
+    'outside-time',
+  );
+  assert.equal(
+    getAttendanceAction('dibuka', 'belum-presensi', startsAt, endsAt, Date.parse('2026-11-20T21:15:00+07:00')).disabled,
+    true,
+  );
+  assert.equal(
+    getAttendanceAction('dibuka', 'belum-presensi', startsAt, endsAt, Date.parse('2026-11-20T21:45:00+07:00')).kind,
+    'available',
+  );
+  assert.equal(
+    getAttendanceAction('dibuka', 'belum-presensi', startsAt, endsAt, Date.parse('2026-11-20T22:45:00+07:00')).kind,
+    'outside-time',
+  );
+  assert.equal(
+    getAttendanceAction('ditutup', 'tidak-hadir', startsAt, endsAt, Date.parse('2026-11-20T22:45:00+07:00')).kind,
+    'closed',
+  );
 });
 
 test('stored attendance record formats to a time label', () => {

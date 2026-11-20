@@ -11,6 +11,8 @@ type OptionPickerFieldProps = {
   placeholder: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  emptyMessage?: string;
+  includeCurrentValue?: boolean;
 };
 
 export function OptionPickerField({
@@ -20,9 +22,12 @@ export function OptionPickerField({
   placeholder,
   onChange,
   disabled = false,
+  emptyMessage = 'Tidak ada pilihan tersedia.',
+  includeCurrentValue = true,
 }: OptionPickerFieldProps) {
   const [visible, setVisible] = useState(false);
-  const visibleOptions = value && !options.includes(value) ? [value, ...options] : options;
+  const visibleOptions =
+    includeCurrentValue && value && !options.includes(value) ? [value, ...options] : options;
 
   return (
     <View style={styles.field}>
@@ -61,25 +66,29 @@ export function OptionPickerField({
               showsVerticalScrollIndicator={false}
               style={styles.optionsScroll}
             >
-              {visibleOptions.map((option) => {
-                const selected = option === value;
-                return (
-                  <Pressable
-                    key={option}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Pilih ${option}`}
-                    onPress={() => {
-                      onChange(option);
-                      setVisible(false);
-                    }}
-                    style={[styles.option, selected && styles.selectedOption]}
-                  >
-                    <Text style={[styles.optionText, selected && styles.selectedOptionText]}>
-                      {option}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              {visibleOptions.length === 0 ? (
+                <Text style={styles.emptyMessage}>{emptyMessage}</Text>
+              ) : (
+                visibleOptions.map((option) => {
+                  const selected = option === value;
+                  return (
+                    <Pressable
+                      key={option}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Pilih ${option}`}
+                      onPress={() => {
+                        onChange(option);
+                        setVisible(false);
+                      }}
+                      style={[styles.option, selected && styles.selectedOption]}
+                    >
+                      <Text style={[styles.optionText, selected && styles.selectedOptionText]}>
+                        {option}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              )}
             </ScrollView>
             <Pressable
               accessibilityRole="button"
@@ -178,6 +187,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   selectedOptionText: { color: colors.white },
+  emptyMessage: {
+    color: colors.textMuted,
+    fontSize: typography.body,
+    paddingVertical: spacing.sm,
+  },
   closeButton: {
     minHeight: 44,
     borderRadius: radius.md,

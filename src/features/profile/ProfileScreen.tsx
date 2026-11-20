@@ -20,8 +20,13 @@ export function ProfileScreen() {
   const [success, setSuccess] = useState('');
   const [confirmLogout, setConfirmLogout] = useState(false);
   if (!auth.profile) return <Redirect href="/" />;
+  const trimmedName = name.trim();
+  const trimmedNumber = number.trim();
+  const hasChanges =
+    trimmedName !== auth.profile.name.trim() || trimmedNumber !== auth.profile.number.trim();
+  const canSave = hasChanges && trimmedName.length > 0 && trimmedNumber.length > 0;
   async function save() {
-    if (busy) return;
+    if (busy || !canSave) return;
     setBusy(true);
     setError('');
     setSuccess('');
@@ -57,6 +62,7 @@ export function ProfileScreen() {
           value={name}
           onChangeText={(value) => {
             setDraft({ name: value, number });
+            setError('');
             setSuccess('');
           }}
           editable={!busy}
@@ -66,11 +72,20 @@ export function ProfileScreen() {
           value={number}
           onChangeText={(value) => {
             setDraft({ name, number: value });
+            setError('');
             setSuccess('');
           }}
           editable={!busy}
           maxLength={32}
         />
+        {!!auth.account?.email && (
+          <View style={styles.readOnlyField}>
+            <Text style={styles.readOnlyLabel}>Email</Text>
+            <View style={styles.readOnlyInput}>
+              <Text style={styles.readOnlyValue}>{auth.account.email}</Text>
+            </View>
+          </View>
+        )}
         <Text style={styles.copy}>
           Peran akun ditetapkan oleh pengelola. Email akun tidak diubah dari halaman profil.
         </Text>
@@ -91,7 +106,7 @@ export function ProfileScreen() {
         )}
         <ActionButton
           title={busy ? 'Memproses…' : 'Simpan perubahan'}
-          disabled={busy || !draft}
+          disabled={busy || !canSave}
           onPress={() => {
             void save();
           }}
@@ -127,6 +142,19 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   role: { color: colors.navy, fontSize: 20, fontWeight: '800' },
+  readOnlyField: { gap: 8 },
+  readOnlyLabel: { color: colors.navy, fontSize: 13, fontWeight: '700' },
+  readOnlyInput: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    padding: 14,
+    minHeight: 50,
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    opacity: 0.78,
+  },
+  readOnlyValue: { color: colors.muted, fontSize: 16 },
   copy: { color: colors.muted, fontSize: 13, lineHeight: 21 },
   error: { color: colors.danger, lineHeight: 21 },
   success: { color: colors.success, lineHeight: 21 },

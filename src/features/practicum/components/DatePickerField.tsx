@@ -9,6 +9,7 @@ type DatePickerFieldProps = {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  minDate?: Date;
 };
 
 const weekdays = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
@@ -51,30 +52,51 @@ function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 export function DatePickerField({
   label,
   value,
   onChange,
   disabled = false,
+  minDate,
 }: DatePickerFieldProps) {
   const selectedDate = parseDate(value);
+  const minDayStart = minDate ? startOfDay(minDate) : null;
+  const minMonthStart = minDayStart ? startOfMonth(minDayStart) : null;
   const [visible, setVisible] = useState(false);
-  const [visibleMonth, setVisibleMonth] = useState(() =>
-    startOfMonth(selectedDate ?? new Date()),
-  );
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const initial = selectedDate ?? minDayStart ?? new Date();
+    const initialMonth = startOfMonth(initial);
+    return minMonthStart && initialMonth.getTime() < minMonthStart.getTime()
+      ? minMonthStart
+      : initialMonth;
+  });
 
   function openPicker() {
     if (disabled) return;
-    setVisibleMonth(startOfMonth(selectedDate ?? new Date()));
+    const baseDate = selectedDate ?? minDayStart ?? new Date();
+    const baseMonth = startOfMonth(baseDate);
+    setVisibleMonth(
+      minMonthStart && baseMonth.getTime() < minMonthStart.getTime()
+        ? minMonthStart
+        : baseMonth,
+    );
     setVisible(true);
   }
 
   function changeMonth(offset: number) {
-    setVisibleMonth(
-      new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + offset, 1),
-    );
+    const nextMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + offset, 1);
+    if (minMonthStart && nextMonth.getTime() < minMonthStart.getTime()) return;
+    setVisibleMonth(nextMonth);
   }
 
+  const canGoPrevMonth =
+    !minMonthStart ||
+    new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1).getTime() >=
+      minMonthStart.getTime();
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
@@ -124,8 +146,10 @@ export function DatePickerField({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Bulan sebelumnya"
+                  accessibilityState={{ disabled: !canGoPrevMonth }}
+                  disabled={!canGoPrevMonth}
                   onPress={() => changeMonth(-1)}
-                  style={styles.monthButton}
+                  style={[styles.monthButton, !canGoPrevMonth && styles.monthButtonDisabled]}
                 >
                   <Text style={styles.monthButtonText}>‹</Text>
                 </Pressable>
@@ -154,18 +178,33 @@ export function DatePickerField({
                 const date = new Date(year, month, day);
                 const dateValue = formatDate(date);
                 const isSelected = dateValue === value;
+                const isDisabledDay =
+                  minDayStart !== null && date.getTime() < minDayStart.getTime();
                 return (
                   <Pressable
                     key={dateValue}
                     accessibilityRole="button"
                     accessibilityLabel={`Pilih ${dateValue}`}
+                    accessibilityState={{ disabled: isDisabledDay, selected: isSelected }}
+                    disabled={isDisabledDay}
                     onPress={() => {
+                      if (isDisabledDay) return;
                       onChange(dateValue);
                       setVisible(false);
                     }}
-                    style={[styles.dayCell, isSelected && styles.selectedDay]}
+                    style={[
+                      styles.dayCell,
+                      isSelected && styles.selectedDay,
+                      isDisabledDay && styles.disabledDay,
+                    ]}
                   >
-                    <Text style={[styles.dayText, isSelected && styles.selectedDayText]}>
+                    <Text
+                      style={[
+                        styles.dayText,
+                        isSelected && styles.selectedDayText,
+                        isDisabledDay && styles.disabledDayText,
+                      ]}
+                    >
                       {day}
                     </Text>
                   </Pressable>
@@ -257,6 +296,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  monthButtonDisabled: { opacity: 0.35 },
   monthButtonText: { color: colors.primary, fontSize: 26, lineHeight: 28 },
   weekRow: { flexDirection: 'row' },
   weekday: {
@@ -274,8 +314,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectedDay: { borderRadius: radius.md, backgroundColor: colors.primary },
+  disabledDay: { opacity: 0.3 },
   dayText: { color: colors.text, fontSize: typography.body },
   selectedDayText: { color: colors.white, fontWeight: fontWeights.bold },
+  disabledDayText: { color: colors.textMuted },
   closeButton: {
     minHeight: 44,
     borderRadius: radius.md,

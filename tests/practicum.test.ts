@@ -6,6 +6,7 @@ import { findScheduleConflict } from '../src/features/practicum/schedule-conflic
 import {
   toAssistantRecapItems,
   toPractitionerHistoryItems,
+  toPractitionerSessionDetail,
 } from '../src/features/practicum/session-view';
 import type {
   PracticumAttendance,
@@ -15,9 +16,13 @@ import type {
   PracticumSession,
 } from '../src/features/practicum/types';
 import {
+  getAvailableEndTimes,
+  getAvailableStartTimes,
+  getMinScheduleDate,
   validateClassInput,
   validateParticipantInput,
   validateScheduleInput,
+  validateScheduleNotInPast,
   validateSessionOpenWindow,
 } from '../src/features/practicum/validation';
 
@@ -404,4 +409,47 @@ test('session can be opened before or during its schedule, but not after it ends
   const tooLate = validateSessionOpenWindow(window, new Date('2026-11-19T10:00:01+07:00'));
   assert.equal(tooLate.ok, false);
   if (!tooLate.ok) assert.equal(tooLate.reason, 'too-late');
+});
+
+test('real-time schedule date and time helpers disallow past dates and past times', () => {
+  const now = new Date(2026, 10, 20, 20, 38, 0);
+
+  assert.deepEqual(getAvailableStartTimes('2026-11-19', now), []);
+  assert.deepEqual(getAvailableEndTimes('2026-11-19', '08:00', now), []);
+
+  assert.deepEqual(getAvailableStartTimes('2026-11-20', now), [
+    '21:00',
+    '21:30',
+    '22:00',
+    '22:30',
+    '23:00',
+  ]);
+  assert.deepEqual(getAvailableEndTimes('2026-11-20', '22:00', now), ['22:30', '23:00', '23:30']);
+
+  const tomorrowStarts = getAvailableStartTimes('2026-11-21', now);
+  assert.equal(tomorrowStarts[0], '00:00');
+  assert.equal(tomorrowStarts[tomorrowStarts.length - 1], '23:00');
+
+  const minDateNormal = getMinScheduleDate(now);
+  assert.equal(minDateNormal.getFullYear(), 2026);
+  assert.equal(minDateNormal.getMonth(), 10);
+  assert.equal(minDateNormal.getDate(), 20);
+
+  const lateNight = new Date(2026, 10, 20, 23, 5, 0);
+  const minDateLate = getMinScheduleDate(lateNight);
+  assert.equal(minDateLate.getDate(), 21);
+
+  assert.throws(
+    () => validateScheduleNotInPast(new Date(2026, 10, 20, 20, 30, 0), now),
+    /masa lalu/i,
+  );
+  assert.doesNotThrow(() => validateScheduleNotInPast(new Date(2026, 10, 20, 21, 0, 0), now));
+});
+
+test('practitioner session detail includes startsAt and endsAt for attendance window checks', () => {
+  const { classItem, schedules, sessions } = recapFixture();
+  const detail = toPractitionerSessionDetail(sessions[1], classItem, schedules[1], [], 'praktikan-1');
+
+  assert.equal(detail.startsAt, sessions[1].startAt.toDate().toISOString());
+  assert.equal(detail.endsAt, sessions[1].endAt.toDate().toISOString());
 });
