@@ -30,7 +30,7 @@ test('assistant maps core session to view model correctly (SRS-06)', () => {
   assert.equal(item.practicalName, 'Pemrograman Perangkat Bergerak');
   assert.equal(item.meetingLabel, 'Pertemuan 5');
   assert.equal(item.className, 'Informatika A');
-  assert.equal(item.lab, 'Lab Komputasi 1');
+  assert.equal(item.lab, 'Lab Informatika B');
   assert.equal(item.status, 'upcoming');
   assert.equal(item.statusLabel, 'Belum Dibuka');
   assert.equal(item.studentCount, 2);

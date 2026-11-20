@@ -40,7 +40,7 @@ const seedUsers: DemoUser[] = [
     name: 'Dimas Aditya',
     role: 'asisten',
     number: 'AS-001',
-    group: 'Asisten · Lab Komputasi',
+    group: 'Asisten · Laboratorium',
     initials: 'DA',
   },
   {
@@ -48,7 +48,7 @@ const seedUsers: DemoUser[] = [
     name: 'Nadia Safitri',
     role: 'asisten',
     number: 'AS-002',
-    group: 'Asisten · Lab Komputasi',
+    group: 'Asisten · Laboratorium',
     initials: 'NS',
   },
   {

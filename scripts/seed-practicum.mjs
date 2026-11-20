@@ -170,7 +170,7 @@ try {
         title: 'Pertemuan 5 — UI dan Navigasi',
         startAt: at('2026-11-16T08:00:00+07:00'),
         endAt: at('2026-11-16T10:00:00+07:00'),
-        location: 'Lab Komputasi 1',
+        location: 'Lab Informatika B',
       },
       {
         id: SCHEDULE_A2,
@@ -178,7 +178,7 @@ try {
         title: 'Pertemuan 6 — State dan API',
         startAt: at('2026-11-23T08:00:00+07:00'),
         endAt: at('2026-11-23T10:00:00+07:00'),
-        location: 'Lab Komputasi 1',
+        location: 'Lab Informatika C',
       },
       {
         id: SCHEDULE_B1,
@@ -186,7 +186,7 @@ try {
         title: 'Pertemuan 4 — Relasi Data',
         startAt: at('2026-11-17T13:00:00+07:00'),
         endAt: at('2026-11-17T15:00:00+07:00'),
-        location: 'Lab Komputasi 2',
+        location: 'Lab Informatika D',
       },
     ];
     await Promise.all(

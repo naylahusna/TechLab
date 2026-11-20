@@ -24,8 +24,11 @@ service cloud.firestore {
 
     function userRole() {
       return isAuthenticated()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        ? (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          ? (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(['role'])
+            ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+            : null)
+          : null)
         : null;
     }
     function isAssistant() { return userRole() == 'asisten'; }
@@ -354,6 +357,34 @@ service cloud.firestore {
           || (resource.data.aiStatus == 'processing' && request.resource.data.aiStatus in ['completed', 'failed', 'unavailable']))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['aiStatus', 'aiCategory', 'aiConfidence', 'aiSource', 'aiClassifiedAt', 'aiError', 'updatedAt'])
         && request.resource.data.aiClassifiedAt == request.time;
+    }
+
+    function validLabLocation(d) {
+      return d.keys().hasAll(['name', 'latitude', 'longitude', 'radiusMeters', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
+        && d.keys().hasOnly(['name', 'latitude', 'longitude', 'radiusMeters', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
+        && d.name is string && d.name.size() >= 2 && d.name.size() <= 100 && d.name == d.name.trim()
+        && d.latitude is number && d.latitude >= -90 && d.latitude <= 90
+        && d.longitude is number && d.longitude >= -180 && d.longitude <= 180
+        && d.radiusMeters is number && d.radiusMeters >= 1 && d.radiusMeters <= 5000
+        && d.building is string && d.building.size() <= 120
+        && (d.floor == null || d.floor is int)
+        && d.plusCode is string && d.plusCode.size() <= 20
+        && d.pointType == 'building_map_reference' && d.roomCenterVerified == false
+        && d.source is string && d.source.size() <= 300
+        && d.caution is string && d.caution.size() <= 500
+        && d.createdAt is timestamp && d.updatedAt is timestamp
+        && d.updatedBy is string && d.updatedBy == request.auth.uid;
+    }
+
+    match /labLocations/{locationId} {
+      allow get, list: if isAuthenticated();
+      allow create: if isAssistant() && validLabLocation(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAssistant() && validLabLocation(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isAssistant();
     }
 
     match /{document=**} { allow read, write: if false; }

@@ -123,7 +123,7 @@ const scheduleId = await repo.createSchedule({
   title: 'Pertemuan 5',
   startAt: new Date('2026-11-16T08:00:00+07:00'),
   endAt: new Date('2026-11-16T10:00:00+07:00'),
-  location: 'Lab Komputasi 1',
+  location: 'Lab Informatika B',
 });
 const sessionId = await repo.createSessionFromSchedule(scheduleId, currentUser.uid);
 await repo.openSession(sessionId, currentUser.uid);
