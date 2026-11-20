@@ -44,6 +44,7 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
   const [confirmation, setConfirmation] = useState<SubmissionPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [sessionPickerVisible, setSessionPickerVisible] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const guard = useRef(false);
   const mounted = useRef(true);
   const sessions = overview.sessions.filter(
@@ -64,9 +65,9 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
     overview.schedules.find((s) => s.id === selected?.scheduleId)?.title ??
     'Pilih jadwal praktikum';
   const className = overview.classes.find((c) => c.id === selected?.classId)?.className ?? '';
-  const isExpired = selected ? selected.endAt.toMillis() <= Date.now() : false;
+  const isExpired = selected ? selected.endAt.toMillis() <= now : false;
   const isSelectable = (session: (typeof sessions)[number]) =>
-    session.status !== 'closed' && session.status !== 'cancelled' && session.endAt.toMillis() > Date.now();
+    session.status !== 'closed' && session.status !== 'cancelled' && session.endAt.toMillis() > now;
   const loading =
     overview.status === 'loading' || permissions.status === 'loading' ||
     (!!selected && attendance.status === 'loading');
@@ -86,8 +87,12 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
 
   useEffect(() => {
     mounted.current = true;
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 30000);
     return () => {
       mounted.current = false;
+      clearInterval(timer);
     };
   }, []);
   function preview() {
@@ -337,7 +342,7 @@ function FormContent({ initialSessionId }: { initialSessionId?: string }) {
                   ? session.status === 'open'
                     ? 'Sedang dibuka'
                     : 'Belum dibuka'
-                  : session.status === 'closed' || session.endAt.toMillis() <= Date.now()
+                  : session.status === 'closed' || session.endAt.toMillis() <= now
                     ? 'Ditutup / kadaluarsa'
                     : 'Tidak tersedia';
                 return (
