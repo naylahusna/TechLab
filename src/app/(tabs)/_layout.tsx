@@ -76,7 +76,7 @@ export default function TabsLayout() {
           href: currentUser.role === 'asisten' ? undefined : null,
           tabBarButtonTestID: 'tab-lokasi',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon kind="jadwal" color={color} selected={focused} />
+            <TabIcon kind="lokasi" color={color} selected={focused} />
           ),
         }}
       />

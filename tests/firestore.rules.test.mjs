@@ -153,6 +153,38 @@ test('assistant can create and edit lab locations with the required location sch
   await assertSucceeds(setDoc(ref, location));
   await assertSucceeds(updateDoc(ref, { name: 'Lab Informatika B Baru', updatedAt: serverTimestamp() }));
   await assertFails(setDoc(doc(db, 'labLocations', 'invalid'), { ...location, id: 'invalid' }));
+  for (const [index, overrides] of [
+    { latitude: -91 },
+    { latitude: 91 },
+    { longitude: -181 },
+    { longitude: 181 },
+    { radiusMeters: 0 },
+    { radiusMeters: -1 },
+  ].entries()) {
+    await assertFails(setDoc(doc(db, 'labLocations', `invalid-${index}`), { ...location, ...overrides }));
+  }
+});
+test('practitioners cannot create, update, or delete lab locations', async () => {
+  await seed('assistant', 'asisten');
+  await seed('student', 'praktikan');
+  const assistantDb = env.authenticatedContext('assistant').firestore();
+  const studentDb = env.authenticatedContext('student').firestore();
+  const existing = doc(assistantDb, 'labLocations', 'lab-b');
+  await setDoc(existing, {
+    name: 'Lab Informatika B', latitude: -7.0482375, longitude: 110.440765625,
+    radiusMeters: 100, building: 'Gedung E FSM UNDIP', floor: 2, plusCode: '',
+    pointType: 'building_map_reference', roomCenterVerified: false,
+    source: 'Google Maps listing', caution: 'Building reference',
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: 'assistant',
+  });
+  await assertFails(setDoc(doc(studentDb, 'labLocations', 'student-lab'), {
+    name: 'Lab Baru', latitude: 0, longitude: 0, radiusMeters: 100,
+    building: 'Gedung E', floor: null, plusCode: '', pointType: 'building_map_reference',
+    roomCenterVerified: false, source: 'test', caution: 'test',
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: 'student',
+  }));
+  await assertFails(updateDoc(doc(studentDb, 'labLocations', 'lab-b'), { name: 'Lab Diubah', updatedAt: serverTimestamp() }));
+  await assertFails(deleteDoc(doc(studentDb, 'labLocations', 'lab-b')));
 });
 test('unimplemented feature collections and orphan subcollections are denied', async () => {
   const db = env.authenticatedContext('alice').firestore();
