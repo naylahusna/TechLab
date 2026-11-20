@@ -1,42 +1,23 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '../../../components/Text';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
-import { ConfirmAttendanceSheet } from '../components/ConfirmAttendanceSheet';
-import { FeedbackBanner } from '../components/FeedbackBanner';
 import { InfoRow } from '../components/InfoRow';
-import { getAttendanceAction } from '../lib/attendance-action';
 import { ATTENDANCE_STATUS_META, SESSION_STATUS_META } from '../lib/status';
 import { colors, fontWeights, lineHeights, radius, spacing, typography } from '../theme';
 import type {
-  AttendanceActionResult,
   AttendanceInfo,
-  PraktikanIdentity,
   SessionDetail,
 } from '../types';
 
 type SessionDetailScreenProps = {
   session: SessionDetail;
-  praktikan: PraktikanIdentity;
   onBack: () => void;
-  onConfirmAttendance: () => AttendanceActionResult | Promise<AttendanceActionResult>;
+  onOpenAttendance: () => void;
 };
-
-function resolveAttendance(attendance: AttendanceInfo, success: boolean): AttendanceInfo {
-  if (attendance.status === 'hadir') {
-    return attendance;
-  }
-
-  if (success) {
-    return { status: 'hadir', attendedAtLabel: null, attendedAtDateLabel: null };
-  }
-
-  return attendance;
-}
 
 function getAttendanceMomentLabel(attendance: AttendanceInfo): string | null {
   if (attendance.attendedAtDateLabel && attendance.attendedAtLabel) {
@@ -68,91 +49,25 @@ function getAttendanceHint(attendance: AttendanceInfo): string {
 }
 
 export function SessionDetailScreen(props: SessionDetailScreenProps) {
-  // Key membuat modal, error, dan feedback reset saat sesi atau pengguna berganti.
-  return <SessionDetailContent key={`${props.praktikan.id}:${props.session.id}`} {...props} />;
+  return <SessionDetailContent key={props.session.id} {...props} />;
 }
 
 function SessionDetailContent({
   session,
-  praktikan,
   onBack,
-  onConfirmAttendance,
+  onOpenAttendance,
 }: SessionDetailScreenProps) {
   const insets = useSafeAreaInsets();
-  const [confirmVisible, setConfirmVisible] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
-  const submittingRef = useRef(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 15_000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const effectiveAttendance = resolveAttendance(session.myAttendance, success);
+  const effectiveAttendance = session.myAttendance;
 
   const sessionStatus = SESSION_STATUS_META[session.status];
   const attendanceStatus = ATTENDANCE_STATUS_META[effectiveAttendance.status];
-  const attendanceAction = getAttendanceAction(
-    session.status,
-    effectiveAttendance.status,
-    session.startsAt,
-    session.endsAt,
-    now,
-  );
 
   function handleBack() {
-    if (!submittingRef.current) {
-      onBack();
-    }
-  }
-
-  function handleOpenConfirm() {
-    if (attendanceAction.disabled) {
-      return;
-    }
-
-    setSubmitError(null);
-    setConfirmVisible(true);
-  }
-
-  function handleCancel() {
-    if (!submittingRef.current) {
-      setConfirmVisible(false);
-      setSubmitError(null);
-    }
-  }
-
-  async function handleConfirm() {
-    if (submittingRef.current) {
-      return;
-    }
-
-    submittingRef.current = true;
-    setIsSubmitting(true);
-    setSubmitError(null);
-
-    try {
-      const result = await onConfirmAttendance();
-
-      if (result.ok) {
-        setSuccess(true);
-        setConfirmVisible(false);
-      } else {
-        setSubmitError(result.reason);
-      }
-    } catch {
-      setSubmitError('Presensi gagal dicatat. Silakan coba lagi.');
-    } finally {
-      submittingRef.current = false;
-      setIsSubmitting(false);
-    }
+    onBack();
   }
 
   const attendanceHint = getAttendanceHint(effectiveAttendance);
-  const attendanceMoment = getAttendanceMomentLabel(effectiveAttendance);
 
   return (
     <>
@@ -181,6 +96,8 @@ function SessionDetailContent({
           </View>
         </View>
 
+        <Button label="Buka Halaman Presensi" onPress={onOpenAttendance} />
+
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Informasi Sesi</Text>
           <InfoRow label="Kelas" value={session.className} />
@@ -190,18 +107,6 @@ function SessionDetailContent({
           <InfoRow label="Status Sesi" value={sessionStatus.label} last />
         </View>
 
-        {success ? (
-          <FeedbackBanner
-            tone="success"
-            title="Presensi berhasil"
-            message={
-              attendanceMoment
-                ? `Kehadiranmu tercatat ${attendanceMoment}.`
-                : 'Kehadiranmu berhasil dicatat.'
-            }
-          />
-        ) : null}
-
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Presensi Kamu</Text>
           <View style={styles.attendanceRow}>
@@ -210,28 +115,7 @@ function SessionDetailContent({
           </View>
           <Text style={styles.attendanceHint}>{attendanceHint}</Text>
         </View>
-
-        <View style={styles.cta}>
-          <Button
-            label={attendanceAction.label}
-            onPress={handleOpenConfirm}
-            disabled={attendanceAction.disabled}
-          />
-          {attendanceAction.reason ? (
-            <Text style={styles.reason}>{attendanceAction.reason}</Text>
-          ) : null}
-        </View>
       </ScrollView>
-
-      <ConfirmAttendanceSheet
-        visible={confirmVisible}
-        praktikan={praktikan}
-        session={session}
-        isSubmitting={isSubmitting}
-        errorMessage={submitError}
-        onCancel={handleCancel}
-        onConfirm={handleConfirm}
-      />
     </>
   );
 }

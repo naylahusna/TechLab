@@ -11,6 +11,7 @@ type JadwalScreenProps = {
   sessions: SessionListItem[];
   praktikanName?: string;
   praktikanInitials?: string;
+  onOpenAttendance: (sessionId: string) => void;
   onOpenSession: (sessionId: string) => void;
 };
 
@@ -19,6 +20,7 @@ export function JadwalScreen({
   sessions,
   praktikanName,
   praktikanInitials,
+  onOpenAttendance,
   onOpenSession,
 }: JadwalScreenProps) {
   const isEmpty = sessions.length === 0;
@@ -40,7 +42,7 @@ export function JadwalScreen({
     <View style={styles.screen}>
       <ScreenHeader
         title="Jadwal Praktikum"
-        subtitle="Pilih sesi untuk melihat detail dan melakukan presensi."
+        subtitle="Pilih sesi untuk melihat status dan melakukan presensi."
         greeting={praktikanName}
         initials={praktikanInitials}
         summary={summary}
@@ -59,7 +61,11 @@ export function JadwalScreen({
         }
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         renderItem={({ item }) => (
-          <SessionCard session={item} onPress={() => onOpenSession(item.id)} />
+          <SessionCard
+            session={item}
+            onOpenAttendance={() => onOpenAttendance(item.id)}
+            onOpenDetails={() => onOpenSession(item.id)}
+          />
         )}
         showsVerticalScrollIndicator={false}
       />
