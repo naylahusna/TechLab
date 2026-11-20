@@ -115,7 +115,7 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       title: 'Pertemuan 5',
       startAt: activeStartAt,
       endAt: activeEndAt,
-      location: 'Lab Komputasi 1',
+      location: 'Lab Informatika B',
     });
     const autoCreatedSession = await assistantRepo.getSession(scheduleId);
     assert.ok(autoCreatedSession);
@@ -154,7 +154,7 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       title: 'Jadwal A',
       startAt: new Date('2026-12-01T08:00:00+07:00'),
       endAt: new Date('2026-12-01T10:00:00+07:00'),
-      location: 'Lab Komputasi 2',
+      location: 'Lab Informatika C',
     });
     await assert.rejects(
       () => assistantRepo.openSession(firstScheduleId, assistantId, new Date('2026-12-01T10:05:00+07:00')),
@@ -167,7 +167,7 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
           title: 'Jadwal Bentrok',
           startAt: new Date('2026-12-01T09:00:00+07:00'),
           endAt: new Date('2026-12-01T11:00:00+07:00'),
-          location: 'Lab Komputasi 2',
+          location: 'Lab Informatika C',
         }),
       /bentrok/i,
     );
@@ -176,7 +176,7 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       title: 'Jadwal B',
       startAt: new Date('2026-12-01T10:00:00+07:00'),
       endAt: new Date('2026-12-01T12:00:00+07:00'),
-      location: 'Lab Komputasi 2',
+      location: 'Lab Informatika C',
     });
     await assert.rejects(
       () =>
@@ -185,7 +185,7 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
           title: 'Jadwal B',
           startAt: new Date('2026-12-01T09:00:00+07:00'),
           endAt: new Date('2026-12-01T11:00:00+07:00'),
-          location: 'Lab Komputasi 2',
+          location: 'Lab Informatika C',
         }),
       /bentrok/i,
     );
@@ -194,7 +194,7 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       title: 'Jadwal B',
       startAt: new Date('2026-12-01T10:00:00+07:00'),
       endAt: new Date('2026-12-01T12:00:00+07:00'),
-      location: 'Lab Komputasi 2',
+      location: 'Lab Informatika C',
     });
     await assistantRepo.archiveSchedule(firstScheduleId);
     await assistantRepo.createSchedule({
@@ -202,7 +202,7 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       title: 'Jadwal C',
       startAt: new Date('2026-12-01T08:00:00+07:00'),
       endAt: new Date('2026-12-01T10:00:00+07:00'),
-      location: 'Lab Komputasi 2',
+      location: 'Lab Informatika C',
     });
 
     await new Promise((resolve, reject) => {

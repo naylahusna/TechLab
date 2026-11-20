@@ -87,7 +87,7 @@ async function seedSchedule(scheduleId, classId) {
       title: 'Pertemuan 5',
       startAt,
       endAt,
-      location: 'Lab Komputasi 1',
+      location: 'Lab Informatika B',
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
       archivedAt: null,

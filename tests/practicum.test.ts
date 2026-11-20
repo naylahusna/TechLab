@@ -101,14 +101,14 @@ test('schedule validation enforces a valid time range', () => {
       title: ' Pertemuan 5 ',
       startAt,
       endAt,
-      location: ' Lab Komputasi 1 ',
+      location: ' Lab Informatika B ',
     }),
     {
       classId: 'class-if-a',
       title: 'Pertemuan 5',
       startAt,
       endAt,
-      location: 'Lab Komputasi 1',
+      location: 'Lab Informatika B',
     },
   );
   assert.throws(() =>
@@ -153,7 +153,7 @@ function recapFixture() {
     title: `Pertemuan ${index}`,
     startAt: at(`2026-11-${String(index * 7 + 9).padStart(2, '0')}T08:00:00+07:00`),
     endAt: at(`2026-11-${String(index * 7 + 9).padStart(2, '0')}T10:00:00+07:00`),
-    location: 'Lab Komputasi 1',
+    location: 'Lab Informatika B',
     createdAt: at('2026-11-01T00:00:00+07:00'),
     updatedAt: at('2026-11-01T00:00:00+07:00'),
     archivedAt: null,
