@@ -70,6 +70,17 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="lokasi"
+        options={{
+          title: 'Lokasi Lab',
+          href: currentUser.role === 'asisten' ? undefined : null,
+          tabBarButtonTestID: 'tab-lokasi',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon kind="jadwal" color={color} selected={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profil"
         options={{
           title: navigation.profil.label,
