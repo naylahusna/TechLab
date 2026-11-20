@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../components/Text';
 import { useAuth } from '../../features/auth/AuthProvider';
-import { type LabLocation, removeLabLocation, saveLabLocation, seedInitialLabLocations, watchLabLocations } from '../../features/assistant/lab-locations';
+import { type LabLocation, removeLabLocation, saveLabLocation, watchLabLocations } from '../../features/assistant/lab-locations';
 import { ScreenHeader } from '../../features/practitioner/components/ScreenHeader';
 import { initialsFor } from '../../features/practicum/profile-view';
 import { colors } from '../../theme/tokens';
@@ -21,11 +21,8 @@ export default function LabLocationsRoute() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    let mounted = true;
-    if (auth.profile?.role === 'asisten') void seedInitialLabLocations().catch((e) => { if (mounted) setError(e instanceof Error ? e.message : 'Lokasi awal gagal dimuat.'); });
-    const unsubscribe = watchLabLocations(setLocations, (e) => setError(e.message));
-    return () => { mounted = false; unsubscribe(); };
-  }, [auth.profile?.role]);
+    return watchLabLocations(setLocations, (e) => setError(e.message));
+  }, []);
   const reset = () => { setEditing(null); setName(''); setLatitude(''); setLongitude(''); setRadius('100'); setBuilding(''); setFloor(''); };
   const edit = (item: LabLocation) => { setEditing(item); setName(item.name); setLatitude(String(item.latitude)); setLongitude(String(item.longitude)); setRadius(String(item.radiusMeters)); setBuilding(item.building); setFloor(item.floor == null ? '' : String(item.floor)); };
   const submit = async () => {
