@@ -21,7 +21,6 @@ import {
   toAssistantSessionItem,
   toAttendanceSummary,
   toPractitionerSessionDetail,
-  toPraktikanIdentity,
 } from '../../../features/practicum/session-view';
 import { SessionDetailScreen } from '../../../features/practitioner';
 import { colors } from '../../../theme/tokens';
@@ -140,7 +139,6 @@ export default function SesiRoute() {
     detail.attendance,
     userId,
   );
-  const praktikan = toPraktikanIdentity(auth.profile);
   const myPermission = permissionResource.data.find(
     (p) => p.sessionId === session.id && p.userId === userId,
   );
@@ -148,16 +146,6 @@ export default function SesiRoute() {
     if (myPermission.status === 'approved') practitionerSession.myAttendance.status = 'izin';
     if (myPermission.status === 'pending')
       practitionerSession.myAttendance.status = 'izin-menunggu';
-  }
-
-  async function confirmAttendance() {
-    try {
-      await getPracticumRepository().recordAttendance(session.id, userId);
-      await detail.reload();
-      return { ok: true as const };
-    } catch (cause) {
-      return { ok: false as const, reason: practicumErrorMessage(cause) };
-    }
   }
 
   return (
@@ -169,9 +157,8 @@ export default function SesiRoute() {
       />
       <SessionDetailScreen
         session={practitionerSession}
-        praktikan={praktikan}
         onBack={goBack}
-        onConfirmAttendance={confirmAttendance}
+        onOpenAttendance={() => router.push(`/sesi/${session.id}/presensi`)}
       />
       <View
         style={{

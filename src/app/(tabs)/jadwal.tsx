@@ -101,6 +101,9 @@ export default function ScheduleRoute() {
         sessions={sessions}
         praktikanName={auth.profile.name}
         praktikanInitials={initialsFor(auth.profile.name)}
+        onOpenAttendance={(sessionId) =>
+          router.push({ pathname: '/sesi/[id]/presensi', params: { id: sessionId } })
+        }
         onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
       />
     </View>
