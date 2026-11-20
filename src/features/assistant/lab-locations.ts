@@ -50,7 +50,7 @@ export async function seedInitialLabLocations() {
   const existing = await getDocs(collection(db, 'labLocations'));
   if (!existing.empty) return;
   const uid = getFirebaseAuth().currentUser?.uid ?? '';
-  await Promise.all(INITIAL_LAB_LOCATIONS.map((item) => setDoc(doc(db, 'labLocations', item.id), {
+  await Promise.all(INITIAL_LAB_LOCATIONS.map(({ id, ...item }) => setDoc(doc(db, 'labLocations', id), {
     ...item,
     radiusMeters: 100,
     pointType: 'building_map_reference',

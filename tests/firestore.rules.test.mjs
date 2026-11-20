@@ -130,6 +130,30 @@ test('operator-provisioned assistant can edit own profile but cannot change own 
     updateDoc(own('assistant'), { role: 'praktikan', updatedAt: serverTimestamp() }),
   );
 });
+test('assistant can create and edit lab locations with the required location schema', async () => {
+  await seed('assistant', 'asisten');
+  const db = env.authenticatedContext('assistant').firestore();
+  const ref = doc(db, 'labLocations', 'lab-b');
+  const location = {
+    name: 'Lab Informatika B',
+    latitude: -7.0482375,
+    longitude: 110.440765625,
+    radiusMeters: 100,
+    building: 'Gedung E FSM UNDIP',
+    floor: 2,
+    plusCode: '',
+    pointType: 'building_map_reference',
+    roomCenterVerified: false,
+    source: 'Google Maps business listing Plus Codes',
+    caution: 'Building-level map reference only',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    updatedBy: 'assistant',
+  };
+  await assertSucceeds(setDoc(ref, location));
+  await assertSucceeds(updateDoc(ref, { name: 'Lab Informatika B Baru', updatedAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(db, 'labLocations', 'invalid'), { ...location, id: 'invalid' }));
+});
 test('unimplemented feature collections and orphan subcollections are denied', async () => {
   const db = env.authenticatedContext('alice').firestore();
   for (const path of [
