@@ -1,9 +1,9 @@
 import { doc, runTransaction, serverTimestamp, type Firestore } from 'firebase/firestore';
-import { validateProfile, type ProfileFields } from './model';
+import { validateProfile, type ProfileFields, type RegistrationRole } from './model';
 
 export function createProfileRepository(db: Firestore) {
   return {
-    async create(uid: string, fields: ProfileFields) {
+    async create(uid: string, fields: ProfileFields, role: RegistrationRole = 'praktikan') {
       const clean = validateProfile(fields);
       const ref = doc(db, 'users', uid);
       // Retrying never overwrites an existing profile or resets an assistant role.
@@ -23,14 +23,14 @@ export function createProfileRepository(db: Firestore) {
         transaction.set(ref, {
           uid,
           ...clean,
-          role: 'praktikan',
+          role,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
         transaction.set(doc(db, 'userDirectory', uid), {
           uid,
           ...clean,
-          role: 'praktikan',
+          role,
           updatedAt: serverTimestamp(),
         });
       });

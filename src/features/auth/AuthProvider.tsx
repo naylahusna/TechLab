@@ -22,6 +22,7 @@ import {
   validateCredentials,
   validateProfile,
   type ProfileFields,
+  type RegistrationRole,
 } from './model';
 import { createOwnProfile, updateOwnProfile } from './profile-service';
 import { createSessionStore } from './session-store';
@@ -59,6 +60,7 @@ function createAuthSession() {
 function useAuthSession() {
   const [store] = useState(createAuthSession);
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  const [assistantModeUid, setAssistantModeUid] = useState<string | null>(null);
   const [provisioning, setProvisioning] = useState(false);
   useEffect(() => store.start(), [store]);
   const actions = useMemo(
@@ -70,7 +72,7 @@ function useAuthSession() {
           password,
         );
       },
-      async register(email: string, password: string, fields: ProfileFields) {
+      async register(email: string, password: string, fields: ProfileFields, role: RegistrationRole) {
         const normalized = validateCredentials(email, password, true);
         const clean = validateProfile(fields);
         setProvisioning(true);
@@ -80,15 +82,15 @@ function useAuthSession() {
             normalized,
             password,
           );
-          await createOwnProfile(user.uid, clean);
+          await createOwnProfile(user.uid, clean, role);
         } finally {
           setProvisioning(false);
         }
       },
-      async completeProfile(fields: ProfileFields) {
+      async completeProfile(fields: ProfileFields, role: RegistrationRole) {
         const user = getFirebaseAuth().currentUser;
         if (!user) throw new Error('Silakan login kembali.');
-        await createOwnProfile(user.uid, fields);
+        await createOwnProfile(user.uid, fields, role);
       },
       async saveProfile(fields: ProfileFields) {
         const user = getFirebaseAuth().currentUser;
@@ -96,6 +98,7 @@ function useAuthSession() {
         await updateOwnProfile(user.uid, fields);
       },
       async logout() {
+        setAssistantModeUid(null);
         store.suspend();
         try {
           await signOut(getFirebaseAuth());
@@ -108,7 +111,17 @@ function useAuthSession() {
     }),
     [store],
   );
-  return { ...state, provisioning, ...actions };
+  const isLabAdmin = state.profile?.role === 'admin';
+  const assistantMode = state.profile?.role === 'admin' && state.profile.uid === assistantModeUid;
+  const profile = assistantMode && state.profile ? { ...state.profile, role: 'asisten' as const } : state.profile;
+
+  return {
+    ...state, profile, provisioning, ...actions, isLabAdmin, assistantMode,
+    toggleAdminMode() {
+      if (state.profile?.role !== 'admin' || state.fromCache) return;
+      setAssistantModeUid(assistantMode ? null : state.profile.uid);
+    },
+  };
 }
 
 const AuthContext = createContext<ReturnType<typeof useAuthSession> | null>(null);

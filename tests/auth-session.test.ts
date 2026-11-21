@@ -111,7 +111,8 @@ test('input and profile validation reject role/UID spoofing and malformed fields
   });
   assert.throws(() => validateProfile({ name: 'a', number: '1' }));
   assert.throws(() => validateProfile({ name: 'Valid Name', number: 'x'.repeat(33) }));
-  assert.throws(() => parseProfile('a', { ...profile('a'), role: 'admin' }));
+  assert.equal(parseProfile('a', { ...profile('a'), role: 'admin' }).role, 'admin');
+  assert.throws(() => parseProfile('a', { ...profile('a'), role: 'superadmin' }));
   assert.throws(() => parseProfile('b', profile('a')));
   assert.equal(
     authErrorMessage({ code: 'auth/invalid-credential' }),
