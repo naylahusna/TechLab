@@ -81,6 +81,20 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
         }),
       );
     }
+    await env.withSecurityRulesDisabled(async (context) => {
+      const adminDb = context.firestore();
+      await Promise.all(
+        [
+          { name: 'Lab Informatika B', latitude: -7.0482375, longitude: 110.440765625 },
+          { name: 'Lab Informatika C', latitude: -7.0482375, longitude: 110.440765625 },
+        ].map((lab) =>
+          adminSetDoc(adminDoc(adminDb, 'labLocations', lab.name.toLowerCase().replaceAll(' ', '-')), {
+            ...lab,
+            radiusMeters: 100,
+          }),
+        ),
+      );
+    });
     const [assistant, otherAssistant, student, student2, outsider] = clients;
     const classId = await assistant.practicum.createClass(
       { className: 'Kelas Izin', courseName: 'PPK' },
@@ -98,7 +112,7 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
       title: 'Sesi Integrasi Izin',
       startAt: new Date(Date.now() - 10 * 60_000),
       endAt: new Date(Date.now() + 110 * 60_000),
-      location: 'Lab 1',
+      location: 'Lab Informatika B',
     });
     const sessionId = await assistant.practicum.createSessionFromSchedule(
       scheduleId,
@@ -164,6 +178,18 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
     );
     await assert.rejects(student.permissions.decide(id, student.profile, 'approved', ''));
     await assert.rejects(assistant.permissions.decide(id, assistant.profile, 'rejected', ''));
+    await assert.rejects(
+      () => student.practicum.recordAttendance(sessionId, student.profile.uid, {
+        latitude: 0,
+        longitude: 0,
+        accuracy: 10,
+      }),
+      /di luar radius/i,
+    );
+    await assert.rejects(
+      () => student.practicum.recordAttendance(sessionId, student.profile.uid),
+      /koordinat perangkat/i,
+    );
     await assert.rejects(student.practicum.recordAttendance(sessionId, student.profile.uid, {
       latitude: -7.0482375,
       longitude: 110.440765625,

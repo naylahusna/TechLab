@@ -94,6 +94,17 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
         role: 'praktikan',
         updatedAt: now,
       });
+      await Promise.all(
+        [
+          { name: 'Lab Informatika B', latitude: -7.0482375, longitude: 110.440765625 },
+          { name: 'Lab Informatika C', latitude: -7.0482375, longitude: 110.440765625 },
+        ].map((lab) =>
+          adminSetDoc(adminDoc(adminDb, 'labLocations', lab.name.toLowerCase().replaceAll(' ', '-')), {
+            ...lab,
+            radiusMeters: 100,
+          }),
+        ),
+      );
     });
 
     await signInWithEmailAndPassword(auth, assistantEmail, password);
@@ -254,6 +265,18 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       );
     });
 
+    await assert.rejects(
+      () => practitionerRepo.recordAttendance(sessionId, practitionerId, {
+        latitude: 0,
+        longitude: 0,
+        accuracy: 10,
+      }),
+      /di luar radius/i,
+    );
+    await assert.rejects(
+      () => practitionerRepo.recordAttendance(sessionId, practitionerId),
+      /koordinat perangkat/i,
+    );
     await practitionerRepo.recordAttendance(sessionId, practitionerId, {
       latitude: -7.0482375,
       longitude: 110.440765625,
@@ -282,6 +305,24 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
     const closedSession = await assistantRepo.getSession(sessionId);
     assert.equal(closedSession.openedBy, assistantId);
     assert.equal(closedSession.closedBy, assistantId);
+    await env.withSecurityRulesDisabled(async (context) => {
+      await adminSetDoc(adminDoc(context.firestore(), 'attendances', `${sessionId}_legacy-user`), {
+        sessionId,
+        classId,
+        userId: 'legacy-user',
+        status: 'present',
+        recordedAt: adminTimestamp.now(),
+      });
+    });
+    const recordsWithLegacy = await assistantRepo.listAttendance(sessionId);
+    assert.equal(recordsWithLegacy.length, 2);
+    const legacyAttendance = recordsWithLegacy.find((item) => item.userId === 'legacy-user');
+    assert.equal(legacyAttendance.latitude, null);
+    assert.equal(legacyAttendance.longitude, null);
+    assert.equal(legacyAttendance.distanceMeters, null);
+    assert.equal(legacyAttendance.allowedRadiusMeters, null);
+    assert.equal(legacyAttendance.locationValidated, false);
+    assert.equal(legacyAttendance.labName, null);
 
     await signOut(auth);
     await signInWithEmailAndPassword(auth, practitionerEmail, password);

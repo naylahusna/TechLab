@@ -335,13 +335,6 @@ test('attendance is one record per session and only for enrolled practitioners i
       allowedRadiusMeters: 100,
       locationValidated: true,
       labName: 'Lab Informatika B',
-      latitude: -7.0482375,
-      longitude: 110.440765625,
-      accuracyMeters: 10,
-      distanceMeters: 5,
-      allowedRadiusMeters: 100,
-      locationValidated: true,
-      labName: 'Lab Informatika B',
     }),
   );
   await assertFails(
@@ -389,6 +382,37 @@ test('attendance is one record per session and only for enrolled practitioners i
       labName: 'Lab Informatika B',
     }),
   );
+
+  for (const [sessionId, invalidLocation] of [
+    ['schedule-3', { distanceMeters: 101, allowedRadiusMeters: 100 }],
+    ['schedule-4', { locationValidated: false }],
+    ['schedule-5', { omitCoordinates: true }],
+  ]) {
+    await seedSession(sessionId, sessionId, 'class-1', 'open', ['praktikan-1']);
+    const payload = {
+      sessionId,
+      classId: 'class-1',
+      userId: 'praktikan-1',
+      status: 'present',
+      recordedAt: serverTimestamp(),
+      latitude: -7.0482375,
+      longitude: 110.440765625,
+      accuracyMeters: 10,
+      distanceMeters: 5,
+      allowedRadiusMeters: 100,
+      locationValidated: true,
+      labName: 'Lab Informatika B',
+      ...invalidLocation,
+    };
+    if (payload.omitCoordinates) {
+      delete payload.latitude;
+      delete payload.longitude;
+      delete payload.omitCoordinates;
+    }
+    await assertFails(
+      setDoc(doc(practitioner, 'attendances', `${sessionId}_praktikan-1`), payload),
+    );
+  }
 
   const assistant = env.authenticatedContext('asisten-1').firestore();
   const saved = await assertSucceeds(

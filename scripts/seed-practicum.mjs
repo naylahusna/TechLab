@@ -325,7 +325,7 @@ try {
         distanceMeters: 5,
         allowedRadiusMeters: 100,
         locationValidated: true,
-        labName: 'Lab Informatika B',
+        labName: 'Lab Informatika C',
       }),
     ]);
 

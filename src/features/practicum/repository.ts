@@ -219,15 +219,6 @@ function toAttendance(snapshot: DocumentSnapshot<DocumentData>): PracticumAttend
   const data = snapshot.data() ?? {};
   if (data.status !== 'present')
     throw new PracticumError('INVALID_INPUT', 'Status presensi tidak valid.');
-  if (
-    typeof data.latitude !== 'number'
-    || typeof data.longitude !== 'number'
-    || typeof data.distanceMeters !== 'number'
-    || typeof data.allowedRadiusMeters !== 'number'
-    || data.locationValidated !== true
-  ) {
-    throw new PracticumError('INVALID_INPUT', 'Data lokasi presensi tidak valid.');
-  }
   return {
     id: snapshot.id,
     sessionId: asString(data.sessionId),
@@ -235,13 +226,13 @@ function toAttendance(snapshot: DocumentSnapshot<DocumentData>): PracticumAttend
     userId: asString(data.userId),
     status: 'present',
     recordedAt: asTimestamp(data.recordedAt),
-    latitude: data.latitude,
-    longitude: data.longitude,
+    latitude: typeof data.latitude === 'number' ? data.latitude : null,
+    longitude: typeof data.longitude === 'number' ? data.longitude : null,
     accuracyMeters: typeof data.accuracyMeters === 'number' ? data.accuracyMeters : null,
-    distanceMeters: data.distanceMeters,
-    allowedRadiusMeters: data.allowedRadiusMeters,
-    locationValidated: true,
-    labName: asString(data.labName),
+    distanceMeters: typeof data.distanceMeters === 'number' ? data.distanceMeters : null,
+    allowedRadiusMeters: typeof data.allowedRadiusMeters === 'number' ? data.allowedRadiusMeters : null,
+    locationValidated: data.locationValidated === true,
+    labName: typeof data.labName === 'string' ? data.labName : null,
   };
 }
 

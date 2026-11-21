@@ -80,13 +80,13 @@ export type PracticumAttendance = Readonly<{
   userId: string;
   status: 'present';
   recordedAt: Timestamp;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   accuracyMeters: number | null;
-  distanceMeters: number;
-  allowedRadiusMeters: number;
-  locationValidated: true;
-  labName: string;
+  distanceMeters: number | null;
+  allowedRadiusMeters: number | null;
+  locationValidated: boolean;
+  labName: string | null;
 }>;
 
 export type PracticumClassInput = Readonly<{
