@@ -48,13 +48,13 @@ export function LabMapScreen() {
     if (labs?.some((lab) => lab.id === id)) setSelectedId(id);
   }, [labs]);
 
-  function recenter({ latitude, longitude }: MapCenter) {
-    setFocus((previous) => ({ latitude, longitude, revision: (previous?.revision ?? 0) + 1 }));
+  function recenter({ latitude, longitude }: MapCenter, target: 'user' | 'lab') {
+    setFocus((previous) => ({ latitude, longitude, target, revision: (previous?.revision ?? 0) + 1 }));
   }
 
   function focusOn(lab: LabLocation | null) {
     setSelectedId(lab?.id ?? null);
-    recenter(lab ?? campusCenter);
+    recenter(lab ?? campusCenter, 'lab');
   }
 
   return (
@@ -82,12 +82,19 @@ export function LabMapScreen() {
           <Text accessibilityLiveRegion="polite" style={styles.status}>Belum ada lokasi laboratorium.</Text>
         ) : null}
         <View>
-          <Text style={styles.label}>Fokus peta</Text>
+          <View style={styles.focusHeader}>
+            <Text style={styles.label}>Fokus peta</Text>
+            <LocationOption
+              label={location.status === 'stale' ? 'Posisi terakhir' : 'Posisi saya'}
+              active={!!location.position && focus?.target === 'user'}
+              disabled={!location.position}
+              onPress={() => {
+                if (location.position) recenter(location.position, 'user');
+              }}
+            />
+          </View>
           <ScrollView horizontal contentContainerStyle={styles.options}>
             <LocationOption label="Area kampus" onPress={() => focusOn(null)} />
-            <LocationOption label={location.status === 'stale' ? 'Posisi terakhir' : 'Posisi saya'} disabled={!location.position} onPress={() => {
-              if (location.position) recenter(location.position);
-            }} />
             {labs?.map((lab) => (
               <LocationOption key={lab.id} label={lab.name} active={selected?.id === lab.id} onPress={() => focusOn(lab)} />
             ))}
@@ -169,7 +176,8 @@ const styles = StyleSheet.create({
   close: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.paleBlue },
   loading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   status: { color: colors.muted },
-  label: { color: colors.navy, fontWeight: '700', marginBottom: 8 },
+  focusHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 },
+  label: { color: colors.navy, fontWeight: '700' },
   options: { gap: 8 },
   option: { borderRadius: 12, backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 10 },
   locationError: { flexDirection: 'row', alignItems: 'center', gap: 8 },

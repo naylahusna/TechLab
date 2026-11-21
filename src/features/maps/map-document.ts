@@ -30,6 +30,7 @@ export function mapDocument() {
       width: 18px; height: 18px; box-sizing: border-box; border: 3px solid white;
       border-radius: 50%; background: #1565d8; box-shadow: 0 0 0 5px #1565d844;
     }
+    .user-pin.is-focused { box-shadow: 0 0 0 7px #1565d866; }
     .lab-choice {
       display: block; width: 100%; margin: 4px 0; text-align: left; padding: 8px;
       border: 1px solid #d6dbe8; border-radius: 6px; background: white; color: #20251f;
@@ -186,6 +187,7 @@ export function mapDocument() {
 
       window.techLabUpdateMap = (next) => {
         updateUserMarker(next.userLocation);
+        userMarker?.getElement().classList.toggle('is-focused', next.focus?.target === 'user');
         const key = JSON.stringify(next.labs);
         const changed = key !== pointKey;
         if (changed) {
@@ -199,7 +201,13 @@ export function mapDocument() {
         }
         if (next.focus && next.focus.revision !== focusRevision) {
           focusRevision = next.focus.revision;
-          map.setView([next.focus.latitude, next.focus.longitude], 17);
+          const coordinates = [next.focus.latitude, next.focus.longitude];
+          const currentZoom = map.getZoom();
+          const targetZoom = next.focus.target === 'user' ? currentZoom : 17;
+          const distance = map.project(coordinates, currentZoom).distanceTo(map.project(map.getCenter(), currentZoom));
+          if (targetZoom !== currentZoom || distance > 1) {
+            map.setView(coordinates, targetZoom, { animate: false });
+          }
           map.closePopup();
         }
         const zoomDelta = next.zoomSteps - zoomSteps;

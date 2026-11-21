@@ -5,7 +5,7 @@ export type MapState = {
   userLocation: MapCenter | null;
   selectedId: string | null;
   zoomSteps: number;
-  focus: (MapCenter & { revision: number }) | null;
+  focus: (MapCenter & { revision: number; target: 'user' | 'lab' }) | null;
 };
 
 export type MapViewportProps = {
