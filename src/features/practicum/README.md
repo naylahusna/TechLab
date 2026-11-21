@@ -239,7 +239,7 @@ rules + integrasi Auth/Firestore/repository secara berurutan.
 
 Pada Sprint 3 (*Location-Based Attendance, Maps, and Push Notification*), modul ini berintegrasi dengan tiga jalur pekerjaan berikut:
 
-- **Muhammad Fahri (`SRS-01`–`05`):** Pengelolaan koleksi lokasi & radius laboratorium di Cloud Firestore, halaman presensi khusus yang terpisah dari detail sesi, serta validasi radius lokasi pada pencatatan presensi.
+- **Muhammad Fahri (`SRS-01`–`05`, `SRS-17`):** Pengelolaan koleksi lokasi & radius laboratorium di Cloud Firestore, halaman presensi khusus yang terpisah dari detail sesi, validasi radius lokasi pada pencatatan presensi, serta verifikasi tambahan QR Code sesi *(opsional)*.
 - **Nayla Husna (`SRS-06`–`10`):** Pembacaan data kelas, jadwal, dan sesi secara *real-time* untuk menampilkan praktikum yang sedang berlangsung dan berikutnya pada halaman Maps laboratorium.
 - **Arga Yura Danendra (`SRS-12`–`13`):** Pemicu *push notification* ketika sesi dibuka oleh asisten atau jadwal praktikum mengalami perubahan.
 

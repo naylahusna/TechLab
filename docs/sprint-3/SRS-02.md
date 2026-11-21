@@ -14,7 +14,7 @@ Menyediakan halaman khusus untuk melakukan presensi yang terpisah dari halaman d
 - Praktikan dapat mengakses halaman presensi dari halaman detail sesi yang diikutinya.
 - Halaman presensi menampilkan informasi sesi yang akan diikuti (nama praktikum, kelas, pertemuan, nama laboratorium, waktu pelaksanaan) dan batas radius laboratorium.
 - Halaman presensi menampilkan status sesi terkini (`scheduled`, `open`, `closed`, `cancelled`) serta status kehadiran pribadi praktikan.
-- Halaman presensi menampilkan panel hasil pemeriksaan lokasi perangkat dan tombol pelaksanaan presensi.
+- Halaman presensi menampilkan panel hasil pemeriksaan lokasi perangkat dan tombol pelaksanaan presensi (serta pintu pemindai QR sesi bila fitur tambahan `SRS-17` diaktifkan).
 
 ## Kriteria penerimaan
 

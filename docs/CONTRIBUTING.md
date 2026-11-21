@@ -96,7 +96,7 @@ Pembagian kebutuhan Sprint 2:
 
 Pembagian kebutuhan Sprint 3:
 
-- Muhammad Fahri: Laboratory Location & Location-Based Attendance (SRS-01–05).
+- Muhammad Fahri: Laboratory Location, Location-Based Attendance & QR Attendance (SRS-01–05, SRS-17).
 - Nayla Husna: Interactive Laboratory Maps, Live Lab Activity & Lab Admin RBAC (SRS-06–10, SRS-16).
 - Arga Yura Danendra: Push Notification & Device Condition Handling (SRS-11–15).
 

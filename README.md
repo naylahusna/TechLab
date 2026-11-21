@@ -190,33 +190,34 @@ Rincian spesifikasi Sprint 3 terdapat di `docs/sprint-3/`.
 
 | Kode SRS Sprint 3 | Kebutuhan | Owner | Urutan Kerja |
 |---|---|---|---|
-| SRS-01 | Laboratory Location and Radius Management | Muhammad Fahri | 1/5 (Wajib Paling Awal) |
-| SRS-02 | Dedicated Attendance Page | Muhammad Fahri | 2/5 (Berurut) |
-| SRS-03 | Device Geolocation and Location Permission Handling | Muhammad Fahri | 3/5 (Berurut) |
-| SRS-04 | Attendance Radius Validation | Muhammad Fahri | 4/5 (Berurut) |
-| SRS-05 | Location-Verified Attendance Recording | Muhammad Fahri | 5/5 (Berurut) |
-| SRS-06 | Interactive Laboratory Map Page | Nayla Husna | 1/5 (Setelah SRS-01) |
-| SRS-07 | Laboratory Markers and Detail Selection | Nayla Husna | 2/5 (Berurut) |
-| SRS-08 | Live User Location Tracking on Map | Nayla Husna | 3/5 (Berurut) |
-| SRS-09 | Laboratory Ongoing and Upcoming Activity Information | Nayla Husna | 4/5 (Berurut) |
-| SRS-10 | Real-Time Map Activity Sync and Map Device Handling | Nayla Husna | 5/5 (Berurut) |
+| SRS-01 | Laboratory Location and Radius Management | Muhammad Fahri | 1/6 (Wajib Paling Awal) |
+| SRS-02 | Dedicated Attendance Page | Muhammad Fahri | 2/6 (Berurut) |
+| SRS-03 | Device Geolocation and Location Permission Handling | Muhammad Fahri | 3/6 (Berurut) |
+| SRS-04 | Attendance Radius Validation | Muhammad Fahri | 4/6 (Berurut) |
+| SRS-05 | Location-Verified Attendance Recording | Muhammad Fahri | 5/6 (Berurut) |
+| SRS-06 | Interactive Laboratory Map Page | Nayla Husna | 1/6 (Setelah SRS-01) |
+| SRS-07 | Laboratory Markers and Detail Selection | Nayla Husna | 2/6 (Berurut) |
+| SRS-08 | Live User Location Tracking on Map | Nayla Husna | 3/6 (Berurut) |
+| SRS-09 | Laboratory Ongoing and Upcoming Activity Information | Nayla Husna | 4/6 (Berurut) |
+| SRS-10 | Real-Time Map Activity Sync and Map Device Handling | Nayla Husna | 5/6 (Berurut) |
 | SRS-11 | Push Notification Foundation and Device Token Management | Arga Yura Danendra | 1/5 (Langsung Mulai) |
 | SRS-12 | Session Opened Push Notification | Arga Yura Danendra | 2/5 (Berurut) |
 | SRS-13 | Schedule Change Push Notification | Arga Yura Danendra | 3/5 (Berurut) |
 | SRS-14 | Permission Decision Push Notification | Arga Yura Danendra | 4/5 (Berurut) |
 | SRS-15 | Notification Permission, Delivery, and Error Handling | Arga Yura Danendra | 5/5 (Berurut) |
 | SRS-16 | Lab Admin Role and Assistant Account Management | Nayla Husna | 6/6 (Setelah SRS-10) |
+| SRS-17 | QR Code Attendance Verification *(Opsional)* | Muhammad Fahri | 6/6 (Setelah SRS-05) |
 
 ### Susunan Tim — Sprint 3
 
 - **Project Manager (PM):** **Muhammad Zaidaan Ardiyansyah** — Koordinasi kontrak data Firestore, review/merge PR, dan verifikasi integrasi Sprint 3.
-1. **Muhammad Fahri (Programmer 1) — Laboratory Location & Location-Based Attendance:** SRS-01 sampai SRS-05.
+1. **Muhammad Fahri (Programmer 1) — Laboratory Location, Location-Based Attendance & QR Attendance:** SRS-01 sampai SRS-05, dan SRS-17 *(opsional)*.
 2. **Nayla Husna (Programmer 2) — Interactive Laboratory Maps, Live Lab Activity & Lab Admin RBAC:** SRS-06 sampai SRS-10, dan SRS-16.
 3. **Arga Yura Danendra (Programmer 3) — Push Notification & Device Condition Handling:** SRS-11 sampai SRS-15.
 
 ### Target Demonstrasi Sprint 3
 
-1. **Alur 1 — Presensi Berbasis Lokasi (`SRS-01`–`05`):** Asisten membuka sesi praktikum → praktikan membuka halaman khusus presensi → aplikasi memeriksa lokasi perangkat dan radius laboratorium → presensi berhasil dicatat apabila seluruh ketentuan terpenuhi → asisten melihat rekap kehadiran praktikan.
+1. **Alur 1 — Presensi Berbasis Lokasi (`SRS-01`–`05`, opsional + QR `SRS-17`):** Asisten membuka sesi praktikum → praktikan membuka halaman khusus presensi → aplikasi memeriksa lokasi perangkat dan radius laboratorium (serta pemindaian QR sesi bila diaktifkan) → presensi berhasil dicatat apabila seluruh ketentuan terpenuhi → asisten melihat rekap kehadiran praktikan.
 2. **Alur 2 — Peta dan Informasi Laboratorium (`SRS-06`–`10`):** Pengguna membuka halaman Maps → aplikasi menampilkan posisi pengguna (*live*) dan marker laboratorium → pengguna memilih salah satu marker laboratorium → aplikasi menampilkan praktikum yang sedang berlangsung dan praktikum berikutnya (nama praktikum, kelas, waktu pelaksanaan, status sesi) berdasarkan data Firestore.
 3. **Alur 3 — Notifikasi Kegiatan (`SRS-11`–`15`):** Asisten membuka sesi, mengubah jadwal, atau memberikan keputusan izin (diterima/ditolak) → sistem mendeteksi peristiwa tersebut → sistem mengirimkan *push notification* kepada pengguna terkait → pengguna menerima pemberitahuan.
 

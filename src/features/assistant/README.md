@@ -50,5 +50,5 @@ pada commit di atas.
 
 Pada Sprint 3, alur asisten diperluas melalui `docs/sprint-3/`:
 
-- **Muhammad Fahri (`SRS-01`):** Pengelolaan lokasi, koordinat, dan radius presensi laboratorium di Cloud Firestore.
+- **Muhammad Fahri (`SRS-01`, `SRS-17`):** Pengelolaan lokasi, koordinat, dan radius presensi laboratorium di Cloud Firestore, serta tampilan & pembaruan QR Code sesi saat sesi dibuka *(opsional)*.
 - **Arga Yura Danendra (`SRS-12`–`13`):** Pengiriman *push notification* saat asisten membuka sesi praktikum atau mengubah jadwal.
