@@ -16,6 +16,7 @@ export function LabMapScreen() {
   const [labs, setLabs] = useState<LabLocation[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [zoomSteps, setZoomSteps] = useState(0);
   const [focus, setFocus] = useState<MapState['focus']>(null);
 
   useEffect(() => {
@@ -39,8 +40,8 @@ export function LabMapScreen() {
     id, name, latitude, longitude,
   })) ?? [], [labs]);
   const mapState = useMemo(() => ({
-    labs: markers, selectedId: selected?.id ?? null, focus,
-  }), [markers, selected?.id, focus]);
+    labs: markers, selectedId: selected?.id ?? null, focus, zoomSteps,
+  }), [markers, selected?.id, focus, zoomSteps]);
   const selectMarker = useCallback((id: string) => {
     if (labs?.some((lab) => lab.id === id)) setSelectedId(id);
   }, [labs]);
@@ -60,6 +61,10 @@ export function LabMapScreen() {
       <View style={styles.content}>
         <View style={styles.map} testID="lab-map">
           <MapViewport state={mapState} onSelect={selectMarker} />
+          <View style={styles.zoomControls}>
+            <ZoomButton label="Perbesar peta" symbol="+" onPress={() => setZoomSteps((steps) => steps + 1)} />
+            <ZoomButton label="Perkecil peta" symbol="−" onPress={() => setZoomSteps((steps) => steps - 1)} />
+          </View>
         </View>
         {failed ? (
           <Text accessibilityRole="alert" style={styles.status}>Lokasi laboratorium gagal dimuat.</Text>
@@ -84,6 +89,15 @@ export function LabMapScreen() {
         {selected && <LabDetails lab={selected} onClose={() => setSelectedId(null)} />}
       </View>
     </View>
+  );
+}
+
+function ZoomButton({ label, symbol, onPress }: { label: string; symbol: string; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
+      style={({ pressed }) => [styles.zoomButton, pressed && styles.zoomPressed]}>
+      <Text style={styles.zoomSymbol}>{symbol}</Text>
+    </Pressable>
   );
 }
 
@@ -125,6 +139,13 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1, padding: 16, gap: 12 },
   map: { flex: 1, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.paleBlue },
+  zoomControls: { position: 'absolute', left: 10, top: 10, zIndex: 2, gap: 4 },
+  zoomButton: {
+    width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 9,
+  },
+  zoomPressed: { backgroundColor: colors.paleBlue },
+  zoomSymbol: { color: colors.navy, fontSize: 22, fontWeight: '800' },
   details: { padding: 12, gap: 3, backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 16 },
   detailsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
   detailsTitle: { flex: 1, color: colors.navy, fontSize: 17, fontWeight: '800' },

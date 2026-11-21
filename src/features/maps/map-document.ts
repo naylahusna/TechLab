@@ -41,7 +41,7 @@ export function mapDocument() {
     if (!window.L || !window.L.version) {
       status.textContent = 'Peta gagal dimuat. Periksa koneksi internet.';
     } else {
-      const map = L.map('map', { minZoom: 3 }).setView([${latitude}, ${longitude}], 17);
+      const map = L.map('map', { minZoom: 3, zoomControl: false }).setView([${latitude}, ${longitude}], 17);
       const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxNativeZoom: 19,
         maxZoom: 21,
@@ -65,6 +65,7 @@ export function mapDocument() {
       let pointKey;
       let selection;
       let focusRevision;
+      let zoomSteps = 0;
 
       function addMarkers(labs) {
         markers.clearLayers();
@@ -130,6 +131,9 @@ export function mapDocument() {
           map.setView([next.focus.latitude, next.focus.longitude], 17);
           map.closePopup();
         }
+        const zoomDelta = next.zoomSteps - zoomSteps;
+        zoomSteps = next.zoomSteps;
+        if (zoomDelta) map.setZoom(map.getZoom() + zoomDelta, { animate: false });
       };
       if (window.ResizeObserver) {
         new ResizeObserver(() => map.invalidateSize({ pan: false })).observe(document.getElementById('map'));

@@ -3,6 +3,7 @@ export type LabMarker = MapCenter & { id: string; name: string };
 export type MapState = {
   labs: LabMarker[];
   selectedId: string | null;
+  zoomSteps: number;
   focus: (MapCenter & { revision: number }) | null;
 };
 
