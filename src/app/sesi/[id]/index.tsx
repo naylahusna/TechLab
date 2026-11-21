@@ -27,7 +27,10 @@ import { colors } from '../../../theme/tokens';
 import { ActionButton } from '../../../components/ActionButton';
 import { usePermissions } from '../../../features/permission/hooks';
 import { PermissionBadge, ui } from '../../../features/permission/ui';
-import { promptAttendanceLocation } from '../../../features/practitioner/lib/prompt-attendance-location';
+import {
+  promptAttendanceLocation,
+  showAttendanceLocationWarning,
+} from '../../../features/practitioner/lib/prompt-attendance-location';
 
 export default function SesiRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -160,7 +163,8 @@ export default function SesiRoute() {
         session={practitionerSession}
         onBack={goBack}
         onOpenAttendance={async () => {
-          await promptAttendanceLocation();
+          const locationResult = await promptAttendanceLocation();
+          if (!showAttendanceLocationWarning(locationResult)) return;
           router.push(`/sesi/${session.id}/presensi`);
         }}
       />
