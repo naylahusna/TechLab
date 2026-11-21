@@ -164,7 +164,11 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
     );
     await assert.rejects(student.permissions.decide(id, student.profile, 'approved', ''));
     await assert.rejects(assistant.permissions.decide(id, assistant.profile, 'rejected', ''));
-    await assert.rejects(student.practicum.recordAttendance(sessionId, student.profile.uid));
+    await assert.rejects(student.practicum.recordAttendance(sessionId, student.profile.uid, {
+      latitude: -7.0482375,
+      longitude: 110.440765625,
+      accuracy: 10,
+    }));
     let observed;
     const approved = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Real-time decision not received')), 8000);
@@ -233,7 +237,11 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
         }
       }, reject));
     });
-    await student2.practicum.recordAttendance(sessionId, student2.profile.uid);
+    await student2.practicum.recordAttendance(sessionId, student2.profile.uid, {
+      latitude: -7.0482375,
+      longitude: 110.440765625,
+      accuracy: 10,
+    });
     assert.equal(
       (await assistant.practicum.listRecap(sessionId)).find(
         (row) => row.participant.userId === student2.profile.uid,

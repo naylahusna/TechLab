@@ -328,6 +328,20 @@ test('attendance is one record per session and only for enrolled practitioners i
       userId: 'praktikan-1',
       status: 'present',
       recordedAt: serverTimestamp(),
+      latitude: -7.0482375,
+      longitude: 110.440765625,
+      accuracyMeters: 10,
+      distanceMeters: 5,
+      allowedRadiusMeters: 100,
+      locationValidated: true,
+      labName: 'Lab Informatika B',
+      latitude: -7.0482375,
+      longitude: 110.440765625,
+      accuracyMeters: 10,
+      distanceMeters: 5,
+      allowedRadiusMeters: 100,
+      locationValidated: true,
+      labName: 'Lab Informatika B',
     }),
   );
   await assertFails(
@@ -348,6 +362,13 @@ test('attendance is one record per session and only for enrolled practitioners i
       userId: 'praktikan-2',
       status: 'present',
       recordedAt: serverTimestamp(),
+      latitude: -7.0482375,
+      longitude: 110.440765625,
+      accuracyMeters: 10,
+      distanceMeters: 5,
+      allowedRadiusMeters: 100,
+      locationValidated: true,
+      labName: 'Lab Informatika B',
     }),
   );
 
@@ -359,6 +380,13 @@ test('attendance is one record per session and only for enrolled practitioners i
       userId: 'praktikan-1',
       status: 'present',
       recordedAt: serverTimestamp(),
+      latitude: -7.0482375,
+      longitude: 110.440765625,
+      accuracyMeters: 10,
+      distanceMeters: 5,
+      allowedRadiusMeters: 100,
+      locationValidated: true,
+      labName: 'Lab Informatika B',
     }),
   );
 

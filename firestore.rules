@@ -99,13 +99,21 @@ service cloud.firestore {
     }
 
     function isValidAttendance(data) {
-      return data.keys().hasAll(['sessionId', 'classId', 'userId', 'status', 'recordedAt'])
-        && data.keys().hasOnly(['sessionId', 'classId', 'userId', 'status', 'recordedAt'])
+      return data.keys().hasAll(['sessionId', 'classId', 'userId', 'status', 'recordedAt', 'latitude', 'longitude', 'accuracyMeters', 'distanceMeters', 'allowedRadiusMeters', 'locationValidated', 'labName'])
+        && data.keys().hasOnly(['sessionId', 'classId', 'userId', 'status', 'recordedAt', 'latitude', 'longitude', 'accuracyMeters', 'distanceMeters', 'allowedRadiusMeters', 'locationValidated', 'labName'])
         && data.sessionId is string && data.sessionId.size() >= 1 && data.sessionId.size() <= 64
         && data.classId is string && data.classId.size() >= 1 && data.classId.size() <= 64
         && data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128
         && data.status == 'present'
-        && data.recordedAt is timestamp;
+        && data.recordedAt is timestamp
+        && data.latitude is number && data.latitude >= -90 && data.latitude <= 90
+        && data.longitude is number && data.longitude >= -180 && data.longitude <= 180
+        && (data.accuracyMeters == null || (data.accuracyMeters is number && data.accuracyMeters >= 0))
+        && data.distanceMeters is number && data.distanceMeters >= 0
+        && data.allowedRadiusMeters is number && data.allowedRadiusMeters >= 1 && data.allowedRadiusMeters <= 5000
+        && data.distanceMeters <= data.allowedRadiusMeters
+        && data.locationValidated == true
+        && data.labName is string && data.labName.size() >= 2 && data.labName.size() <= 120;
     }
 
     match /users/{userId} {

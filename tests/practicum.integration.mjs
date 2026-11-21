@@ -254,9 +254,17 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
       );
     });
 
-    await practitionerRepo.recordAttendance(sessionId, practitionerId);
+    await practitionerRepo.recordAttendance(sessionId, practitionerId, {
+      latitude: -7.0482375,
+      longitude: 110.440765625,
+      accuracy: 10,
+    });
     await assert.rejects(
-      () => practitionerRepo.recordAttendance(sessionId, practitionerId),
+      () => practitionerRepo.recordAttendance(sessionId, practitionerId, {
+        latitude: -7.0482375,
+        longitude: 110.440765625,
+        accuracy: 10,
+      }),
       /sudah presensi/,
     );
 
@@ -278,7 +286,11 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
     await signOut(auth);
     await signInWithEmailAndPassword(auth, practitionerEmail, password);
     await assert.rejects(
-      () => practitionerRepo.recordAttendance(sessionId, practitionerId),
+      () => practitionerRepo.recordAttendance(sessionId, practitionerId, {
+        latitude: -7.0482375,
+        longitude: 110.440765625,
+        accuracy: 10,
+      }),
       /saat sesi dibuka/,
     );
   } finally {
