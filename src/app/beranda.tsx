@@ -5,5 +5,6 @@ import { useRole } from '../core/role-context';
 /** Preserve onboarding's destination while the tabs become the main navigation. */
 export default function HomeRoute() {
   const { currentUser } = useRole();
-  return <Redirect href={currentUser ? '/jadwal' : '/'} />;
+  if (!currentUser) return <Redirect href="/" />;
+  return <Redirect href={currentUser.role === 'admin' ? '/kelola-pengguna' : '/jadwal'} />;
 }

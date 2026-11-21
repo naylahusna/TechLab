@@ -1,4 +1,4 @@
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Tabs, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TabIcon } from '../../components/TabIcon';
@@ -11,11 +11,16 @@ export const unstable_settings = { anchor: 'jadwal' };
 export default function TabsLayout() {
   const { currentUser } = useRole();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   if (!currentUser) return <Redirect href="/" />;
+  const isAdmin = currentUser.role === 'admin';
+  if (isAdmin && ['/jadwal', '/catatan', '/izin'].includes(pathname)) {
+    return <Redirect href="/kelola-pengguna" />;
+  }
   const navigation = navigationFor(currentUser.role);
   return (
     <Tabs
-      backBehavior="initialRoute"
+      backBehavior={isAdmin ? 'history' : 'initialRoute'}
       key={`${currentUser.role}-${currentUser.id}`}
       screenOptions={{
         headerShown: false,
@@ -43,6 +48,7 @@ export default function TabsLayout() {
         name="jadwal"
         options={{
           title: navigation.jadwal.label,
+          href: isAdmin ? null : undefined,
           tabBarButtonTestID: 'tab-jadwal',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon kind="jadwal" color={color} selected={focused} />
@@ -53,6 +59,7 @@ export default function TabsLayout() {
         name="catatan"
         options={{
           title: navigation.catatan.label,
+          href: isAdmin ? null : undefined,
           tabBarButtonTestID: 'tab-catatan',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon kind="catatan" color={color} selected={focused} />
@@ -63,7 +70,19 @@ export default function TabsLayout() {
         name="izin"
         options={{
           title: currentUser.role === 'asisten' ? 'Tinjau Izin' : 'Izin Saya',
+          href: isAdmin ? null : undefined,
           tabBarButtonTestID: 'tab-izin',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon kind="catatan" color={color} selected={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="kelola-pengguna"
+        options={{
+          title: 'Kelola Pengguna',
+          href: isAdmin ? undefined : null,
+          tabBarButtonTestID: 'tab-kelola-pengguna',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon kind="catatan" color={color} selected={focused} />
           ),
@@ -72,8 +91,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="lokasi"
         options={{
-          title: 'Lokasi Lab',
-          href: currentUser.role === 'asisten' ? undefined : null,
+          title: isAdmin ? 'Lab' : 'Lokasi Lab',
+          href: isAdmin || currentUser.role === 'asisten' ? undefined : null,
           tabBarButtonTestID: 'tab-lokasi',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon kind="lokasi" color={color} selected={focused} />

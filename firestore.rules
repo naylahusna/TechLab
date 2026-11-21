@@ -1,6 +1,7 @@
 rules_version = '2';
 // Data model Sprint 2.
-// users/{uid}: uid, name, number, role ('praktikan' | 'asisten'), createdAt, updatedAt.
+// users/{uid}: uid, name, number, role ('praktikan' | 'asisten' | 'admin'), createdAt, updatedAt.
+// userDirectory/{uid}: uid, name, number, role, updatedAt, mirrored from users/{uid}.
 // SRS-06..12 collections are covered below.
 // SRS-13..17 permissions are shared by practitioner monitoring and assistant recap.
 service cloud.firestore {
@@ -18,7 +19,7 @@ service cloud.firestore {
         && data.name == data.name.trim()
         && data.number is string && data.number.size() > 0 && data.number.size() <= 32
         && data.number.matches('^[A-Za-z0-9.-]+$')
-        && data.role in ['praktikan', 'asisten']
+        && data.role in ['praktikan', 'asisten', 'admin']
         && data.createdAt is timestamp && data.updatedAt is timestamp;
     }
 
@@ -31,6 +32,8 @@ service cloud.firestore {
           : null)
         : null;
     }
+    function isAdmin() { return userRole() == 'admin'; }
+    function canManageLab() { return isAssistant() || isAdmin(); }
     function isAssistant() { return userRole() == 'asisten'; }
     function isPractitioner() { return userRole() == 'praktikan'; }
 
@@ -108,6 +111,23 @@ service cloud.firestore {
         && data.recordedAt is timestamp;
     }
 
+    function validManagedRoleChange(uid) {
+      return isAdmin() && request.auth.uid != uid
+        && resource.data.role in ['praktikan', 'asisten']
+        && request.resource.data.role in ['praktikan', 'asisten']
+        && request.resource.data.role != resource.data.role
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function matchesDirectoryProfile(data, uid, profile) {
+      return data.keys().hasAll(['uid', 'name', 'number', 'role', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'name', 'number', 'role', 'updatedAt'])
+        && data.uid == uid && profile.uid == uid
+        && data.name == profile.name && data.number == profile.number && data.role == profile.role
+        && data.updatedAt == request.time;
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId);
       allow list: if false;
@@ -120,6 +140,15 @@ service cloud.firestore {
         && isValidUser(request.resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'number', 'updatedAt'])
         && request.resource.data.updatedAt == request.time;
+      allow update: if uidUnchanged(userId)
+        && isValidUser(request.resource.data)
+        && validManagedRoleChange(userId)
+        && get(/databases/$(database)/documents/userDirectory/$(userId)).data.role == resource.data.role
+        && matchesDirectoryProfile(
+          getAfter(/databases/$(database)/documents/userDirectory/$(userId)).data,
+          userId,
+          request.resource.data
+        );
       allow delete: if false;
     }
 
@@ -264,16 +293,18 @@ service cloud.firestore {
     }
 
     match /userDirectory/{uid} {
-      allow get: if isAuthenticated() && (uid == request.auth.uid || isAssistant());
-      allow list: if isAssistant() && resource.data.role == 'praktikan';
+      allow get: if isOwner(uid) || isAssistant() || isAdmin();
+      allow list: if isAdmin() || (isAssistant() && resource.data.role == 'praktikan');
       allow create, update: if isOwner(uid)
-        && request.resource.data.keys().hasAll(['uid', 'name', 'number', 'role', 'updatedAt'])
-        && request.resource.data.keys().hasOnly(['uid', 'name', 'number', 'role', 'updatedAt'])
-        && request.resource.data.uid == uid
-        && request.resource.data.name == getAfter(/databases/$(database)/documents/users/$(uid)).data.name
-        && request.resource.data.number == getAfter(/databases/$(database)/documents/users/$(uid)).data.number
-        && request.resource.data.role == getAfter(/databases/$(database)/documents/users/$(uid)).data.role
-        && request.resource.data.updatedAt == request.time;
+        && matchesDirectoryProfile(
+          request.resource.data, uid, getAfter(/databases/$(database)/documents/users/$(uid)).data
+        );
+      allow update: if validManagedRoleChange(uid)
+        && get(/databases/$(database)/documents/users/$(uid)).data.role == resource.data.role
+        && getAfter(/databases/$(database)/documents/users/$(uid)).data.updatedAt == request.time
+        && matchesDirectoryProfile(
+          request.resource.data, uid, getAfter(/databases/$(database)/documents/users/$(uid)).data
+        );
       allow delete: if false;
     }
 
@@ -379,13 +410,13 @@ service cloud.firestore {
 
     match /labLocations/{locationId} {
       allow get, list: if isAuthenticated();
-      allow create: if isAssistant() && validLabLocation(request.resource.data)
+      allow create: if canManageLab() && validLabLocation(request.resource.data)
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
-      allow update: if isAssistant() && validLabLocation(request.resource.data)
+      allow update: if canManageLab() && validLabLocation(request.resource.data)
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedAt == request.time;
-      allow delete: if isAssistant();
+      allow delete: if canManageLab();
     }
 
     match /{document=**} { allow read, write: if false; }

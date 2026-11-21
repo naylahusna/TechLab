@@ -8,6 +8,7 @@ import { ConfirmationModal } from '../../components/ConfirmationModal';
 import { useAuth } from '../auth/AuthProvider';
 import { FormField } from '../auth/AuthForm';
 import { authErrorMessage } from '../auth/model';
+import { roleLabels } from '../../core/roles';
 import { colors } from '../../theme/tokens';
 
 export function ProfileScreen() {
@@ -56,7 +57,7 @@ export function ProfileScreen() {
   return (
     <AppPage title="Profil pengguna" subtitle="Kelola identitas akun TechLab kamu.">
       <View style={styles.card}>
-        <Text style={styles.role}>{auth.profile.role === 'asisten' ? 'Asisten' : 'Praktikan'}</Text>
+        <Text style={styles.role}>{roleLabels[auth.profile.role]}</Text>
         <FormField
           label="Nama lengkap"
           value={name}

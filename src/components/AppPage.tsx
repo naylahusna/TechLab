@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { roleLabels } from '../core/roles';
 import { useRole } from '../core/role-context';
 import { colors } from '../theme/tokens';
 import { Text } from './Text';
@@ -48,7 +49,7 @@ export function AppPage({
                 </Text>
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>
-                    {currentUser?.role === 'praktikan' ? 'Praktikan' : 'Asisten'}
+                    {currentUser ? roleLabels[currentUser.role] : null}
                   </Text>
                 </View>
               </View>

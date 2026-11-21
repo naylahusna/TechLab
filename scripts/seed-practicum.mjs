@@ -20,6 +20,7 @@ const projectId = 'techlab-naylahusna-2026';
 const authBase = `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1`;
 const apiKey = 'demo-key';
 const password = 'TechLab123!';
+const adminEmail = 'admin.demo@techlab.test';
 const assistantEmail = 'asisten.demo@techlab.test';
 const studentEmails = [
   ...Array.from({ length: 10 }, (_, index) => `praktikan${index + 1}.demo@techlab.test`),
@@ -57,6 +58,7 @@ const SCHEDULE_A1 = 'schedule-a-1';
 const SCHEDULE_A2 = 'schedule-a-2';
 const SCHEDULE_B1 = 'schedule-b-1';
 
+const adminId = await ensureAuthUser(adminEmail);
 const assistantId = await ensureAuthUser(assistantEmail);
 const studentIds = [];
 for (const email of studentEmails) studentIds.push(await ensureAuthUser(email));
@@ -84,6 +86,7 @@ try {
     const labLocationSource = 'Google Maps business listing Plus Codes, converted to grid cell centers; UNDIP UTBK 2026 for lab floor';
     const labLocationCaution = 'Building-level map reference points only; NOT independently surveyed room coordinates and NOT adequate to distinguish nearby labs with GPS geofencing.';
     const users = [
+      { uid: adminId, name: 'Admin Lab Demo', number: 'ADM-001', role: 'admin' },
       { uid: assistantId, name: 'Dimas Aditya', number: 'AS-001', role: 'asisten' },
       ...studentIds.map((uid, index) => ({
         uid,
@@ -119,24 +122,9 @@ try {
       updatedBy: assistantId,
     })));
 
-    await Promise.all([
-      setDoc(doc(db, 'userDirectory', assistantId), {
-        uid: assistantId,
-        name: 'Dimas Aditya',
-        number: 'AS-001',
-        role: 'asisten',
-        updatedAt: now,
-      }),
-      ...studentIds.map((uid, index) =>
-        setDoc(doc(db, 'userDirectory', uid), {
-          uid,
-          name: studentNames[index],
-          number: studentNumbers[index],
-          role: 'praktikan',
-          updatedAt: now,
-        }),
-      ),
-    ]);
+    await Promise.all(users.map((user) =>
+      setDoc(doc(db, 'userDirectory', user.uid), { ...user, updatedAt: now }),
+    ));
 
     const classes = [
       {
@@ -421,6 +409,7 @@ try {
 }
 
 console.log('\nAkun demo (Firebase Auth emulator):');
+console.log(`Admin Lab    : ${adminEmail} / ${password}`);
 console.log(`Asisten      : ${assistantEmail} / ${password}`);
 studentEmails.forEach((email, index) =>
   console.log(`Praktikan ${index + 1} : ${email} / ${password}`),

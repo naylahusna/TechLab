@@ -9,7 +9,14 @@ import { initialsFor } from '../../features/practicum/profile-view';
 import { colors } from '../../theme/tokens';
 
 export default function LabLocationsRoute() {
-  const auth = useAuth();
+  const { profile } = useAuth();
+  if (profile?.role !== 'asisten' && profile?.role !== 'admin') {
+    return <View style={styles.page}><Text>Halaman ini hanya untuk asisten dan Admin Lab.</Text></View>;
+  }
+  return <LabLocations name={profile.name} role={profile.role} />;
+}
+
+function LabLocations({ name: profileName, role }: { name: string; role: 'asisten' | 'admin' }) {
   const [locations, setLocations] = useState<LabLocation[]>([]);
   const [editing, setEditing] = useState<LabLocation | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LabLocation | null>(null);
@@ -46,15 +53,14 @@ export default function LabLocationsRoute() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Lokasi gagal disimpan.'); }
     finally { setBusy(false); }
   };
-  if (auth.profile?.role !== 'asisten') return <View style={styles.page}><Text>Halaman ini hanya untuk asisten.</Text></View>;
   return (
     <View style={styles.page}>
       <ScreenHeader
         title="Lokasi laboratorium"
         subtitle="Atur titik lokasi dan radius presensi dalam meter."
-        roleLabel="Asisten"
-        greeting={auth.profile.name}
-        initials={initialsFor(auth.profile.name)}
+        roleLabel={role === 'admin' ? 'Admin Lab' : 'Asisten'}
+        greeting={profileName}
+        initials={initialsFor(profileName)}
       />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={styles.card}>

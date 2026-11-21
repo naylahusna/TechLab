@@ -12,10 +12,12 @@ import {
   doc,
   getDoc,
   getDocs,
+  runTransaction,
   serverTimestamp,
   setDoc,
   Timestamp,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 
 let env;
@@ -152,6 +154,12 @@ test('assistant can create and edit lab locations with the required location sch
   };
   await assertSucceeds(setDoc(ref, location));
   await assertSucceeds(updateDoc(ref, { name: 'Lab Informatika B Baru', updatedAt: serverTimestamp() }));
+  await seed('admin', 'admin');
+  const adminDb = env.authenticatedContext('admin').firestore();
+  const adminLab = doc(adminDb, 'labLocations', 'lab-admin');
+  await assertSucceeds(setDoc(adminLab, { ...location, updatedBy: 'admin' }));
+  await assertSucceeds(updateDoc(adminLab, { radiusMeters: 150, updatedAt: serverTimestamp() }));
+  await assertSucceeds(deleteDoc(adminLab));
   await assertFails(setDoc(doc(db, 'labLocations', 'invalid'), { ...location, id: 'invalid' }));
   for (const [index, overrides] of [
     { latitude: -91 },
@@ -198,4 +206,53 @@ test('unimplemented feature collections and orphan subcollections are denied', a
     await assertFails(getDoc(doc(db, path)));
     await assertFails(setDoc(doc(db, path), { ownerId: 'alice' }));
   }
+});
+
+test('Admin Lab can manage directory roles as an atomic pair without reading private profiles', async () => {
+  await seed('admin', 'admin');
+  const aliceDb = env.authenticatedContext('alice').firestore();
+  const profileRef = doc(aliceDb, 'users', 'alice');
+  const aliceDirectory = doc(aliceDb, 'userDirectory', 'alice');
+  const setup = writeBatch(aliceDb);
+  setup.set(profileRef, data('alice'));
+  setup.set(aliceDirectory, {
+    uid: 'alice', name: 'Nama Praktikan', number: '240001', role: 'praktikan', updatedAt: serverTimestamp(),
+  });
+  await assertSucceeds(setup.commit());
+
+  const adminDb = env.authenticatedContext('admin').firestore();
+  const privateRef = doc(adminDb, 'users', 'alice');
+  const directory = doc(adminDb, 'userDirectory', 'alice');
+  await assertSucceeds(getDocs(collection(adminDb, 'userDirectory')));
+  await assertFails(getDocs(collection(aliceDb, 'userDirectory')));
+  await assertFails(getDoc(privateRef));
+  await assertFails(updateDoc(privateRef, { role: 'asisten', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(directory, { role: 'asisten', updatedAt: serverTimestamp() }));
+
+  async function assign(db, role, extra = {}) {
+    const batch = writeBatch(db);
+    const fields = { role, updatedAt: serverTimestamp() };
+    batch.update(doc(db, 'users', 'alice'), { ...fields, ...extra });
+    batch.update(doc(db, 'userDirectory', 'alice'), fields);
+    return batch.commit();
+  }
+
+  await seed('assistant', 'asisten');
+  await assertFails(assign(aliceDb, 'asisten'));
+  await assertFails(assign(env.authenticatedContext('assistant').firestore(), 'asisten'));
+  await assertFails(assign(adminDb, 'admin'));
+  await assertFails(assign(adminDb, 'asisten', { name: 'Nama Lain' }));
+  await assertSucceeds(runTransaction(adminDb, async (transaction) => {
+    assert.equal((await transaction.get(directory)).data().role, 'praktikan');
+    const fields = { role: 'asisten', updatedAt: serverTimestamp() };
+    transaction.update(privateRef, fields);
+    transaction.update(directory, fields);
+  }));
+  assert.equal((await getDoc(profileRef)).data().role, 'asisten');
+  assert.equal((await getDoc(directory)).data().role, 'asisten');
+  await assertSucceeds(assign(adminDb, 'praktikan'));
+  assert.equal((await getDoc(profileRef)).data().role, 'praktikan');
+  assert.equal((await getDoc(directory)).data().role, 'praktikan');
+  await assertFails(updateDoc(doc(adminDb, 'users', 'admin'), { role: 'praktikan', updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(doc(adminDb, 'users', 'admin'), { name: 'Admin Terkini', updatedAt: serverTimestamp() }));
 });
