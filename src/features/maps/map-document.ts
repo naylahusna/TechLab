@@ -26,6 +26,10 @@ export function mapDocument() {
     }
     .lab-marker span { transform: rotate(45deg); }
     .lab-marker.is-selected { border-color: #20251f; background: #eafcad; color: #20251f; }
+    .user-pin {
+      width: 18px; height: 18px; box-sizing: border-box; border: 3px solid white;
+      border-radius: 50%; background: #1565d8; box-shadow: 0 0 0 5px #1565d844;
+    }
     .lab-choice {
       display: block; width: 100%; margin: 4px 0; text-align: left; padding: 8px;
       border: 1px solid #d6dbe8; border-radius: 6px; background: white; color: #20251f;
@@ -84,6 +88,7 @@ export function mapDocument() {
       let selection;
       let focusRevision;
       let zoomSteps = 0;
+      let userMarker;
 
       function addMarkers(labs) {
         markers.clearLayers();
@@ -159,7 +164,28 @@ export function mapDocument() {
         highlightSelection();
       });
 
+      function updateUserMarker(location) {
+        if (!location) {
+          userMarker?.remove();
+          userMarker = null;
+          return;
+        }
+        const coordinates = [location.latitude, location.longitude];
+        if (userMarker) {
+          userMarker.setLatLng(coordinates);
+          return;
+        }
+        userMarker = L.marker(coordinates, {
+          icon: L.divIcon({ className: 'user-pin', iconSize: [18, 18], iconAnchor: [9, 9] }),
+          title: 'Posisi saya',
+          zIndexOffset: 500,
+          interactive: false,
+          keyboard: false,
+        }).addTo(map);
+      }
+
       window.techLabUpdateMap = (next) => {
+        updateUserMarker(next.userLocation);
         const key = JSON.stringify(next.labs);
         const changed = key !== pointKey;
         if (changed) {
