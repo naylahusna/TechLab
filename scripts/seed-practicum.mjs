@@ -293,6 +293,13 @@ try {
         userId: studentIds[0],
         status: 'present',
         recordedAt: at('2026-11-16T08:05:00+07:00'),
+        latitude: -7.0482375,
+        longitude: 110.440765625,
+        accuracyMeters: 10,
+        distanceMeters: 5,
+        allowedRadiusMeters: 100,
+        locationValidated: true,
+        labName: 'Lab Informatika B',
       }),
       setDoc(doc(db, 'attendances', `${SCHEDULE_A2}_${studentIds[0]}`), {
         sessionId: SCHEDULE_A2,
@@ -300,6 +307,13 @@ try {
         userId: studentIds[0],
         status: 'present',
         recordedAt: at('2026-11-23T08:03:00+07:00'),
+        latitude: -7.0482375,
+        longitude: 110.440765625,
+        accuracyMeters: 10,
+        distanceMeters: 5,
+        allowedRadiusMeters: 100,
+        locationValidated: true,
+        labName: 'Lab Informatika C',
       }),
     ]);
 

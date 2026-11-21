@@ -12,7 +12,7 @@ import { InfoRow } from '../components/InfoRow';
 import { getAttendanceAction } from '../lib/attendance-action';
 import { ATTENDANCE_STATUS_META, SESSION_STATUS_META } from '../lib/status';
 import { colors, fontWeights, radius, spacing, typography } from '../theme';
-import type { AttendanceActionResult, PraktikanIdentity, SessionDetail } from '../types';
+import type { AttendanceActionResult, AttendanceLocationInput, PraktikanIdentity, SessionDetail } from '../types';
 import { validateAttendanceLocation } from '../lib/location-validation';
 import { useDeviceLocation, isPresensiDisabledByLocation } from '../lib/device-location';
 import { watchLabLocations, type LabLocation } from '../../assistant/lab-locations';
@@ -21,7 +21,7 @@ type AttendanceScreenProps = {
   session: SessionDetail;
   praktikan: PraktikanIdentity;
   onBack: () => void;
-  onConfirmAttendance: () => AttendanceActionResult | Promise<AttendanceActionResult>;
+  onConfirmAttendance: (location: AttendanceLocationInput) => AttendanceActionResult | Promise<AttendanceActionResult>;
 };
 
 export function AttendanceScreen({
@@ -85,7 +85,11 @@ export function AttendanceScreen({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const result = await onConfirmAttendance();
+      if (!location.state.coordinates) {
+        setSubmitError(location.state.message);
+        return;
+      }
+      const result = await onConfirmAttendance(location.state.coordinates);
       if (result.ok) {
         setSucceeded(true);
         setConfirmVisible(false);
