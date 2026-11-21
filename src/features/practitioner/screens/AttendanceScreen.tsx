@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '../../../components/Text';
@@ -13,6 +13,9 @@ import { getAttendanceAction } from '../lib/attendance-action';
 import { ATTENDANCE_STATUS_META, SESSION_STATUS_META } from '../lib/status';
 import { colors, fontWeights, radius, spacing, typography } from '../theme';
 import type { AttendanceActionResult, PraktikanIdentity, SessionDetail } from '../types';
+import { validateAttendanceLocation } from '../lib/location-validation';
+import { useDeviceLocation, isPresensiDisabledByLocation } from '../lib/device-location';
+import { watchLabLocations, type LabLocation } from '../../assistant/lab-locations';
 
 type AttendanceScreenProps = {
   session: SessionDetail;
@@ -21,19 +24,31 @@ type AttendanceScreenProps = {
   onConfirmAttendance: () => AttendanceActionResult | Promise<AttendanceActionResult>;
 };
 
-export function AttendanceScreen({ session, praktikan, onBack, onConfirmAttendance }: AttendanceScreenProps) {
+export function AttendanceScreen({
+  session,
+  praktikan,
+  onBack,
+  onConfirmAttendance,
+}: AttendanceScreenProps) {
   const insets = useSafeAreaInsets();
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [succeeded, setSucceeded] = useState(false);
   const [now, setNow] = useState(Date.now);
+  const [labLocations, setLabLocations] = useState<LabLocation[]>([]);
+  const location = useDeviceLocation();
   const submittingRef = useRef(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 15_000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(
+    () => watchLabLocations(setLabLocations, () => setLabLocations([])),
+    [],
+  );
 
   const attendance = succeeded && session.myAttendance.status !== 'hadir'
     ? { ...session.myAttendance, status: 'hadir' as const }
@@ -47,9 +62,25 @@ export function AttendanceScreen({ session, praktikan, onBack, onConfirmAttendan
     session.endsAt,
     now,
   );
+  const normalizeLabName = (value: string) => value.trim().toLowerCase();
+  const labLocation = labLocations.find(
+    (item) => normalizeLabName(item.name) === normalizeLabName(session.lab),
+  ) ?? null;
+  const locationValidation = validateAttendanceLocation(
+    location.state.coordinates,
+    labLocation,
+  );
 
   async function confirmAttendance() {
     if (submittingRef.current) return;
+    if (isPresensiDisabledByLocation(location.state)) {
+      setSubmitError(location.state.message);
+      return;
+    }
+    if (locationValidation.status !== 'inside') {
+      setSubmitError(locationValidation.message);
+      return;
+    }
     submittingRef.current = true;
     setSubmitting(true);
     setSubmitError(null);
@@ -118,6 +149,54 @@ export function AttendanceScreen({ session, praktikan, onBack, onConfirmAttendan
             </View>
           </View>
 
+          <FeedbackBanner
+            tone={location.state.status === 'ready' ? 'success' : 'error'}
+            title={
+              location.state.status === 'loading'
+                ? 'Memuat Lokasi'
+                : location.state.status === 'ready'
+                  ? 'Lokasi Perangkat Siap'
+                  : location.state.status === 'permission-denied'
+                    ? 'Izin Lokasi Ditolak'
+                    : location.state.status === 'services-off'
+                      ? 'GPS/Location Mati'
+                      : location.state.status === 'network-off'
+                        ? 'Koneksi Jaringan Bermasalah'
+                        : location.state.status === 'native-unavailable'
+                          ? 'Modul Lokasi Tidak Tersedia'
+                          : 'Koordinat Belum Tersedia'
+            }
+            message={location.state.message}
+          />
+
+          {location.state.status === 'ready' ? (
+            <FeedbackBanner
+              tone={locationValidation.status === 'inside' ? 'success' : 'error'}
+              title={locationValidation.status === 'inside' ? 'Di Dalam Radius' : 'Di Luar Radius'}
+              message={locationValidation.message}
+            />
+          ) : null}
+
+          <View style={styles.locationActions}>
+            {(location.state.status === 'permission-denied' || location.state.status === 'services-off') ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void Linking.openSettings()}
+                style={styles.locationAction}
+              >
+                <Text style={styles.locationActionText}>Buka Pengaturan</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void location.refresh()}
+              style={styles.locationAction}
+              disabled={location.state.status === 'loading'}
+            >
+              <Text style={styles.locationActionText}>Periksa Ulang Lokasi</Text>
+            </Pressable>
+          </View>
+
           {succeeded ? (
             <FeedbackBanner tone="success" title="Presensi berhasil" message="Kehadiranmu sudah tercatat untuk sesi ini." />
           ) : null}
@@ -125,7 +204,11 @@ export function AttendanceScreen({ session, praktikan, onBack, onConfirmAttendan
           <View style={styles.actionBlock}>
             <Button
               label={attendanceAction.label}
-              disabled={attendanceAction.disabled}
+              disabled={
+                attendanceAction.disabled
+                || isPresensiDisabledByLocation(location.state)
+                || locationValidation.status !== 'inside'
+              }
               onPress={() => { setSubmitError(null); setConfirmVisible(true); }}
             />
             {attendanceAction.reason ? <Text style={styles.reason}>{attendanceAction.reason}</Text> : null}
@@ -136,6 +219,7 @@ export function AttendanceScreen({ session, praktikan, onBack, onConfirmAttendan
         visible={confirmVisible}
         praktikan={praktikan}
         session={session}
+        locationValidation={locationValidation}
         isSubmitting={submitting}
         errorMessage={submitError}
         onCancel={() => { if (!submittingRef.current) { setConfirmVisible(false); setSubmitError(null); } }}
@@ -170,6 +254,9 @@ const styles = StyleSheet.create({
   attendanceIconText: { color: colors.primary, fontSize: typography.bodyLarge, fontWeight: fontWeights.bold },
   attendanceCopy: { flex: 1, gap: 2 },
   note: { color: colors.textMuted, fontSize: typography.caption, lineHeight: 18 },
+  locationActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
+  locationAction: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  locationActionText: { color: colors.primary, fontSize: typography.caption, fontWeight: fontWeights.semibold },
   actionBlock: { gap: spacing.sm, paddingTop: spacing.xs },
   reason: { color: colors.textMuted, fontSize: typography.caption, textAlign: 'center', lineHeight: 20 },
 });

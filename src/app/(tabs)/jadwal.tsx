@@ -13,10 +13,6 @@ import {
   toPractitionerSessionListItem,
 } from '../../features/practicum/session-view';
 import { colors } from '../../theme/tokens';
-import {
-  promptAttendanceLocation,
-  showAttendanceLocationWarning,
-} from '../../features/practitioner/lib/prompt-attendance-location';
 
 export default function ScheduleRoute() {
   const auth = useAuth();
@@ -105,11 +101,9 @@ export default function ScheduleRoute() {
         sessions={sessions}
         praktikanName={auth.profile.name}
         praktikanInitials={initialsFor(auth.profile.name)}
-        onOpenAttendance={async (sessionId) => {
-          const locationResult = await promptAttendanceLocation();
-          if (!showAttendanceLocationWarning(locationResult)) return;
-          router.push({ pathname: '/sesi/[id]/presensi', params: { id: sessionId } });
-        }}
+        onOpenAttendance={(sessionId) =>
+          router.push({ pathname: '/sesi/[id]/presensi', params: { id: sessionId } })
+        }
         onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
       />
     </View>

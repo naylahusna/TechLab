@@ -22,6 +22,8 @@
     "src/features/practicum/repository.ts",
     "src/features/practicum/seed.ts",
     "src/features/practicum/types.ts",
-    "src/features/practicum/validation.ts"
+    "src/features/practicum/validation.ts",
+    "src/features/practitioner/lib/location-validation.ts",
+    "src/features/practitioner/lib/device-location.ts"
   ]
 }

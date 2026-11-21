@@ -17,6 +17,14 @@ import {
 } from '../src/features/practitioner/lib/argamapping';
 import { getAttendanceAction } from '../src/features/practitioner/lib/attendance-action';
 import {
+  calculateDistanceMeters,
+  validateAttendanceLocation,
+} from '../src/features/practitioner/lib/location-validation';
+import {
+  isPresensiDisabledByLocation,
+  type DeviceLocationState,
+} from '../src/features/practitioner/lib/device-location';
+import {
   sortHistoryByDate,
   sortSessionsForSchedule,
 } from '../src/features/practitioner/lib/session-sort';
@@ -29,6 +37,57 @@ test('practitioner maps core statuses to view models', () => {
   assert.equal(mapAttendanceStatus('present'), 'hadir');
   assert.equal(mapAttendanceStatus('pending'), 'belum-presensi');
   assert.equal(mapAttendanceStatus('absent'), 'tidak-hadir');
+});
+
+test('attendance location calculates distance and checks laboratory radius', () => {
+  const lab = {
+    name: 'Lab Informatika',
+    latitude: -6.9823,
+    longitude: 110.4092,
+    radiusMeters: 100,
+  };
+
+  assert.ok(calculateDistanceMeters(
+    { latitude: lab.latitude, longitude: lab.longitude },
+    { latitude: lab.latitude, longitude: lab.longitude },
+  ) < 0.001);
+
+  assert.equal(
+    validateAttendanceLocation({ latitude: lab.latitude, longitude: lab.longitude }, lab).status,
+    'inside',
+  );
+  assert.equal(
+    validateAttendanceLocation({ latitude: lab.latitude + 0.01, longitude: lab.longitude }, lab).status,
+    'outside',
+  );
+  assert.equal(validateAttendanceLocation(null, lab).status, 'unavailable');
+});
+
+test('location states preserve coordinates and disable attendance until ready', () => {
+  const states: DeviceLocationState[] = [
+    { status: 'loading', coordinates: null, message: 'Memuat' },
+    {
+      status: 'ready',
+      coordinates: { latitude: -6.9823, longitude: 110.4092, accuracy: 12 },
+      message: 'Siap',
+    },
+    { status: 'permission-denied', coordinates: null, message: 'Ditolak' },
+    { status: 'services-off', coordinates: null, message: 'GPS mati' },
+    { status: 'network-off', coordinates: null, message: 'Jaringan' },
+    { status: 'location-unavailable', coordinates: null, message: 'Belum terbaca' },
+    { status: 'native-unavailable', coordinates: null, message: 'Modul tidak tersedia' },
+  ];
+
+  assert.equal(isPresensiDisabledByLocation(states[0]), true);
+  assert.equal(isPresensiDisabledByLocation(states[1]), false);
+  assert.deepEqual(states[1].coordinates, {
+    latitude: -6.9823,
+    longitude: 110.4092,
+    accuracy: 12,
+  });
+  for (const state of states.slice(2)) {
+    assert.equal(isPresensiDisabledByLocation(state), true);
+  }
 });
 
 test('practitioner builds schedule cards from core sessions', () => {
