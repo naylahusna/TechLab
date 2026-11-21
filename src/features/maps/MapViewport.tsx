@@ -5,7 +5,11 @@ import { WebView } from 'react-native-webview';
 import { mapDocument } from './map-document';
 import { readMapEvent, type MapState, type MapViewportProps } from './map-viewport-model';
 
-const attributionUrl = 'https://www.openstreetmap.org/copyright';
+const attributionUrls = new Set([
+  'https://openfreemap.org/',
+  'https://www.openmaptiles.org/',
+  'https://www.openstreetmap.org/copyright',
+]);
 const source = { html: mapDocument() };
 
 function sendState(view: WebView<unknown>, state: MapState) {
@@ -28,11 +32,11 @@ export function MapViewport({ state, onSelect }: MapViewportProps) {
       originWhitelist={['*']}
       onLoadStart={() => { ready.current = false; }}
       onShouldStartLoadWithRequest={({ url }) => {
-        if (url === attributionUrl) void Linking.openURL(url).catch(() => undefined);
+        if (attributionUrls.has(url)) void Linking.openURL(url).catch(() => undefined);
         return url === 'about:blank';
       }}
       onOpenWindow={({ nativeEvent: { targetUrl } }) => {
-        if (targetUrl === attributionUrl) void Linking.openURL(targetUrl).catch(() => undefined);
+        if (attributionUrls.has(targetUrl)) void Linking.openURL(targetUrl).catch(() => undefined);
       }}
       onMessage={({ nativeEvent }) => {
         let message: unknown;

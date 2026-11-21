@@ -11,6 +11,8 @@ export function mapDocument() {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"
+    integrity="sha256-qx5w1Z7EBGW65+cDDaLzzPKBM/1QLmK9WY7vut/XpzI=" crossorigin="anonymous">
   <style>
     html, body, #map { height: 100%; margin: 0; }
     #status { position: absolute; z-index: 1000; top: 12px; right: 12px;
@@ -36,24 +38,38 @@ export function mapDocument() {
   <div id="status" role="status">Memuat peta…</div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"
+    integrity="sha256-RamwepGJzlYFTGIKlHzPQeKR5YyV6bYVM7dAqqZe5cs=" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js"
+    integrity="sha256-Hmz4yz61/ZCYeaob82o4P7UGyaWy27+rq85lopTdH8s=" crossorigin="anonymous"></script>
   <script>
     const status = document.getElementById('status');
     if (!window.L || !window.L.version) {
       status.textContent = 'Peta gagal dimuat. Periksa koneksi internet.';
     } else {
-      const map = L.map('map', { minZoom: 3, zoomControl: false }).setView([${latitude}, ${longitude}], 17);
-      const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxNativeZoom: 19,
-        maxZoom: 21,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
-        referrerPolicy: 'strict-origin-when-cross-origin',
-      });
-      tiles.on('tileload', () => { status.hidden = true; });
-      tiles.on('tileerror', () => {
-        status.textContent = 'Sebagian peta gagal dimuat.';
+      const map = L.map('map', { minZoom: 3, maxZoom: 21, zoomControl: false }).setView([${latitude}, ${longitude}], 17);
+      map.attributionControl.addAttribution(
+        '<a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> · '
+        + '<a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">© OpenMapTiles</a> · '
+        + '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>'
+      );
+
+      function showBasemapError() {
+        status.textContent = 'Peta dasar gagal dimuat. Marker lab tetap bisa dipilih.';
         status.hidden = false;
-      });
-      tiles.addTo(map);
+      }
+
+      try {
+        const basemap = L.maplibreGL({
+          style: 'https://tiles.openfreemap.org/styles/liberty',
+          attributionControl: false,
+        }).addTo(map);
+        const renderer = basemap.getMaplibreMap();
+        renderer.on('load', () => { status.hidden = true; });
+        renderer.on('error', showBasemapError);
+      } catch {
+        showBasemapError();
+      }
 
       function send(message) {
         if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(message));
