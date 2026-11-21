@@ -12,10 +12,12 @@ import {
   doc,
   getDoc,
   getDocs,
+  runTransaction,
   serverTimestamp,
   setDoc,
   Timestamp,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 
 let env;
@@ -130,9 +132,9 @@ test('operator-provisioned assistant can edit own profile but cannot change own 
     updateDoc(own('assistant'), { role: 'praktikan', updatedAt: serverTimestamp() }),
   );
 });
-test('assistant can create and edit lab locations with the required location schema', async () => {
-  await seed('assistant', 'asisten');
-  const db = env.authenticatedContext('assistant').firestore();
+test('Aslab can create and edit lab locations with the required location schema', async () => {
+  await seed('admin', 'admin');
+  const db = env.authenticatedContext('admin').firestore();
   const ref = doc(db, 'labLocations', 'lab-b');
   const location = {
     name: 'Lab Informatika B',
@@ -148,10 +150,13 @@ test('assistant can create and edit lab locations with the required location sch
     caution: 'Building-level map reference only',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    updatedBy: 'assistant',
+    updatedBy: 'admin',
   };
   await assertSucceeds(setDoc(ref, location));
   await assertSucceeds(updateDoc(ref, { name: 'Lab Informatika B Baru', updatedAt: serverTimestamp() }));
+  await seed('assistant', 'asisten');
+  const assistantDb = env.authenticatedContext('assistant').firestore();
+  await assertFails(setDoc(doc(assistantDb, 'labLocations', 'assistant-lab'), { ...location, updatedBy: 'assistant' }));
   await assertFails(setDoc(doc(db, 'labLocations', 'invalid'), { ...location, id: 'invalid' }));
   for (const [index, overrides] of [
     { latitude: -91 },
@@ -167,15 +172,16 @@ test('assistant can create and edit lab locations with the required location sch
 test('practitioners cannot create, update, or delete lab locations', async () => {
   await seed('assistant', 'asisten');
   await seed('student', 'praktikan');
-  const assistantDb = env.authenticatedContext('assistant').firestore();
+  await seed('admin', 'admin');
+  const adminDb = env.authenticatedContext('admin').firestore();
   const studentDb = env.authenticatedContext('student').firestore();
-  const existing = doc(assistantDb, 'labLocations', 'lab-b');
+  const existing = doc(adminDb, 'labLocations', 'lab-b');
   await setDoc(existing, {
     name: 'Lab Informatika B', latitude: -7.0482375, longitude: 110.440765625,
     radiusMeters: 100, building: 'Gedung E FSM UNDIP', floor: 2, plusCode: '',
     pointType: 'building_map_reference', roomCenterVerified: false,
     source: 'Google Maps listing', caution: 'Building reference',
-    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: 'assistant',
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: 'admin',
   });
   await assertFails(setDoc(doc(studentDb, 'labLocations', 'student-lab'), {
     name: 'Lab Baru', latitude: 0, longitude: 0, radiusMeters: 100,
@@ -198,4 +204,92 @@ test('unimplemented feature collections and orphan subcollections are denied', a
     await assertFails(getDoc(doc(db, path)));
     await assertFails(setDoc(doc(db, path), { ownerId: 'alice' }));
   }
+});
+
+test('Aslab approves a separate candidate only with a matching practitioner, then can revoke it', async () => {
+  await seed('admin', 'admin');
+  await seed('assistant', 'asisten');
+  await seed('alice');
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'userDirectory', 'alice'), {
+      uid: 'alice', name: 'Nama Praktikan', number: '240001', role: 'praktikan', updatedAt: serverTimestamp(),
+    });
+    await setDoc(doc(context.firestore(), 'users', 'mismatch'), data('mismatch', { number: '999' }));
+  });
+
+  const candidateDb = env.authenticatedContext('candidate').firestore();
+  const candidateProfile = doc(candidateDb, 'users', 'candidate');
+  const setup = writeBatch(candidateDb);
+  setup.set(candidateProfile, data('candidate', { role: 'calon_asprak' }));
+  setup.set(doc(candidateDb, 'userDirectory', 'candidate'), {
+    uid: 'candidate', name: 'Nama Praktikan', number: '240001', role: 'calon_asprak', updatedAt: serverTimestamp(),
+  });
+  await assertSucceeds(setup.commit());
+  await assertFails(getDocs(collection(candidateDb, 'labLocations')));
+  await assertFails(getDocs(collection(candidateDb, 'userDirectory')));
+  await assertFails(updateDoc(candidateProfile, { number: '999', updatedAt: serverTimestamp() }));
+
+  const adminDb = env.authenticatedContext('admin').firestore();
+  const profile = doc(adminDb, 'users', 'candidate');
+  const directory = doc(adminDb, 'userDirectory', 'candidate');
+
+  function assign(db, uid, role, extra = {}) {
+    const batch = writeBatch(db);
+    const fields = { role, updatedAt: serverTimestamp() };
+    batch.update(doc(db, 'users', uid), { ...fields, ...extra });
+    batch.update(doc(db, 'userDirectory', uid), fields);
+    return batch.commit();
+  }
+
+  await assertSucceeds(getDocs(collection(adminDb, 'userDirectory')));
+  await assertFails(getDoc(profile));
+  await assertFails(assign(candidateDb, 'candidate', 'asisten', { practitionerUid: 'alice' }));
+  await assertFails(assign(env.authenticatedContext('assistant').firestore(), 'candidate', 'asisten', { practitionerUid: 'alice' }));
+  await assertFails(assign(adminDb, 'candidate', 'asisten', { practitionerUid: 'mismatch' }));
+  await assertFails(assign(adminDb, 'candidate', 'asisten', { practitionerUid: 'candidate' }));
+  await assertFails(assign(adminDb, 'candidate', 'admin'));
+  await assertFails(assign(adminDb, 'alice', 'asisten', { practitionerUid: 'mismatch' }));
+  await assertFails(updateDoc(profile, { role: 'asisten', practitionerUid: 'alice', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(directory, { role: 'asisten', updatedAt: serverTimestamp() }));
+
+  await assertSucceeds(runTransaction(adminDb, async (transaction) => {
+    assert.equal((await transaction.get(directory)).data().role, 'calon_asprak');
+    const fields = { role: 'asisten', updatedAt: serverTimestamp() };
+    transaction.update(profile, { ...fields, practitionerUid: 'alice' });
+    transaction.update(directory, fields);
+  }));
+  assert.equal((await getDoc(candidateProfile)).data().role, 'asisten');
+  assert.equal((await getDoc(directory)).data().role, 'asisten');
+  assert.equal((await getDoc(own('alice'))).data().role, 'praktikan');
+  await assertSucceeds(getDocs(collection(candidateDb, 'labLocations')));
+
+  await assertSucceeds(assign(adminDb, 'candidate', 'asprak_dicabut'));
+  assert.equal((await getDoc(candidateProfile)).data().role, 'asprak_dicabut');
+  assert.equal((await getDoc(directory)).data().role, 'asprak_dicabut');
+  await assertFails(getDocs(collection(candidateDb, 'labLocations')));
+  await assertFails(assign(adminDb, 'candidate', 'asisten', { practitionerUid: 'alice' }));
+  await assertFails(updateDoc(doc(adminDb, 'users', 'admin'), { role: 'praktikan', updatedAt: serverTimestamp() }));
+});
+
+test('Aslab can reject a candidate and use assistant permissions for an assigned class', async () => {
+  await seed('admin', 'admin');
+  await seed('rejected', 'calon_asprak');
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'userDirectory', 'rejected'), {
+      uid: 'rejected', name: 'Nama Praktikan', number: '240001', role: 'calon_asprak', updatedAt: serverTimestamp(),
+    });
+  });
+  const db = env.authenticatedContext('admin').firestore();
+  const fields = { role: 'asprak_ditolak', updatedAt: serverTimestamp() };
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'users', 'rejected'), fields);
+  batch.update(doc(db, 'userDirectory', 'rejected'), fields);
+  await assertSucceeds(batch.commit());
+  assert.equal((await getDoc(own('rejected'))).data().role, 'asprak_ditolak');
+  const classRef = doc(db, 'classes', 'admin-class');
+  await assertSucceeds(setDoc(classRef, {
+    className: 'Informatika A', courseName: 'Praktikum', assistantIds: ['admin'], studentIds: [],
+    memberIds: ['admin'], createdAt: serverTimestamp(), updatedAt: serverTimestamp(), archivedAt: null,
+  }));
+  await assertSucceeds(updateDoc(classRef, { className: 'Informatika B', updatedAt: serverTimestamp() }));
 });

@@ -61,3 +61,8 @@ export type RiwayatItem = {
  * Waktu hadir dibaca dari record tersimpan agar sama dengan rekap asisten.
  */
 export type AttendanceActionResult = { ok: true } | { ok: false; reason: string };
+export type AttendanceLocationInput = Readonly<{
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+}>;

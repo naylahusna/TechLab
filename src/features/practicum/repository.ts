@@ -21,6 +21,7 @@ import {
   type Query,
 } from 'firebase/firestore';
 import { PracticumError } from './errors';
+import { calculateDistanceMeters } from '../practitioner/lib/location-validation';
 import { attendanceId, participantId, PRACTICUM_COLLECTIONS, sessionIdForSchedule } from './ids';
 import type {
   PracticumAttendance,
@@ -225,6 +226,13 @@ function toAttendance(snapshot: DocumentSnapshot<DocumentData>): PracticumAttend
     userId: asString(data.userId),
     status: 'present',
     recordedAt: asTimestamp(data.recordedAt),
+    latitude: typeof data.latitude === 'number' ? data.latitude : null,
+    longitude: typeof data.longitude === 'number' ? data.longitude : null,
+    accuracyMeters: typeof data.accuracyMeters === 'number' ? data.accuracyMeters : null,
+    distanceMeters: typeof data.distanceMeters === 'number' ? data.distanceMeters : null,
+    allowedRadiusMeters: typeof data.allowedRadiusMeters === 'number' ? data.allowedRadiusMeters : null,
+    locationValidated: data.locationValidated === true,
+    labName: typeof data.labName === 'string' ? data.labName : null,
   };
 }
 
@@ -1196,7 +1204,62 @@ export function createPracticumRepository(db: Firestore) {
       });
     },
 
-    async recordAttendance(sessionId: string, userId: string): Promise<string> {
+    async recordAttendance(
+      sessionId: string,
+      userId: string,
+      location: { latitude: number; longitude: number; accuracy: number | null },
+    ): Promise<string> {
+      if (
+        !location
+        || !Number.isFinite(location.latitude)
+        || !Number.isFinite(location.longitude)
+      ) {
+        throw new PracticumError(
+          'INVALID_INPUT',
+          'Koordinat perangkat belum tersedia. Presensi tidak dapat dicatat.',
+        );
+      }
+
+      const sessionRef = doc(sessions, sessionId);
+      const sessionSnapshotForLocation = await getDoc(sessionRef);
+      if (!sessionSnapshotForLocation.exists())
+        throw new PracticumError('NOT_FOUND', 'Sesi praktikum tidak ditemukan.');
+      const sessionForLocation = toSession(sessionSnapshotForLocation);
+      const scheduleSnapshot = await getDoc(doc(schedules, sessionForLocation.scheduleId));
+      if (!scheduleSnapshot.exists())
+        throw new PracticumError('NOT_FOUND', 'Lokasi laboratorium sesi tidak ditemukan.');
+      const schedule = toSchedule(scheduleSnapshot);
+      const labSnapshot = await getDocs(
+        query(collection(db, 'labLocations'), where('name', '==', schedule.location), limit(1)),
+      );
+      if (labSnapshot.empty)
+        throw new PracticumError(
+          'INVALID_INPUT',
+          'Lokasi laboratorium sesi belum tersedia. Presensi tidak dapat dicatat.',
+        );
+      const labData = labSnapshot.docs[0].data();
+      if (
+        typeof labData.latitude !== 'number'
+        || typeof labData.longitude !== 'number'
+        || typeof labData.radiusMeters !== 'number'
+      ) {
+        throw new PracticumError(
+          'INVALID_INPUT',
+          'Koordinat atau radius laboratorium tidak valid.',
+        );
+      }
+
+      const distanceMeters = calculateDistanceMeters(
+        { latitude: location.latitude, longitude: location.longitude },
+        { latitude: labData.latitude, longitude: labData.longitude },
+      );
+      if (distanceMeters > labData.radiusMeters) {
+        throw new PracticumError(
+          'INVALID_INPUT',
+          `Kamu berada di luar radius laboratorium (${Math.round(distanceMeters)} m; batas ${labData.radiusMeters} m).`,
+        );
+      }
+
       return runTransaction(db, async (transaction) => {
         const sessionRef = doc(sessions, sessionId);
         const sessionSnapshot = await transaction.get(sessionRef);
@@ -1244,6 +1307,13 @@ export function createPracticumRepository(db: Firestore) {
           userId,
           status: 'present',
           recordedAt: serverTimestamp(),
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracyMeters: typeof location.accuracy === 'number' ? location.accuracy : null,
+          distanceMeters: Math.round(distanceMeters * 10) / 10,
+          allowedRadiusMeters: labData.radiusMeters,
+          locationValidated: true,
+          labName: schedule.location,
         });
         return ref.id;
       });

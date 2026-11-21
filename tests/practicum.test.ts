@@ -226,6 +226,13 @@ function recapFixture() {
     userId: 'praktikan-1',
     status: 'present',
     recordedAt: at('2026-11-16T08:05:00+07:00'),
+    latitude: -7.0482375,
+    longitude: 110.440765625,
+    accuracyMeters: 10,
+    distanceMeters: 5,
+    allowedRadiusMeters: 100,
+    locationValidated: true,
+    labName: 'Lab Informatika B',
   };
   const outsiderAttendance: PracticumAttendance = {
     ...attendance,

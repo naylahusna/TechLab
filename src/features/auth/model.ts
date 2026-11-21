@@ -1,5 +1,7 @@
 import { isRole, type Role } from '../../core/roles';
 
+export type RegistrationRole = 'praktikan' | 'calon_asprak';
+
 export type ProfileFields = { name: string; number: string };
 export type UserProfile = ProfileFields & { uid: string; role: Role };
 

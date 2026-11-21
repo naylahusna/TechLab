@@ -59,9 +59,9 @@ export default function AttendanceRoute() {
     if (myPermission.status === 'pending') session.myAttendance.status = 'izin-menunggu';
   }
 
-  async function confirmAttendance() {
+  async function confirmAttendance(location: { latitude: number; longitude: number; accuracy: number | null }) {
     try {
-      await getPracticumRepository().recordAttendance(session.id, auth.profile!.uid);
+      await getPracticumRepository().recordAttendance(session.id, auth.profile!.uid, location);
       await detail.reload();
       return { ok: true as const };
     } catch (cause) {

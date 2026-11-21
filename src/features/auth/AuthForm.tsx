@@ -6,7 +6,7 @@ import { Text } from '../../components/Text';
 import { ActionButton } from '../../components/ActionButton';
 import { colors } from '../../theme/tokens';
 import { useAuth } from './AuthProvider';
-import { authErrorMessage } from './model';
+import { authErrorMessage, type RegistrationRole } from './model';
 
 export function FormField({
   label,
@@ -45,7 +45,7 @@ export function FormField({
   );
 }
 
-export function AuthForm({ mode }: { mode: 'login' | 'register' | 'complete' }) {
+export function AuthForm({ mode }: { mode: 'login' | 'register' | 'register-asprak' | 'complete' }) {
   const auth = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,7 +54,11 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'complete' }) 
   const [number, setNumber] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const register = mode === 'register';
+  const [completionRole, setCompletionRole] = useState<RegistrationRole>('praktikan');
+  const register = mode === 'register' || mode === 'register-asprak';
+  const role: RegistrationRole = mode === 'complete' ? completionRole
+    : mode === 'register-asprak' ? 'calon_asprak' : 'praktikan';
+  const applying = role === 'calon_asprak';
   const complete = mode === 'complete';
   async function submit() {
     if (busy) return;
@@ -63,8 +67,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'complete' }) 
     try {
       if (register && password !== confirmation)
         throw new Error('Konfirmasi password tidak sesuai.');
-      if (complete) await auth.completeProfile({ name, number });
-      else if (register) await auth.register(email, password, { name, number });
+      if (complete) await auth.completeProfile({ name, number }, role);
+      else if (register) await auth.register(email, password, { name, number }, role);
       else await auth.login(email, password);
     } catch (cause) {
       setError(authErrorMessage(cause));
@@ -78,14 +82,14 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'complete' }) 
         complete
           ? 'Satu langkah lagi.'
           : register
-            ? 'Mulai perjalananmu.'
+            ? (applying ? 'Daftar sebagai Asprak' : 'Daftar sebagai Praktikan')
             : 'Selamat datang kembali.'
       }
       subtitle={
         complete
           ? 'Lengkapi profil agar kegiatan praktikum terhubung dengan akunmu.'
           : register
-            ? 'Buat akun praktikan dan ikuti kegiatan kelasmu.'
+            ? (applying ? 'Ajukan akun asprak dan tunggu persetujuan Aslab.' : 'Buat akun praktikan dan ikuti kegiatan kelasmu.')
             : 'Masuk untuk melanjutkan kegiatan praktikum kamu.'
       }
       eyebrow={complete ? 'PROFIL AKUN' : register ? 'BUAT AKUN TECHLAB' : 'MASUK KE TECHLAB'}
@@ -119,7 +123,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'complete' }) 
                 maxLength={32}
               />
               <Text style={styles.copy}>
-                Akun baru terdaftar sebagai praktikan. Akses asisten ditetapkan oleh pengelola.
+                {applying
+                  ? 'Gunakan email berbeda serta nama dan NIM yang sama dengan akun praktikan.'
+                  : 'Akun ini digunakan untuk mengikuti praktikum.'}
               </Text>
             </>
           )}
@@ -172,6 +178,15 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'complete' }) 
               title={register ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar'}
               onPress={() => router.replace(register ? '/' : '/register')}
             />
+          )}
+          {mode === 'login' && (
+            <ActionButton title="Daftar sebagai Asprak" secondary disabled={busy}
+              onPress={() => router.replace('/register-asprak')} />
+          )}
+          {complete && (
+            <ActionButton secondary disabled={busy}
+              title={applying ? 'Lengkapi sebagai Praktikan' : 'Lengkapi sebagai Asprak'}
+              onPress={() => setCompletionRole(applying ? 'praktikan' : 'calon_asprak')} />
           )}
           {complete && (
             <ActionButton
