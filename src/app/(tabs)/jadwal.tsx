@@ -108,7 +108,16 @@ export default function ScheduleRoute() {
         onOpenAttendance={async (sessionId) => {
           const locationResult = await promptAttendanceLocation();
           if (!showAttendanceLocationWarning(locationResult)) return;
-          router.push({ pathname: '/sesi/[id]/presensi', params: { id: sessionId } });
+          if (typeof locationResult === 'object') {
+            router.push({
+              pathname: '/sesi/[id]/presensi',
+              params: {
+                id: sessionId,
+                latitude: String(locationResult.latitude),
+                longitude: String(locationResult.longitude),
+              },
+            });
+          }
         }}
         onOpenSession={(sessionId) => router.push(`/sesi/${sessionId}`)}
       />

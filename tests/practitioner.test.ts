@@ -17,6 +17,10 @@ import {
 } from '../src/features/practitioner/lib/argamapping';
 import { getAttendanceAction } from '../src/features/practitioner/lib/attendance-action';
 import {
+  calculateDistanceMeters,
+  validateAttendanceLocation,
+} from '../src/features/practitioner/lib/location-validation';
+import {
   sortHistoryByDate,
   sortSessionsForSchedule,
 } from '../src/features/practitioner/lib/session-sort';
@@ -29,6 +33,30 @@ test('practitioner maps core statuses to view models', () => {
   assert.equal(mapAttendanceStatus('present'), 'hadir');
   assert.equal(mapAttendanceStatus('pending'), 'belum-presensi');
   assert.equal(mapAttendanceStatus('absent'), 'tidak-hadir');
+});
+
+test('attendance location calculates distance and checks laboratory radius', () => {
+  const lab = {
+    name: 'Lab Informatika',
+    latitude: -6.9823,
+    longitude: 110.4092,
+    radiusMeters: 100,
+  };
+
+  assert.ok(calculateDistanceMeters(
+    { latitude: lab.latitude, longitude: lab.longitude },
+    { latitude: lab.latitude, longitude: lab.longitude },
+  ) < 0.001);
+
+  assert.equal(
+    validateAttendanceLocation({ latitude: lab.latitude, longitude: lab.longitude }, lab).status,
+    'inside',
+  );
+  assert.equal(
+    validateAttendanceLocation({ latitude: lab.latitude + 0.01, longitude: lab.longitude }, lab).status,
+    'outside',
+  );
+  assert.equal(validateAttendanceLocation(null, lab).status, 'unavailable');
 });
 
 test('practitioner builds schedule cards from core sessions', () => {
