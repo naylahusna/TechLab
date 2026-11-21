@@ -1,12 +1,13 @@
 # Urutan Implementasi SRS — Sprint 3
 
-Dokumen ini mencatat aturan urutan pengerjaan dan dependensi tingkat tinggi untuk kebutuhan Sprint 3 (`SRS-01`–`16`). Ketiga programmer dapat bekerja secara **paralel antar-jalur**, dengan pengerjaan **berurut di dalam tugas masing-masing**.
+Dokumen ini mencatat aturan urutan pengerjaan dan dependensi tingkat tinggi untuk kebutuhan Sprint 3 (`SRS-01`–`17`). Ketiga programmer dapat bekerja secara **paralel antar-jalur**, dengan pengerjaan **berurut di dalam tugas masing-masing**.
 
 ## Aturan Urutan Kerja (3 Jalur)
 
-1. **Jalur 1 — Muhammad Fahri (`SRS-01` → `SRS-02` → `SRS-03` → `SRS-04` → `SRS-05`).**
+1. **Jalur 1 — Muhammad Fahri (`SRS-01` → `SRS-02` → `SRS-03` → `SRS-04` → `SRS-05` → `SRS-17`).**
    - **`SRS-01` (Laboratory Location and Radius Management)** diprioritaskan paling awal dan di-merge terlebih dahulu ke `main`, karena koleksi lokasi laboratorium di Cloud Firestore menjadi sumber data bersama untuk halaman Presensi dan halaman Maps.
    - Setelah `SRS-01` selesai, lanjutkan berurut ke `SRS-02` (halaman presensi khusus), `SRS-03` (izin & geolocation perangkat), `SRS-04` (validasi radius), dan `SRS-05` (pencatatan presensi terverifikasi lokasi).
+   - Setelah alur wajib lokasi (`SRS-01`–`05`) stabil, lanjutkan ke **`SRS-17`** (verifikasi tambahan QR Code sesi yang ditampilkan asisten dan dipindai praktikan pada halaman presensi).
 2. **Jalur 2 — Nayla Husna (`SRS-06` → `SRS-07` → `SRS-08` → `SRS-09` → `SRS-10` → `SRS-16`).**
    - Tidak perlu menunggu seluruh SRS Fahri selesai; cukup menunggu **`SRS-01`** masuk (atau menyiapkan halaman Maps dasar terlebih dahulu menggunakan kontrak koleksi laboratorium yang telah disepakati).
    - Lanjutkan berurut dari `SRS-06` (halaman Maps), `SRS-07` (marker lab & pemilihan detail), `SRS-08` (live lokasi pengguna), `SRS-09` (informasi praktikum berlangsung & berikutnya), hingga `SRS-10` (sinkronisasi real-time & penanganan kondisi perangkat).
@@ -17,7 +18,7 @@ Dokumen ini mencatat aturan urutan pengerjaan dan dependensi tingkat tinggi untu
 
 ## Target Demonstrasi Sprint 3
 
-1. **Alur 1 — Presensi Berbasis Lokasi (`SRS-01`–`05`):** Asisten membuka sesi → praktikan membuka halaman khusus presensi → aplikasi memeriksa lokasi perangkat dan radius lab → presensi tercatat jika memenuhi syarat → asisten melihat rekap kehadiran.
+1. **Alur 1 — Presensi Berbasis Lokasi (`SRS-01`–`05`, opsional + QR `SRS-17`):** Asisten membuka sesi → praktikan membuka halaman khusus presensi → aplikasi memeriksa lokasi perangkat dan radius lab (serta pemindaian QR sesi bila diaktifkan) → presensi tercatat jika memenuhi syarat → asisten melihat rekap kehadiran.
 2. **Alur 2 — Peta dan Informasi Laboratorium (`SRS-06`–`10`):** Pengguna membuka halaman Maps → aplikasi menampilkan posisi pengguna dan marker lab → pengguna memilih marker lab → tampil praktikum sedang berlangsung dan praktikum berikutnya dari Firestore.
 3. **Alur 3 — Notifikasi Kegiatan (`SRS-11`–`15`):** Asisten membuka sesi, mengubah jadwal, atau memutuskan izin → sistem mendeteksi peristiwa dan mengirim push notification → pengguna terkait menerima pemberitahuan.
 

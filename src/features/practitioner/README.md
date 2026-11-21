@@ -63,5 +63,5 @@ Ardiyansyah, sebagaimana dicatat pada commit di bagian kontribusi di atas.
 
 Pada Sprint 3, alur presensi praktikan diperluas melalui `docs/sprint-3/`:
 
-- **Muhammad Fahri (`SRS-02`–`05`):** Halaman khusus presensi yang terpisah dari detail sesi, permintaan izin & pengambilan koordinat GPS, validasi radius laboratorium, serta pencatatan presensi yang mewajibkan lolos validasi lokasi.
+- **Muhammad Fahri (`SRS-02`–`05`, `SRS-17`):** Halaman khusus presensi yang terpisah dari detail sesi, permintaan izin & pengambilan koordinat GPS, validasi radius laboratorium, pencatatan presensi yang mewajibkan lolos validasi lokasi, serta pemindaian QR Code sesi *(opsional)*.
 - **Arga Yura Danendra (`SRS-11`–`15`):** Penerimaan *push notification* saat sesi dibuka, jadwal berubah, atau izin diputuskan.
