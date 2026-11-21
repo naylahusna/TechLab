@@ -25,7 +25,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Digunakan untuk memverifikasi bahwa kamu berada di lokasi laboratorium saat mencatat presensi."
+        }
+      ]
     ],
     "extra": {
       "router": {
