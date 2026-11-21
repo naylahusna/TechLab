@@ -128,7 +128,7 @@ export function AttendanceScreen({
 
           <FeedbackBanner
             tone={locationValidation.status === 'inside' ? 'success' : 'error'}
-            title={locationValidation.status === 'inside' ? 'Lokasi sesuai radius' : 'Lokasi tidak sesuai radius'}
+            title={locationValidation.status === 'inside' ? 'Di Dalam Radius' : 'Di Luar Radius'}
             message={locationValidation.message}
           />
 

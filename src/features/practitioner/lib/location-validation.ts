@@ -55,7 +55,7 @@ export function validateAttendanceLocation(
       status: 'inside',
       distanceMeters,
       allowedRadiusMeters: lab.radiusMeters,
-      message: `Dalam radius laboratorium (${Math.round(distanceMeters)} m dari titik lab).`,
+      message: `Jarak ke lab ${Math.round(distanceMeters)} m · Batas radius ${lab.radiusMeters} m.`,
     };
   }
 
@@ -63,6 +63,6 @@ export function validateAttendanceLocation(
     status: 'outside',
     distanceMeters,
     allowedRadiusMeters: lab.radiusMeters,
-    message: `Di luar radius laboratorium (${Math.round(distanceMeters)} m; batas ${lab.radiusMeters} m).`,
+    message: `Jarak ke lab ${Math.round(distanceMeters)} m · Batas radius ${lab.radiusMeters} m.`,
   };
 }

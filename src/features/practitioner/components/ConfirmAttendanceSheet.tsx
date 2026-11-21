@@ -253,7 +253,7 @@ export function ConfirmAttendanceSheet({
 
                   <FeedbackBanner
                     tone={locationValidation.status === 'inside' ? 'success' : 'error'}
-                    title={locationValidation.status === 'inside' ? 'Lokasi sesuai' : 'Lokasi belum sesuai'}
+                    title={locationValidation.status === 'inside' ? 'Di Dalam Radius' : 'Di Luar Radius'}
                     message={locationValidation.message}
                   />
 
