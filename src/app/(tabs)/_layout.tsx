@@ -81,6 +81,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="maps"
+        options={{
+          title: 'Maps',
+          tabBarButtonTestID: 'tab-maps',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon kind="lokasi" color={color} selected={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profil"
         options={{
           title: navigation.profil.label,
