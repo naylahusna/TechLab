@@ -2,9 +2,10 @@ export type MapCenter = { latitude: number; longitude: number };
 export type LabMarker = MapCenter & { id: string; name: string };
 export type MapState = {
   labs: LabMarker[];
+  userLocation: MapCenter | null;
   selectedId: string | null;
   zoomSteps: number;
-  focus: (MapCenter & { revision: number }) | null;
+  focus: (MapCenter & { revision: number; target: 'user' | 'lab' }) | null;
 };
 
 export type MapViewportProps = {

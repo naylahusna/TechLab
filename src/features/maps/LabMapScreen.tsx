@@ -9,10 +9,12 @@ import { ScreenHeader } from '../practitioner/components/ScreenHeader';
 import { colors } from '../../theme/tokens';
 import { MapViewport } from './MapViewport';
 import { campusCenter } from './map-document';
-import type { MapState } from './map-viewport-model';
+import { useMapLocation } from './useMapLocation';
+import type { MapCenter, MapState } from './map-viewport-model';
 
 export function LabMapScreen() {
   const { currentUser } = useRole();
+  const { state: location, retry: retryLocation } = useMapLocation();
   const [labs, setLabs] = useState<LabLocation[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -40,16 +42,19 @@ export function LabMapScreen() {
     id, name, latitude, longitude,
   })) ?? [], [labs]);
   const mapState = useMemo(() => ({
-    labs: markers, selectedId: selected?.id ?? null, focus, zoomSteps,
-  }), [markers, selected?.id, focus, zoomSteps]);
+    labs: markers, userLocation: location.position, selectedId: selected?.id ?? null, focus, zoomSteps,
+  }), [markers, location.position, selected?.id, focus, zoomSteps]);
   const selectMarker = useCallback((id: string) => {
     if (labs?.some((lab) => lab.id === id)) setSelectedId(id);
   }, [labs]);
 
+  function recenter({ latitude, longitude }: MapCenter, target: 'user' | 'lab') {
+    setFocus((previous) => ({ latitude, longitude, target, revision: (previous?.revision ?? 0) + 1 }));
+  }
+
   function focusOn(lab: LabLocation | null) {
-    const { latitude, longitude } = lab ?? campusCenter;
     setSelectedId(lab?.id ?? null);
-    setFocus((previous) => ({ latitude, longitude, revision: (previous?.revision ?? 0) + 1 }));
+    recenter(lab ?? campusCenter, 'lab');
   }
 
   return (
@@ -75,15 +80,33 @@ export function LabMapScreen() {
           </View>
         ) : labs.length === 0 ? (
           <Text accessibilityLiveRegion="polite" style={styles.status}>Belum ada lokasi laboratorium.</Text>
-        ) : (
-          <View>
+        ) : null}
+        <View>
+          <View style={styles.focusHeader}>
             <Text style={styles.label}>Fokus peta</Text>
-            <ScrollView horizontal contentContainerStyle={styles.options}>
-              <LocationOption label="Area kampus" onPress={() => focusOn(null)} />
-              {labs.map((lab) => (
-                <LocationOption key={lab.id} label={lab.name} active={selected?.id === lab.id} onPress={() => focusOn(lab)} />
-              ))}
-            </ScrollView>
+            <LocationOption
+              label={location.status === 'stale' ? 'Posisi terakhir' : 'Posisi saya'}
+              active={!!location.position && focus?.target === 'user'}
+              disabled={!location.position}
+              onPress={() => {
+                if (location.position) recenter(location.position, 'user');
+              }}
+            />
+          </View>
+          <ScrollView horizontal contentContainerStyle={styles.options}>
+            <LocationOption label="Area kampus" onPress={() => focusOn(null)} />
+            {labs?.map((lab) => (
+              <LocationOption key={lab.id} label={lab.name} active={selected?.id === lab.id} onPress={() => focusOn(lab)} />
+            ))}
+          </ScrollView>
+        </View>
+        {location.status === 'loading' && (
+          <Text accessibilityLiveRegion="polite" style={styles.status}>Mencari posisi perangkat…</Text>
+        )}
+        {(location.status === 'error' || location.status === 'stale') && (
+          <View style={styles.locationError}>
+            <Text accessibilityLiveRegion="polite" style={styles.locationMessage}>{location.status === 'stale' ? 'Menampilkan posisi terakhir sambil menunggu pembaruan.' : location.message}</Text>
+            <LocationOption label="Coba lagi" onPress={retryLocation} />
           </View>
         )}
         {selected && <LabDetails lab={selected} onClose={() => setSelectedId(null)} />}
@@ -122,13 +145,14 @@ function LabDetails({ lab, onClose }: { lab: LabLocation; onClose: () => void })
   );
 }
 
-function LocationOption({ label, active, onPress }: { label: string; active?: boolean; onPress: () => void }) {
+function LocationOption({ label, active, disabled = false, onPress }: { label: string; active?: boolean; disabled?: boolean; onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected: active }}
+      accessibilityState={{ selected: active, disabled }}
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.option, active && styles.activeOption]}
+      style={[styles.option, active && styles.activeOption, disabled && styles.disabledOption]}
     >
       <Text style={[styles.optionText, active && styles.activeText]}>{label}</Text>
     </Pressable>
@@ -152,9 +176,13 @@ const styles = StyleSheet.create({
   close: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.paleBlue },
   loading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   status: { color: colors.muted },
-  label: { color: colors.navy, fontWeight: '700', marginBottom: 8 },
+  focusHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 },
+  label: { color: colors.navy, fontWeight: '700' },
   options: { gap: 8 },
   option: { borderRadius: 12, backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 10 },
+  locationError: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  locationMessage: { flex: 1, color: colors.muted },
+  disabledOption: { opacity: 0.6 },
   activeOption: { backgroundColor: colors.navy },
   optionText: { color: colors.navy, fontWeight: '600' },
   activeText: { color: colors.white },

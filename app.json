@@ -29,7 +29,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Digunakan untuk memverifikasi bahwa kamu berada di lokasi laboratorium saat mencatat presensi."
+          "locationWhenInUsePermission": "Digunakan untuk menampilkan posisi kamu di Maps dan memverifikasi lokasi saat mencatat presensi."
         }
       ]
     ],
