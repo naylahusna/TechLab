@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '../../components/Text';
@@ -10,7 +11,8 @@ const time = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digi
 
 export function LabActivityPanel({ labName }: { labName: string }) {
   const { data, error, loading, retry } = useLabActivity();
-  const activity = data && findLabActivity(data, labName, Date.now());
+  const [now] = useState(Date.now);
+  const activity = data && findLabActivity(data, labName, now);
   return (
     <View style={styles.panel}>
       {loading && <Text style={styles.detail}>Memuat aktivitas praktikum…</Text>}
