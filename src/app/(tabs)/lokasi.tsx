@@ -140,7 +140,20 @@ function LabLocations({ name: profileName }: { name: string }) {
 }
 
 function Field(props: { label: string; value: string; onChangeText: (value: string) => void; placeholder?: string; keyboardType?: 'decimal-pad' | 'number-pad' }) {
-  return <View style={styles.field}><Text style={styles.label}>{props.label}</Text><TextInput value={props.value} onChangeText={props.onChangeText} placeholder={props.placeholder} keyboardType={props.keyboardType} style={styles.input} /></View>;
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{props.label}</Text>
+      <TextInput
+        accessibilityLabel={props.label}
+        value={props.value}
+        onChangeText={props.onChangeText}
+        placeholder={props.placeholder}
+        placeholderTextColor={colors.muted}
+        keyboardType={props.keyboardType}
+        style={styles.input}
+      />
+    </View>
+  );
 }
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.background },
