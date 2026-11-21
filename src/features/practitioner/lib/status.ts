@@ -12,7 +12,7 @@ export const SESSION_STATUS_META: Record<SessionStatus, StatusMeta> = {
 };
 
 export const ATTENDANCE_STATUS_META: Record<AttendanceStatus, StatusMeta> = {
-  'belum-presensi': { label: 'Belum Presensi', tone: 'danger' },
+  'belum-presensi': { label: 'Belum Presensi', tone: 'warning' },
   hadir: { label: 'Sudah Presensi', tone: 'success' },
   'tidak-hadir': { label: 'Tidak Hadir', tone: 'danger' },
   izin: { label: 'Izin Disetujui', tone: 'info' },
