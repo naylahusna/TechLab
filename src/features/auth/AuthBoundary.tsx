@@ -5,6 +5,7 @@ import { ActionButton } from '../../components/ActionButton';
 import { colors } from '../../theme/tokens';
 import { useAuth } from './AuthProvider';
 import { AuthForm } from './AuthForm';
+import { applicationStatusLabels, isRestrictedRole } from '../../core/roles';
 import { authErrorMessage } from './model';
 
 export function AuthBoundary({ children }: { children: ReactNode }) {
@@ -52,6 +53,22 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
         )}
       </View>
     );
+  if (auth.profile && isRestrictedRole(auth.profile.role)) {
+    return (
+      <View style={styles.page}>
+        <Text accessibilityRole="header" style={styles.message}>{applicationStatusLabels[auth.profile.role]}</Text>
+        <Text style={styles.message}>
+          {auth.profile.role === 'calon_asprak'
+            ? 'Aslab akan mencocokkan nama dan NIM dengan akun praktikan kamu sebelum menyetujui.'
+            : 'Hubungi Aslab jika kamu perlu meninjau status akun asprak kamu.'}
+        </Text>
+        <ActionButton secondary title="Keluar" onPress={() => {
+          void auth.logout().catch((error) => setLogoutError(authErrorMessage(error)));
+        }} />
+        {!!logoutError && <Text accessibilityRole="alert">{logoutError}</Text>}
+      </View>
+    );
+  }
   return children;
 }
 const styles = StyleSheet.create({

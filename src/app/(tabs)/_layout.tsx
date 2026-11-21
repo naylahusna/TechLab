@@ -91,8 +91,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="lokasi"
         options={{
-          title: isAdmin ? 'Lab' : 'Lokasi Lab',
-          href: isAdmin || currentUser.role === 'asisten' ? undefined : null,
+          title: 'Lab',
+          href: isAdmin ? undefined : null,
           tabBarButtonTestID: 'tab-lokasi',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon kind="lokasi" color={color} selected={focused} />

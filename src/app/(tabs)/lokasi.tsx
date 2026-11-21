@@ -10,13 +10,13 @@ import { colors } from '../../theme/tokens';
 
 export default function LabLocationsRoute() {
   const { profile } = useAuth();
-  if (profile?.role !== 'asisten' && profile?.role !== 'admin') {
-    return <View style={styles.page}><Text>Halaman ini hanya untuk asisten dan Admin Lab.</Text></View>;
+  if (profile?.role !== 'admin') {
+    return <View style={styles.page}><Text>Halaman ini hanya untuk Aslab.</Text></View>;
   }
-  return <LabLocations name={profile.name} role={profile.role} />;
+  return <LabLocations name={profile.name} />;
 }
 
-function LabLocations({ name: profileName, role }: { name: string; role: 'asisten' | 'admin' }) {
+function LabLocations({ name: profileName }: { name: string }) {
   const [locations, setLocations] = useState<LabLocation[]>([]);
   const [editing, setEditing] = useState<LabLocation | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LabLocation | null>(null);
@@ -58,7 +58,7 @@ function LabLocations({ name: profileName, role }: { name: string; role: 'asiste
       <ScreenHeader
         title="Lokasi laboratorium"
         subtitle="Atur titik lokasi dan radius presensi dalam meter."
-        roleLabel={role === 'admin' ? 'Admin Lab' : 'Asisten'}
+        roleLabel="Aslab"
         greeting={profileName}
         initials={initialsFor(profileName)}
       />

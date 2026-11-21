@@ -6,14 +6,28 @@ import { ActionButton } from '../../components/ActionButton';
 import { AppPage } from '../../components/AppPage';
 import { ConfirmationModal } from '../../components/ConfirmationModal';
 import { Text } from '../../components/Text';
-import { roleLabels } from '../../core/roles';
+import { roleLabels, type Role } from '../../core/roles';
 import { colors } from '../../theme/tokens';
 import { FormField } from '../auth/AuthForm';
 import { useAuth } from '../auth/AuthProvider';
 import { authErrorMessage, type UserProfile } from '../auth/model';
-import { changeUserRole, watchUsers, type ManagedRole, type RoleChange } from './users';
+import { changeUserRole, watchUsers, type RoleChange } from './users';
 
-const filters = ['semua', 'asisten', 'praktikan'] as const;
+const filters = [
+  { value: 'semua', label: 'Semua' },
+  { value: 'calon_asprak', label: 'Menunggu' },
+  { value: 'asisten', label: 'Asprak aktif' },
+] as const;
+type Filter = typeof filters[number]['value'];
+
+function availableActions(role: Role) {
+  if (role === 'calon_asprak') return [
+    { label: 'Setujui pengajuan', nextRole: 'asisten' },
+    { label: 'Tolak pengajuan', nextRole: 'asprak_ditolak' },
+  ] as const;
+  if (role === 'asisten') return [{ label: 'Cabut akses asprak', nextRole: 'asprak_dicabut' }] as const;
+  return [];
+}
 
 export function AdminUsersScreen() {
   const { profile } = useAuth();
@@ -26,7 +40,7 @@ function UserDirectory() {
   const [users, setUsers] = useState<UserProfile[] | null>(null);
   const [fromCache, setFromCache] = useState(true);
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<ManagedRole | 'semua'>('semua');
+  const [filter, setFilter] = useState<Filter>('semua');
   const [pending, setPending] = useState<RoleChange | null>(null);
   const [busy, setBusy] = useState(false);
   const writing = useRef(false);
@@ -58,7 +72,7 @@ function UserDirectory() {
     setFeedback(null);
     try {
       await changeUserRole(pending);
-      setFeedback({ message: `Peran ${pending.user.name} diubah menjadi ${roleLabels[pending.nextRole]}.`, error: false });
+      setFeedback({ message: `Status akun ${pending.user.name} diperbarui.`, error: false });
     } catch (error) {
       setFeedback({ message: authErrorMessage(error), error: true });
     } finally {
@@ -68,14 +82,14 @@ function UserDirectory() {
   }
 
   return (
-    <AppPage title="Kelola pengguna" subtitle="Atur peran praktikan dan asisten TechLab.">
+    <AppPage title="Kelola pengguna" subtitle="Tinjau pengajuan dan kelola akses asprak TechLab.">
       <View style={styles.card}>
         <FormField label="Cari nama atau NIM / ID" value={query} onChangeText={setQuery} />
         <View style={styles.filters}>
-          {filters.map((value) => (
+          {filters.map(({ value, label }) => (
             <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: value === filter }}
               onPress={() => setFilter(value)} style={[styles.filter, value === filter && styles.selected]}>
-              <Text style={styles.label}>{value === 'semua' ? 'Semua' : roleLabels[value]}</Text>
+              <Text style={styles.label}>{label}</Text>
             </Pressable>
           ))}
         </View>
@@ -102,22 +116,18 @@ function UserDirectory() {
         <View key={user.uid} style={styles.card}>
           <Text style={styles.name}>{user.name}</Text>
           <Text style={styles.detail}>{user.number} · {roleLabels[user.role]}</Text>
-          {user.role !== 'admin' && (
-            <ActionButton
-              title={user.role === 'praktikan' ? 'Jadikan asisten' : 'Cabut peran asisten'}
-              secondary
-              disabled={busy || fromCache}
-              onPress={() => setPending({ user, nextRole: user.role === 'praktikan' ? 'asisten' : 'praktikan' })}
-            />
-          )}
+          {availableActions(user.role).map(({ label, nextRole }) => (
+            <ActionButton key={nextRole} title={label} secondary disabled={busy || fromCache}
+              onPress={() => setPending({ user, nextRole })} />
+          ))}
         </View>
       ))}
       <ConfirmationModal
         visible={pending !== null && !fromCache && currentTarget?.role === pending.user.role}
-        title="Ubah peran pengguna?"
-        description={pending ? `Ubah peran ${pending.user.name} dari ${roleLabels[pending.user.role]} menjadi ${roleLabels[pending.nextRole]}?` : ''}
+        title="Konfirmasi perubahan akses"
+        description={pending ? `${pending.user.name} (${pending.user.number}) · ${roleLabels[pending.nextRole]}. ${pending.nextRole === 'asisten' ? 'Pastikan pengajuan ini milik pemilik akun praktikan dengan nama dan NIM yang sama.' : ''}` : ''}
         eyebrow="KONFIRMASI PERAN"
-        confirmLabel="Ubah peran"
+        confirmLabel="Konfirmasi"
         confirmTestID="confirm-role-change"
         onConfirm={() => void confirm()}
         onCancel={() => setPending(null)}

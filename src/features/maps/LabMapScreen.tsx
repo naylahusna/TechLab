@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Text } from '../../components/Text';
+import { roleLabels } from '../../core/roles';
 import { useRole } from '../../core/role-context';
 import { watchLabLocations, type LabLocation } from '../assistant/lab-locations';
 import { ScreenHeader } from '../practitioner/components/ScreenHeader';
@@ -36,7 +37,7 @@ export function LabMapScreen() {
     <View style={styles.page}>
       <ScreenHeader
         title="Peta laboratorium"
-        roleLabel={currentUser?.role === 'asisten' ? 'Asisten' : 'Praktikan'}
+        roleLabel={currentUser ? roleLabels[currentUser.role] : undefined}
       />
       <View style={styles.content}>
         <View style={styles.map} testID="lab-map">

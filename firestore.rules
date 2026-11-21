@@ -1,6 +1,7 @@
 rules_version = '2';
 // Data model Sprint 2.
-// users/{uid}: uid, name, number, role ('praktikan' | 'asisten' | 'admin'), createdAt, updatedAt.
+// users/{uid}: uid, name, number, role, createdAt, updatedAt, optional practitionerUid from Aslab approval.
+// Roles: praktikan, calon_asprak, asisten, asprak_ditolak, asprak_dicabut, admin.
 // userDirectory/{uid}: uid, name, number, role, updatedAt, mirrored from users/{uid}.
 // SRS-06..12 collections are covered below.
 // SRS-13..17 permissions are shared by practitioner monitoring and assistant recap.
@@ -13,13 +14,16 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'name', 'number', 'role', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['uid', 'name', 'number', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'name', 'number', 'role', 'createdAt', 'updatedAt', 'practitionerUid'])
         && data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128
         && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
         && data.name == data.name.trim()
         && data.number is string && data.number.size() > 0 && data.number.size() <= 32
         && data.number.matches('^[A-Za-z0-9.-]+$')
-        && data.role in ['praktikan', 'asisten', 'admin']
+        && data.role in ['praktikan', 'asisten', 'admin', 'calon_asprak', 'asprak_ditolak', 'asprak_dicabut']
+        && (!('practitionerUid' in data) || (data.role in ['asisten', 'asprak_dicabut']
+          && data.practitionerUid is string && data.practitionerUid.size() <= 128
+          && data.practitionerUid.matches('^[^/]+$') && data.practitionerUid != data.uid))
         && data.createdAt is timestamp && data.updatedAt is timestamp;
     }
 
@@ -33,8 +37,8 @@ service cloud.firestore {
         : null;
     }
     function isAdmin() { return userRole() == 'admin'; }
-    function canManageLab() { return isAssistant() || isAdmin(); }
-    function isAssistant() { return userRole() == 'asisten'; }
+    function isAssistant() { return userRole() in ['asisten', 'admin']; }
+    function isActiveAccount() { return userRole() in ['praktikan', 'asisten', 'admin']; }
     function isPractitioner() { return userRole() == 'praktikan'; }
 
     function isAssignedAssistant(classId) {
@@ -44,7 +48,7 @@ service cloud.firestore {
     }
 
     function isActiveParticipant(classId) {
-      return isAuthenticated()
+      return isPractitioner()
         && exists(/databases/$(database)/documents/classes/$(classId))
         && request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.studentIds;
     }
@@ -111,13 +115,26 @@ service cloud.firestore {
         && data.recordedAt is timestamp;
     }
 
-    function validManagedRoleChange(uid) {
-      return isAdmin() && request.auth.uid != uid
-        && resource.data.role in ['praktikan', 'asisten']
-        && request.resource.data.role in ['praktikan', 'asisten']
-        && request.resource.data.role != resource.data.role
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'updatedAt'])
-        && request.resource.data.updatedAt == request.time;
+    function validAsprakTransition(uid) {
+      return isAdmin() && request.auth.uid != uid && request.resource.data.updatedAt == request.time
+        && ((resource.data.role == 'calon_asprak' && request.resource.data.role in ['asisten', 'asprak_ditolak'])
+          || (resource.data.role == 'asisten' && request.resource.data.role == 'asprak_dicabut'));
+    }
+
+    function matchesOriginalPractitioner(data) {
+      let practitioner = get(/databases/$(database)/documents/users/$(data.practitionerUid)).data;
+      return practitioner.uid == data.practitionerUid && practitioner.role == 'praktikan'
+        && practitioner.name == data.name && practitioner.number == data.number;
+    }
+
+    function validAsprakProfileUpdate(uid) {
+      let fields = request.resource.data.diff(resource.data).affectedKeys();
+      return validAsprakTransition(uid)
+        && (request.resource.data.role == 'asisten'
+          ? (fields.hasOnly(['role', 'updatedAt', 'practitionerUid'])
+            && fields.hasAll(['practitionerUid'])
+            && matchesOriginalPractitioner(request.resource.data))
+          : fields.hasOnly(['role', 'updatedAt']));
     }
 
     function matchesDirectoryProfile(data, uid, profile) {
@@ -133,16 +150,16 @@ service cloud.firestore {
       allow list: if false;
       allow create: if isOwner(userId) && uidUnchanged(userId)
         && isValidUser(request.resource.data)
-        && request.resource.data.role == 'praktikan'
+        && request.resource.data.role in ['praktikan', 'calon_asprak']
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
-      allow update: if isOwner(userId) && uidNotModified()
+      allow update: if isOwner(userId) && isActiveAccount() && uidNotModified()
         && isValidUser(request.resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'number', 'updatedAt'])
         && request.resource.data.updatedAt == request.time;
       allow update: if uidUnchanged(userId)
         && isValidUser(request.resource.data)
-        && validManagedRoleChange(userId)
+        && validAsprakProfileUpdate(userId)
         && get(/databases/$(database)/documents/userDirectory/$(userId)).data.role == resource.data.role
         && matchesDirectoryProfile(
           getAfter(/databases/$(database)/documents/userDirectory/$(userId)).data,
@@ -153,9 +170,9 @@ service cloud.firestore {
     }
 
     match /classes/{classId} {
-      allow get: if isAuthenticated() && resource != null
+      allow get: if isActiveAccount() && resource != null
         && request.auth.uid in resource.data.memberIds;
-      allow list: if isAuthenticated()
+      allow list: if isActiveAccount()
         && request.auth.uid in resource.data.memberIds;
       allow create: if isAssistant() && isValidClass(request.resource.data)
         && request.resource.data.assistantIds.hasAll([request.auth.uid])
@@ -175,7 +192,7 @@ service cloud.firestore {
     }
 
     match /participants/{participantId} {
-      allow get: if isAuthenticated()
+      allow get: if isActiveAccount()
         && (participantId.matches('.*_' + request.auth.uid)
           || isAssignedAssistant(participantId.split('_')[0]));
       allow list: if isAssistant() && isAssignedAssistant(resource.data.classId);
@@ -196,9 +213,9 @@ service cloud.firestore {
     }
 
     match /schedules/{scheduleId} {
-      allow get: if isAuthenticated() && resource != null
+      allow get: if isActiveAccount() && resource != null
         && (isAssignedAssistant(resource.data.classId) || isActiveParticipant(resource.data.classId));
-      allow list: if isAuthenticated()
+      allow list: if isActiveAccount()
         && (isAssignedAssistant(resource.data.classId) || isActiveParticipant(resource.data.classId));
       allow create: if isAssistant() && isValidSchedule(request.resource.data)
         && isAssignedAssistant(request.resource.data.classId)
@@ -238,12 +255,12 @@ service cloud.firestore {
     }
 
     match /sessions/{sessionId} {
-      allow get: if isAuthenticated()
+      allow get: if isActiveAccount()
         && ((resource != null
             && (isAssignedAssistant(resource.data.classId) || isActiveParticipant(resource.data.classId)))
           || (exists(/databases/$(database)/documents/schedules/$(sessionId))
             && isAssignedAssistant(get(/databases/$(database)/documents/schedules/$(sessionId)).data.classId)));
-      allow list: if isAuthenticated()
+      allow list: if isActiveAccount()
         && (isAssignedAssistant(resource.data.classId) || isActiveParticipant(resource.data.classId));
       allow create: if isAssistant() && isValidSession(request.resource.data)
         && sessionId == request.resource.data.scheduleId
@@ -269,11 +286,11 @@ service cloud.firestore {
     }
 
     match /attendances/{attendanceId} {
-      allow get: if isAuthenticated()
+      allow get: if isActiveAccount()
         && (attendanceId.matches('.*_' + request.auth.uid)
           || (exists(/databases/$(database)/documents/sessions/$(attendanceId.split('_')[0]))
             && isAssignedAssistant(get(/databases/$(database)/documents/sessions/$(attendanceId.split('_')[0])).data.classId)));
-      allow list: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAssignedAssistant(resource.data.classId));
+      allow list: if isActiveAccount() && (resource.data.userId == request.auth.uid || isAssignedAssistant(resource.data.classId));
       allow create: if isPractitioner()
         && isValidAttendance(request.resource.data)
         && request.resource.data.userId == request.auth.uid
@@ -293,13 +310,14 @@ service cloud.firestore {
     }
 
     match /userDirectory/{uid} {
-      allow get: if isOwner(uid) || isAssistant() || isAdmin();
+      allow get: if isOwner(uid) || isAdmin() || (isAssistant() && resource.data.role in ['praktikan', 'asisten']);
       allow list: if isAdmin() || (isAssistant() && resource.data.role == 'praktikan');
       allow create, update: if isOwner(uid)
         && matchesDirectoryProfile(
           request.resource.data, uid, getAfter(/databases/$(database)/documents/users/$(uid)).data
         );
-      allow update: if validManagedRoleChange(uid)
+      allow update: if validAsprakTransition(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'updatedAt'])
         && get(/databases/$(database)/documents/users/$(uid)).data.role == resource.data.role
         && getAfter(/databases/$(database)/documents/users/$(uid)).data.updatedAt == request.time
         && matchesDirectoryProfile(
@@ -309,11 +327,11 @@ service cloud.firestore {
     }
 
     match /permissions/{permissionId} {
-      allow get: if isAuthenticated()
+      allow get: if isActiveAccount()
         && ((resource != null && (resource.data.userId == request.auth.uid
           || isAssignedAssistant(resource.data.classId)))
           || (resource == null && permissionId.matches('.*_' + request.auth.uid)));
-      allow list: if isAuthenticated()
+      allow list: if isActiveAccount()
         && (resource.data.userId == request.auth.uid || isAssignedAssistant(resource.data.classId));
       allow create: if isPractitioner() && validPermission(request.resource.data)
         && request.resource.data.userId == request.auth.uid
@@ -409,14 +427,14 @@ service cloud.firestore {
     }
 
     match /labLocations/{locationId} {
-      allow get, list: if isAuthenticated();
-      allow create: if canManageLab() && validLabLocation(request.resource.data)
+      allow get, list: if isActiveAccount();
+      allow create: if isAdmin() && validLabLocation(request.resource.data)
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
-      allow update: if canManageLab() && validLabLocation(request.resource.data)
+      allow update: if isAdmin() && validLabLocation(request.resource.data)
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedAt == request.time;
-      allow delete: if canManageLab();
+      allow delete: if isAdmin();
     }
 
     match /{document=**} { allow read, write: if false; }

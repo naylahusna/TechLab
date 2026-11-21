@@ -79,6 +79,11 @@ export function ProfileScreen() {
           editable={!busy}
           maxLength={32}
         />
+        {auth.isLabAdmin && (
+          <ActionButton secondary disabled={auth.fromCache || busy}
+            title={auth.assistantMode ? 'Ganti ke mode Aslab' : 'Ganti ke mode Asprak'}
+            onPress={auth.toggleAdminMode} />
+        )}
         {!!auth.account?.email && (
           <View style={styles.readOnlyField}>
             <Text style={styles.readOnlyLabel}>Email</Text>
