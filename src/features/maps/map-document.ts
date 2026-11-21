@@ -77,7 +77,9 @@ export function mapDocument() {
       }
 
       const markers = L.layerGroup().addTo(map);
-      let points;
+      let points = [];
+      let labs = [];
+      let pinsSeparated = map.getZoom() >= 20;
       let pointKey;
       let selection;
       let focusRevision;
@@ -92,7 +94,7 @@ export function mapDocument() {
           groups.get(key).push(lab);
         }
         return Array.from(groups.values()).flatMap((group) => {
-          if (group.length > 3) return [createMarker(group, 0)];
+          if (!pinsSeparated || group.length > 3) return [createMarker(group, 0)];
           // Separate pins on screen while keeping every marker anchored to the stored coordinate.
           return group
             .slice()
@@ -139,22 +141,35 @@ export function mapDocument() {
         return { marker, group };
       }
 
+      function highlightSelection() {
+        for (const { marker, group } of points) {
+          const selected = group.some((lab) => lab.id === selection);
+          const element = marker.getElement();
+          element.firstElementChild.classList.toggle('is-selected', selected);
+          element.setAttribute('aria-pressed', String(selected));
+          marker.setZIndexOffset(selected ? 1000 : 0);
+        }
+      }
+
+      map.on('zoomend', () => {
+        const separatePins = map.getZoom() >= 20;
+        if (separatePins === pinsSeparated) return;
+        pinsSeparated = separatePins;
+        points = addMarkers(labs);
+        highlightSelection();
+      });
+
       window.techLabUpdateMap = (next) => {
         const key = JSON.stringify(next.labs);
         const changed = key !== pointKey;
         if (changed) {
-          points = addMarkers(next.labs);
+          labs = next.labs;
+          points = addMarkers(labs);
           pointKey = key;
         }
         if (changed || selection !== next.selectedId) {
           selection = next.selectedId;
-          for (const { marker, group } of points) {
-            const selected = group.some((lab) => lab.id === selection);
-            const element = marker.getElement();
-            element.firstElementChild.classList.toggle('is-selected', selected);
-            element.setAttribute('aria-pressed', String(selected));
-            marker.setZIndexOffset(selected ? 1000 : 0);
-          }
+          highlightSelection();
         }
         if (next.focus && next.focus.revision !== focusRevision) {
           focusRevision = next.focus.revision;
