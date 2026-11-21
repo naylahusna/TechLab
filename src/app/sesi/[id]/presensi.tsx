@@ -1,6 +1,5 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { useEffect, useState } from 'react';
 
 import { useAuth } from '../../../features/auth/AuthProvider';
 import { usePermissions } from '../../../features/permission/hooks';
@@ -15,25 +14,11 @@ import {
 } from '../../../features/practicum';
 import { toPractitionerSessionDetail, toPraktikanIdentity } from '../../../features/practicum/session-view';
 import { colors } from '../../../theme/tokens';
-import {
-  watchLabLocations,
-  type LabLocation,
-} from '../../../features/assistant/lab-locations';
-import {
-  validateAttendanceLocation,
-  type LocationValidation,
-} from '../../../features/practitioner/lib/location-validation';
 
 export default function AttendanceRoute() {
-  const { id, latitude, longitude } = useLocalSearchParams<{
-    id?: string | string[];
-    latitude?: string | string[];
-    longitude?: string | string[];
-  }>();
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const auth = useAuth();
   const router = useRouter();
-  const [labLocations, setLabLocations] = useState<LabLocation[]>([]);
-  useEffect(() => watchLabLocations(setLabLocations, () => setLabLocations([])), []);
   const sessionId = typeof id === 'string' ? id : undefined;
   const detail = useSessionDetail(sessionId);
   const permissionResource = usePermissions();
@@ -66,20 +51,6 @@ export default function AttendanceRoute() {
     detail.attendance,
     auth.profile.uid,
   );
-  const latitudeValue = typeof latitude === 'string' ? Number(latitude) : NaN;
-  const longitudeValue = typeof longitude === 'string' ? Number(longitude) : NaN;
-  const normalizeLabName = (value: string) => value.trim().toLowerCase();
-  const labLocation = labLocations.find(
-    (location) => normalizeLabName(location.name) === normalizeLabName(session.lab),
-  ) ?? null;
-  const deviceCoordinates =
-    Number.isFinite(latitudeValue) && Number.isFinite(longitudeValue)
-      ? { latitude: latitudeValue, longitude: longitudeValue }
-      : null;
-  const locationValidation: LocationValidation = validateAttendanceLocation(
-    deviceCoordinates,
-    labLocation,
-  );
   const myPermission = permissionResource.data.find(
     (permission) => permission.sessionId === detail.session!.id && permission.userId === auth.profile!.uid,
   );
@@ -89,9 +60,6 @@ export default function AttendanceRoute() {
   }
 
   async function confirmAttendance() {
-    if (locationValidation.status !== 'inside') {
-      return { ok: false as const, reason: locationValidation.message };
-    }
     try {
       await getPracticumRepository().recordAttendance(session.id, auth.profile!.uid);
       await detail.reload();
@@ -107,7 +75,6 @@ export default function AttendanceRoute() {
       <AttendanceScreen
         session={session}
         praktikan={toPraktikanIdentity(auth.profile)}
-        locationValidation={locationValidation}
         onBack={goBack}
         onConfirmAttendance={confirmAttendance}
       />
