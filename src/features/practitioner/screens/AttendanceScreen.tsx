@@ -13,15 +13,23 @@ import { getAttendanceAction } from '../lib/attendance-action';
 import { ATTENDANCE_STATUS_META, SESSION_STATUS_META } from '../lib/status';
 import { colors, fontWeights, radius, spacing, typography } from '../theme';
 import type { AttendanceActionResult, PraktikanIdentity, SessionDetail } from '../types';
+import type { LocationValidation } from '../lib/location-validation';
 
 type AttendanceScreenProps = {
   session: SessionDetail;
   praktikan: PraktikanIdentity;
+  locationValidation: LocationValidation;
   onBack: () => void;
   onConfirmAttendance: () => AttendanceActionResult | Promise<AttendanceActionResult>;
 };
 
-export function AttendanceScreen({ session, praktikan, onBack, onConfirmAttendance }: AttendanceScreenProps) {
+export function AttendanceScreen({
+  session,
+  praktikan,
+  locationValidation,
+  onBack,
+  onConfirmAttendance,
+}: AttendanceScreenProps) {
   const insets = useSafeAreaInsets();
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -118,6 +126,12 @@ export function AttendanceScreen({ session, praktikan, onBack, onConfirmAttendan
             </View>
           </View>
 
+          <FeedbackBanner
+            tone={locationValidation.status === 'inside' ? 'success' : 'error'}
+            title={locationValidation.status === 'inside' ? 'Lokasi sesuai radius' : 'Lokasi tidak sesuai radius'}
+            message={locationValidation.message}
+          />
+
           {succeeded ? (
             <FeedbackBanner tone="success" title="Presensi berhasil" message="Kehadiranmu sudah tercatat untuk sesi ini." />
           ) : null}
@@ -125,7 +139,7 @@ export function AttendanceScreen({ session, praktikan, onBack, onConfirmAttendan
           <View style={styles.actionBlock}>
             <Button
               label={attendanceAction.label}
-              disabled={attendanceAction.disabled}
+              disabled={attendanceAction.disabled || locationValidation.status !== 'inside'}
               onPress={() => { setSubmitError(null); setConfirmVisible(true); }}
             />
             {attendanceAction.reason ? <Text style={styles.reason}>{attendanceAction.reason}</Text> : null}
@@ -136,6 +150,7 @@ export function AttendanceScreen({ session, praktikan, onBack, onConfirmAttendan
         visible={confirmVisible}
         praktikan={praktikan}
         session={session}
+        locationValidation={locationValidation}
         isSubmitting={submitting}
         errorMessage={submitError}
         onCancel={() => { if (!submittingRef.current) { setConfirmVisible(false); setSubmitError(null); } }}

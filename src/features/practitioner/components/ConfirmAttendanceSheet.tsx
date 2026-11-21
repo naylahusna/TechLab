@@ -24,11 +24,13 @@ import type { PraktikanIdentity, SessionDetail } from '../types';
 import { Button } from './Button';
 import { FeedbackBanner } from './FeedbackBanner';
 import { InfoRow } from './InfoRow';
+import type { LocationValidation } from '../lib/location-validation';
 
 type ConfirmAttendanceSheetProps = {
   visible: boolean;
   praktikan: PraktikanIdentity;
   session: SessionDetail;
+  locationValidation: LocationValidation;
   isSubmitting: boolean;
   errorMessage: string | null;
   onCancel: () => void;
@@ -43,6 +45,7 @@ export function ConfirmAttendanceSheet({
   visible,
   praktikan,
   session,
+  locationValidation,
   isSubmitting,
   errorMessage,
   onCancel,
@@ -248,6 +251,12 @@ export function ConfirmAttendanceSheet({
                     <InfoRow label="Waktu" value={session.timeRangeLabel} last />
                   </View>
 
+                  <FeedbackBanner
+                    tone={locationValidation.status === 'inside' ? 'success' : 'error'}
+                    title={locationValidation.status === 'inside' ? 'Lokasi sesuai' : 'Lokasi belum sesuai'}
+                    message={locationValidation.message}
+                  />
+
                   {errorMessage ? (
                     <FeedbackBanner tone="error" title="Presensi gagal" message={errorMessage} />
                   ) : null}
@@ -266,6 +275,7 @@ export function ConfirmAttendanceSheet({
                         label={isSubmitting ? 'Mencatat...' : 'Ya, Catat Presensi'}
                         onPress={onConfirm}
                         loading={isSubmitting}
+                        disabled={locationValidation.status !== 'inside'}
                       />
                     </View>
                   </View>

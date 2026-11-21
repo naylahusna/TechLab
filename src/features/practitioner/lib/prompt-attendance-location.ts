@@ -1,7 +1,7 @@
 import { Alert, Linking } from 'react-native';
 
 export type AttendanceLocationPromptResult =
-  | 'ready'
+  | { status: 'ready'; latitude: number; longitude: number }
   | 'permission-denied'
   | 'services-off'
   | 'location-unavailable'
@@ -45,11 +45,14 @@ export async function promptAttendanceLocation(): Promise<AttendanceLocationProm
       if (!Number.isFinite(position.coords.latitude) || !Number.isFinite(position.coords.longitude)) {
         return 'location-unavailable';
       }
+      return {
+        status: 'ready',
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
     } catch {
       return 'location-unavailable';
     }
-
-    return 'ready';
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error);
     if (/ExpoLocation|native module/i.test(text)) return 'native-unavailable';
@@ -62,7 +65,7 @@ export function openLocationSettings() {
 }
 
 export function showAttendanceLocationWarning(result: AttendanceLocationPromptResult): boolean {
-  if (result === 'ready') return true;
+  if (typeof result === 'object' && result.status === 'ready') return true;
 
   if (result === 'permission-denied') {
     Alert.alert(

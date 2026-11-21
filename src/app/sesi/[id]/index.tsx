@@ -165,7 +165,16 @@ export default function SesiRoute() {
         onOpenAttendance={async () => {
           const locationResult = await promptAttendanceLocation();
           if (!showAttendanceLocationWarning(locationResult)) return;
-          router.push(`/sesi/${session.id}/presensi`);
+          if (typeof locationResult === 'object') {
+            router.push({
+              pathname: '/sesi/[id]/presensi',
+              params: {
+                id: session.id,
+                latitude: String(locationResult.latitude),
+                longitude: String(locationResult.longitude),
+              },
+            });
+          }
         }}
       />
       <View
