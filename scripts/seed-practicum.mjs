@@ -75,6 +75,14 @@ try {
   await env.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
     const now = Timestamp.now();
+    const labLocations = [
+      { id: 'lab-informatika-b', name: 'Lab Informatika B', building: 'Gedung E FSM UNDIP', floor: 2, latitude: -7.0482375, longitude: 110.440765625, plusCode: '6P4GXC2R+P82' },
+      { id: 'lab-informatika-c', name: 'Lab Informatika C', building: 'Gedung E FSM UNDIP', floor: 2, latitude: -7.0482375, longitude: 110.440765625, plusCode: '6P4GXC2R+P82' },
+      { id: 'lab-informatika-d', name: 'Lab Informatika D', building: 'Gedung E FSM UNDIP', floor: 2, latitude: -7.0482375, longitude: 110.440765625, plusCode: '6P4GXC2R+P82' },
+      { id: 'dekanat-fsm', name: 'Dekanat FSM UNDIP', building: 'Gedung Dekanat FSM UNDIP', floor: null, latitude: -7.0490375, longitude: 110.441484375, plusCode: '6P4GXC2R+9HQ' },
+    ];
+    const labLocationSource = 'Google Maps business listing Plus Codes, converted to grid cell centers; UNDIP UTBK 2026 for lab floor';
+    const labLocationCaution = 'Building-level map reference points only; NOT independently surveyed room coordinates and NOT adequate to distinguish nearby labs with GPS geofencing.';
     const users = [
       { uid: assistantId, name: 'Dimas Aditya', number: 'AS-001', role: 'asisten' },
       ...studentIds.map((uid, index) => ({
@@ -93,6 +101,23 @@ try {
         }),
       ),
     );
+
+    await Promise.all(labLocations.map((item) => setDoc(doc(db, 'labLocations', item.id), {
+      name: item.name,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      radiusMeters: 100,
+      building: item.building,
+      floor: item.floor,
+      plusCode: item.plusCode,
+      pointType: 'building_map_reference',
+      roomCenterVerified: false,
+      source: labLocationSource,
+      caution: labLocationCaution,
+      createdAt: now,
+      updatedAt: now,
+      updatedBy: assistantId,
+    })));
 
     await Promise.all([
       setDoc(doc(db, 'userDirectory', assistantId), {
@@ -388,6 +413,7 @@ try {
       classIds: classes.map((item) => item.id),
       scheduleIds: schedules.map((item) => item.id),
       sessionIds: sessions.map((item) => item.id),
+      labLocationIds: labLocations.map((item) => item.id),
     });
   });
 } finally {

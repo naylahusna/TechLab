@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { watchLabLocations } from '../../assistant/lab-locations';
 
 import { ActionButton } from '../../../components/ActionButton';
 import { Text } from '../../../components/Text';
@@ -27,8 +28,6 @@ type ScheduleFormScreenProps = {
   scheduleId?: string;
 };
 
-const LAB_OPTIONS = ['Lab A', 'Lab B', 'Lab C', 'Lab D', 'AP LT 5'];
-
 export function ScheduleFormScreen({
   classId,
   mode,
@@ -40,6 +39,8 @@ export function ScheduleFormScreen({
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
+  const [labOptions, setLabOptions] = useState<string[]>([]);
+  const [labLoadError, setLabLoadError] = useState('');
   const [now, setNow] = useState(() => new Date());
   const [loading, setLoading] = useState(mode === 'edit');
   const [loadFailed, setLoadFailed] = useState(false);
@@ -53,6 +54,14 @@ export function ScheduleFormScreen({
     }, 30000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => watchLabLocations(
+    (items) => {
+      setLabOptions(items.map((item) => item.name));
+      setLabLoadError('');
+    },
+    () => setLabLoadError('Lokasi lab gagal dimuat. Periksa koneksi lalu coba lagi.'),
+  ), []);
 
   const minSelectableDate = getMinScheduleDate(now);
   const availableStartTimes = getAvailableStartTimes(date, now);
@@ -227,11 +236,13 @@ export function ScheduleFormScreen({
             <OptionPickerField
               label="Lokasi"
               value={location}
-              options={LAB_OPTIONS}
+              options={labOptions}
               placeholder="Pilih lab"
               onChange={setLocation}
               disabled={submitting}
+              emptyMessage={labLoadError || 'Belum ada lokasi di koleksi labLocations. Tambahkan lokasi terlebih dahulu.'}
             />
+            {labLoadError ? <Text accessibilityRole="alert" style={styles.error}>{labLoadError}</Text> : null}
             <Text style={styles.note}>
               Tanggal dan jam hanya dapat dipilih mulai dari waktu sekarang ke depan.
             </Text>

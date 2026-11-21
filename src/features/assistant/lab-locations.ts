@@ -23,8 +23,8 @@ export type LabLocation = {
   building: string;
   floor: number | null;
   plusCode: string;
-  pointType: 'building_map_reference';
-  roomCenterVerified: false;
+  pointType: string;
+  roomCenterVerified: boolean;
   source: string;
   caution: string;
 };

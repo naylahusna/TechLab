@@ -6,7 +6,7 @@ export function TabIcon({
   color,
   selected = false,
 }: {
-  kind: 'jadwal' | 'catatan' | 'profil';
+  kind: 'jadwal' | 'catatan' | 'profil' | 'lokasi';
   color: ViewStyle['borderColor'];
   selected?: boolean;
 }) {
@@ -21,6 +21,11 @@ export function TabIcon({
           <>
             <View style={[styles.head, { borderColor: color }]} />
             <View style={[styles.shoulders, { borderColor: color }]} />
+          </>
+        ) : kind === 'lokasi' ? (
+          <>
+            <View style={[styles.pin, { borderColor: color }]} />
+            <View style={[styles.pinCenter, { backgroundColor: color }]} />
           </>
         ) : (
           <>
@@ -70,6 +75,8 @@ const styles = StyleSheet.create({
   bindingRight: { position: 'absolute', top: 1, right: 9, height: 7, width: 2, borderRadius: 1 },
   date: { position: 'absolute', top: 15, left: 10, width: 4, height: 4, borderRadius: 1 },
   textLine: { position: 'absolute', left: 9, width: 10, height: 1.8, borderRadius: 1 },
+  pin: { position: 'absolute', top: 2, left: 5, width: 18, height: 18, borderWidth: 1.8, borderRadius: 10, borderBottomLeftRadius: 2, transform: [{ rotate: '45deg' }] },
+  pinCenter: { position: 'absolute', top: 8, left: 11, width: 6, height: 6, borderRadius: 3 },
   head: {
     position: 'absolute',
     top: 2,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../components/Text';
+import { ConfirmationModal } from '../../components/ConfirmationModal';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { type LabLocation, removeLabLocation, saveLabLocation, watchLabLocations } from '../../features/assistant/lab-locations';
 import { ScreenHeader } from '../../features/practitioner/components/ScreenHeader';
@@ -11,6 +12,7 @@ export default function LabLocationsRoute() {
   const auth = useAuth();
   const [locations, setLocations] = useState<LabLocation[]>([]);
   const [editing, setEditing] = useState<LabLocation | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LabLocation | null>(null);
   const [name, setName] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
@@ -26,13 +28,20 @@ export default function LabLocationsRoute() {
   const reset = () => { setEditing(null); setName(''); setLatitude(''); setLongitude(''); setRadius('100'); setBuilding(''); setFloor(''); };
   const edit = (item: LabLocation) => { setEditing(item); setName(item.name); setLatitude(String(item.latitude)); setLongitude(String(item.longitude)); setRadius(String(item.radiusMeters)); setBuilding(item.building); setFloor(item.floor == null ? '' : String(item.floor)); };
   const submit = async () => {
+    const cleanName = name.trim();
+    if (cleanName.length < 2) {
+      setError('Nama lab minimal 2 karakter.'); return;
+    }
+    if (!latitude.trim() || !longitude.trim() || !radius.trim()) {
+      setError('Latitude, longitude, dan radius wajib diisi.'); return;
+    }
     const lat = Number(latitude), lng = Number(longitude), r = Number(radius), f = floor.trim() ? Number(floor) : null;
-    if (!name.trim() || !building.trim() || !Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180 || !Number.isFinite(r) || r < 1 || r > 5000 || (f != null && !Number.isInteger(f))) {
+    if (!building.trim() || !Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180 || !Number.isFinite(r) || r < 1 || r > 5000 || (f != null && !Number.isInteger(f))) {
       setError('Periksa nama, gedung, koordinat, radius (1–5000 m), dan lantai.'); return;
     }
     setBusy(true); setError('');
     try {
-      await saveLabLocation({ name: name.trim(), latitude: lat, longitude: lng, radiusMeters: r, building: building.trim(), floor: f, plusCode: editing?.plusCode ?? '' }, editing?.id);
+      await saveLabLocation({ name: cleanName, latitude: lat, longitude: lng, radiusMeters: r, building: building.trim(), floor: f, plusCode: editing?.plusCode ?? '' }, editing?.id);
       reset();
     } catch (e) { setError(e instanceof Error ? e.message : 'Lokasi gagal disimpan.'); }
     finally { setBusy(false); }
@@ -91,11 +100,7 @@ export default function LabLocationsRoute() {
                 <Text style={styles.secondaryText}>Ubah</Text>
               </Pressable>
               <Pressable
-                onPress={() => {
-                  void removeLabLocation(item.id).catch((e) =>
-                    setError(e instanceof Error ? e.message : 'Lokasi gagal dihapus.'),
-                  );
-                }}
+                onPress={() => setDeleteTarget(item)}
                 style={styles.delete}
               >
                 <Text style={styles.deleteText}>Hapus</Text>
@@ -105,6 +110,25 @@ export default function LabLocationsRoute() {
         ))}
         {locations.length === 0 && <Text style={styles.muted}>Belum ada lokasi tersimpan.</Text>}
       </ScrollView>
+      <ConfirmationModal
+        visible={deleteTarget !== null}
+        title="Hapus lokasi laboratorium?"
+        description={deleteTarget ? `${deleteTarget.name} akan dihapus dari daftar lokasi.` : ''}
+        confirmLabel={busy ? 'Menghapus…' : 'Hapus lokasi'}
+        eyebrow="KONFIRMASI HAPUS"
+        confirmTestID="confirm-delete-lab-location"
+        cancelTestID="cancel-delete-lab-location"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget || busy) return;
+          const target = deleteTarget;
+          setBusy(true); setError('');
+          void removeLabLocation(target.id)
+            .then(() => setDeleteTarget(null))
+            .catch((e) => setError(e instanceof Error ? e.message : 'Lokasi gagal dihapus.'))
+            .finally(() => setBusy(false));
+        }}
+      />
     </View>
   );
 }
