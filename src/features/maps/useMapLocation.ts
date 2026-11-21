@@ -12,15 +12,20 @@ export function useMapLocation() {
   useFocusEffect(useCallback(() => {
     let stop: (() => void) | undefined;
 
-    function begin() {
+    function begin(keepPosition = false) {
       if (stop) return;
       let active = true;
-      setState({ status: 'loading', position: null });
-      const timeout = setTimeout(() => reportError(locationUnavailable), 20000);
+      setState((previous) => keepPosition && previous.position
+        ? { status: 'stale', position: previous.position }
+        : { status: 'loading', position: null });
+      const timeout = setTimeout(() => reportError(locationUnavailable, true), 20000);
 
-      function reportError(message: string) {
+      function reportError(message: string, temporary = false) {
         clearTimeout(timeout);
-        if (active) setState({ status: 'error', position: null, message });
+        if (!active) return;
+        setState((previous) => temporary && previous.position
+          ? { status: 'stale', position: previous.position }
+          : { status: 'error', position: null, message });
       }
 
       let removeWatcher = () => {};
@@ -49,7 +54,7 @@ export function useMapLocation() {
     restart.current = () => {
       if (AppState.currentState === 'background') return;
       stopCurrent();
-      begin();
+      begin(true);
     };
     const appState = AppState.addEventListener('change', (next) => {
       if (next === 'background') {

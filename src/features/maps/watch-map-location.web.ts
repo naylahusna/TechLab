@@ -9,7 +9,7 @@ export const watchMapLocation: MapLocationWatcher = (onPosition, onError) => {
 
   const id = geolocation.watchPosition(
     ({ coords }) => onPosition({ latitude: coords.latitude, longitude: coords.longitude }),
-    (error) => onError(error.code === 1 ? permissionDenied : locationUnavailable),
+    (error) => onError(error.code === 1 ? permissionDenied : locationUnavailable, error.code !== 1),
     { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
   );
   return () => geolocation.clearWatch(id);

@@ -31,7 +31,7 @@ export const watchMapLocation: MapLocationWatcher = (onPosition, onError) => {
         if (!cancelled) onPosition({ latitude: coords.latitude, longitude: coords.longitude });
       },
       () => {
-        if (!cancelled) onError(locationUnavailable);
+        if (!cancelled) onError(locationUnavailable, true);
       },
     );
     if (cancelled) watcher.remove();

@@ -85,7 +85,7 @@ export function LabMapScreen() {
           <Text style={styles.label}>Fokus peta</Text>
           <ScrollView horizontal contentContainerStyle={styles.options}>
             <LocationOption label="Area kampus" onPress={() => focusOn(null)} />
-            <LocationOption label="Posisi saya" disabled={!location.position} onPress={() => {
+            <LocationOption label={location.status === 'stale' ? 'Posisi terakhir' : 'Posisi saya'} disabled={!location.position} onPress={() => {
               if (location.position) recenter(location.position);
             }} />
             {labs?.map((lab) => (
@@ -96,9 +96,9 @@ export function LabMapScreen() {
         {location.status === 'loading' && (
           <Text accessibilityLiveRegion="polite" style={styles.status}>Mencari posisi perangkat…</Text>
         )}
-        {location.status === 'error' && (
+        {(location.status === 'error' || location.status === 'stale') && (
           <View style={styles.locationError}>
-            <Text accessibilityLiveRegion="polite" style={styles.locationMessage}>{location.message}</Text>
+            <Text accessibilityLiveRegion="polite" style={styles.locationMessage}>{location.status === 'stale' ? 'Menampilkan posisi terakhir sambil menunggu pembaruan.' : location.message}</Text>
             <LocationOption label="Coba lagi" onPress={retryLocation} />
           </View>
         )}
