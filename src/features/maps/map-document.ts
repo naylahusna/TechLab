@@ -43,7 +43,8 @@ export function mapDocument() {
     } else {
       const map = L.map('map', { minZoom: 3 }).setView([${latitude}, ${longitude}], 17);
       const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
+        maxNativeZoom: 19,
+        maxZoom: 21,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
         referrerPolicy: 'strict-origin-when-cross-origin',
       });
