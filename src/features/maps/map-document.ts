@@ -17,7 +17,7 @@ export function mapDocument() {
       max-width: calc(100% - 76px); padding: 8px 12px; border-radius: 6px;
       background: white; color: #172554; font: 14px system-ui, sans-serif; }
     .lab-marker {
-      box-sizing: border-box; display: grid; place-items: center; border-radius: 50% 50% 50% 12%;
+      width: 34px; height: 34px; box-sizing: border-box; display: grid; place-items: center; border-radius: 50% 50% 50% 12%;
       transform: rotate(-45deg); border: 2px solid white; background: #4268e8;
       color: white; box-shadow: 0 2px 5px #17255455;
       font: bold 13px system-ui, sans-serif;
@@ -75,38 +75,52 @@ export function mapDocument() {
           if (!groups.has(key)) groups.set(key, []);
           groups.get(key).push(lab);
         }
-        return Array.from(groups.values(), (group) => {
-          const first = group[0];
-          const marker = L.marker([first.latitude, first.longitude], {
-            icon: L.divIcon({
-              className: 'lab-pin-container', iconSize: [34, 34], iconAnchor: [17, 31],
-              html: '<div class="lab-marker" style="width:34px;height:34px"><span>'
-                + (group.length > 1 ? group.length : '•') + '</span></div>',
-            }),
-            title: group.length > 1 ? group.length + ' laboratorium di lokasi ini' : first.name,
-            riseOnHover: true,
-          }).addTo(markers);
-
-          marker.getElement().setAttribute('aria-label', marker.options.title);
-          if (group.length === 1) {
-            marker.on('click', () => send({ type: 'select', id: first.id }));
-          } else {
-            const choices = document.createElement('div');
-            for (const lab of group) {
-              const button = document.createElement('button');
-              button.type = 'button';
-              button.className = 'lab-choice';
-              button.textContent = lab.name;
-              button.addEventListener('click', () => {
-                marker.closePopup();
-                send({ type: 'select', id: lab.id });
-              });
-              choices.append(button);
-            }
-            marker.bindPopup(choices);
-          }
-          return { marker, group };
+        return Array.from(groups.values()).flatMap((group) => {
+          if (group.length > 3) return [createMarker(group, 0)];
+          // Separate pins on screen while keeping every marker anchored to the stored coordinate.
+          return group
+            .slice()
+            .sort((a, b) => a.name.localeCompare(b.name, 'id'))
+            .map((lab, index) => createMarker([lab], [0, 42, -42][index]));
         });
+      }
+
+      function createMarker(group, offsetX) {
+        const first = group[0];
+        const pin = document.createElement('div');
+        pin.className = 'lab-marker';
+        const label = document.createElement('span');
+        const shortLabel = first.name.match(/^Lab Informatika ([A-Z])$/i)?.[1];
+        label.textContent = group.length > 1 ? String(group.length) : (shortLabel?.toUpperCase() ?? '•');
+        pin.append(label);
+        const marker = L.marker([first.latitude, first.longitude], {
+          icon: L.divIcon({
+            className: 'lab-pin-container', iconSize: [34, 34], iconAnchor: [17 - offsetX, 31],
+            html: pin,
+          }),
+          title: group.length > 1 ? group.length + ' laboratorium di lokasi ini' : first.name,
+          riseOnHover: true,
+        }).addTo(markers);
+
+        marker.getElement().setAttribute('aria-label', marker.options.title);
+        if (group.length === 1) {
+          marker.on('click', () => send({ type: 'select', id: first.id }));
+        } else {
+          const choices = document.createElement('div');
+          for (const lab of group) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'lab-choice';
+            button.textContent = lab.name;
+            button.addEventListener('click', () => {
+              marker.closePopup();
+              send({ type: 'select', id: lab.id });
+            });
+            choices.append(button);
+          }
+          marker.bindPopup(choices);
+        }
+        return { marker, group };
       }
 
       window.techLabUpdateMap = (next) => {
