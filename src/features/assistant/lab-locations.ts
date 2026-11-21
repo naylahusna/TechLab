@@ -72,9 +72,9 @@ function hasExpectedLabLocationShape(data: Record<string, unknown>) {
     && typeof data.updatedBy === 'string';
 }
 
-export function watchLabLocations(onData: (locations: LabLocation[]) => void, onError: (error: Error) => void): Unsubscribe {
-  return onSnapshot(query(collection(getFirebaseFirestore(), 'labLocations'), orderBy('name')), (snapshot) => {
-    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as LabLocation));
+export function watchLabLocations(onData: (locations: LabLocation[], fromCache: boolean) => void, onError: (error: Error) => void, includeMetadataChanges = false): Unsubscribe {
+  return onSnapshot(query(collection(getFirebaseFirestore(), 'labLocations'), orderBy('name')), { includeMetadataChanges }, (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ ...item.data(), id: item.id }) as LabLocation), snapshot.metadata.fromCache);
   }, onError);
 }
 
