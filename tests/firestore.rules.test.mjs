@@ -9,6 +9,7 @@ import {
 import {
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -345,4 +346,67 @@ test('Aslab can reject a candidate and use assistant permissions for an assigned
     memberIds: ['admin'], createdAt: serverTimestamp(), updatedAt: serverTimestamp(), archivedAt: null,
   }));
   await assertSucceeds(updateDoc(classRef, { className: 'Informatika B', updatedAt: serverTimestamp() }));
+});
+
+test('only eligible rejected applicants can continue as Practitioner using the same UID', async () => {
+  await seed('admin', 'admin');
+  const admin = env.authenticatedContext('admin').firestore();
+  async function seedCandidate(uid, role = 'calon_asprak') {
+    await seed(uid, role);
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'userDirectory', uid), {
+        uid, name: 'Nama Praktikan', number: '240001', role, updatedAt: serverTimestamp(),
+      });
+    });
+  }
+  function updateAccount(db, uid, fields) {
+    const batch = writeBatch(db);
+    for (const path of ['users', 'userDirectory']) {
+      batch.update(doc(db, path, uid), { ...fields, updatedAt: serverTimestamp() });
+    }
+    return batch.commit();
+  }
+  function continueAccount(uid, overrides = {}) {
+    const db = env.authenticatedContext(uid).firestore();
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'users', uid), {
+      role: 'praktikan', rejectionReason: deleteField(), updatedAt: serverTimestamp(), ...overrides,
+    });
+    batch.set(doc(db, 'userDirectory', uid), {
+      uid, name: 'Nama Praktikan', number: '240001', role: 'praktikan', updatedAt: serverTimestamp(),
+    });
+    return batch.commit();
+  }
+
+  await seedCandidate('candidate');
+  await seedCandidate('other');
+  await seedCandidate('legacy', 'asprak_ditolak');
+  const candidate = env.authenticatedContext('candidate').firestore();
+  await assertFails(continueAccount('candidate'));
+  await assertFails(continueAccount('legacy'));
+  await assertFails(updateAccount(candidate, 'candidate', {
+    role: 'asprak_ditolak', rejectionReason: 'no_practitioner_account',
+  }));
+  await assertSucceeds(updateAccount(admin, 'other', { role: 'asprak_ditolak', rejectionReason: 'other' }));
+  await assertFails(continueAccount('other'));
+  await assertFails(updateAccount(admin, 'other', { rejectionReason: 'no_practitioner_account' }));
+  await assertSucceeds(updateAccount(admin, 'legacy', { rejectionReason: 'no_practitioner_account' }));
+  await assertSucceeds(continueAccount('legacy'));
+
+  await assertSucceeds(updateAccount(admin, 'candidate', {
+    role: 'asprak_ditolak', rejectionReason: 'no_practitioner_account',
+  }));
+  const profile = doc(candidate, 'users', 'candidate');
+  const directory = doc(candidate, 'userDirectory', 'candidate');
+  await assertFails(updateDoc(profile, {
+    role: 'praktikan', rejectionReason: deleteField(), updatedAt: serverTimestamp(),
+  }));
+  await assertFails(continueAccount('candidate', { role: 'asisten' }));
+  await assertSucceeds(continueAccount('candidate'));
+  for (const ref of [profile, directory]) {
+    const data = (await getDoc(ref)).data();
+    assert.equal(data.uid, 'candidate');
+    assert.equal(data.role, 'praktikan');
+    assert.equal(data.rejectionReason, undefined);
+  }
 });

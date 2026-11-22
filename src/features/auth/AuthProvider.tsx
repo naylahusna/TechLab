@@ -24,7 +24,7 @@ import {
   type ProfileFields,
   type RegistrationRole,
 } from './model';
-import { createOwnProfile, updateOwnProfile } from './profile-service';
+import { continueOwnAccountAsPractitioner, createOwnProfile, updateOwnProfile } from './profile-service';
 import { createSessionStore } from './session-store';
 import { clearDevicePush } from '../notifications/device';
 
@@ -97,6 +97,12 @@ function useAuthSession() {
         const user = getFirebaseAuth().currentUser;
         if (!user) throw new Error('Silakan login kembali.');
         await updateOwnProfile(user.uid, fields);
+      },
+      async continueAsPractitioner() {
+        const user = getFirebaseAuth().currentUser;
+        if (!user) throw new Error('Silakan login kembali.');
+        await continueOwnAccountAsPractitioner(user.uid);
+        store.retry();
       },
       async logout() {
         const current = getFirebaseAuth().currentUser;
