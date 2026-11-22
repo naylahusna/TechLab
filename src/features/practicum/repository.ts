@@ -110,8 +110,8 @@ function deriveRecapStatus(
   sessionStatus: PracticumSessionStatus,
   override?: PracticumAttendanceOverride | null,
 ): PracticumRecapStatus {
-  if (attendance) return 'present';
   if (override) return override.status;
+  if (attendance) return 'present';
   if (permission?.status === 'approved') return 'excused';
   if (permission?.status === 'pending') return 'pending';
   if (sessionStatus === 'closed' || sessionStatus === 'cancelled') return 'absent';
@@ -982,10 +982,9 @@ export function createPracticumRepository(db: Firestore) {
       if (!assistantId) throw new PracticumError('FORBIDDEN', 'Silakan login sebagai asisten.');
       const ref = doc(attendanceOverrides, attendanceId(sessionId, userId));
       await runTransaction(db, async (transaction) => {
-        const [sessionSnapshot, participantSnapshot, attendanceSnapshot, overrideSnapshot] = await Promise.all([
+        const [sessionSnapshot, participantSnapshot, overrideSnapshot] = await Promise.all([
           transaction.get(doc(sessions, sessionId)),
           transaction.get(doc(participants, participantId(classId, userId))),
-          transaction.get(doc(attendances, attendanceId(sessionId, userId))),
           transaction.get(ref),
         ]);
         if (!sessionSnapshot.exists() || toSession(sessionSnapshot).classId !== classId)
@@ -994,8 +993,6 @@ export function createPracticumRepository(db: Firestore) {
           throw new PracticumError('SESSION_NOT_OPEN', 'Status kehadiran manual hanya dapat diubah pada sesi yang sudah dibuka.');
         if (!participantSnapshot.exists() || toParticipant(participantSnapshot).leftAt)
           throw new PracticumError('NOT_ENROLLED', 'Praktikan tidak terdaftar aktif pada kelas ini.');
-        if (attendanceSnapshot.exists() && status !== 'present')
-          throw new PracticumError('INVALID_TRANSITION', 'Presensi QR yang sudah tercatat tidak dapat diubah ke status lain.');
         const now = serverTimestamp();
         if (overrideSnapshot.exists()) {
           transaction.update(ref, { status, updatedBy: assistantId, updatedAt: now });

@@ -224,7 +224,7 @@ export function toAssistantParticipants(
     const record = byUser.get(participant.userId) ?? null;
     const override = overridesByUser.get(participant.userId);
     const permission = permissions.find((p) => p.userId === participant.userId);
-    const status = record ? 'present' : override?.status ?? (permission?.status === 'approved' ? 'excused' : closed ? 'absent' : 'pending');
+    const status = override?.status ?? (record ? 'present' : permission?.status === 'approved' ? 'excused' : closed ? 'absent' : 'pending');
     return {
       id: participant.userId,
       name: participant.studentName,
@@ -237,7 +237,7 @@ export function toAssistantParticipants(
           : permission?.status === 'pending'
             ? 'Izin Menunggu'
             : status === 'excused' ? 'Izin' : attendanceStatusLabels[status],
-      attendedAtLabel: record ? timestampTimeLabel(record.recordedAt) : null,
+      attendedAtLabel: record && (!override || override.status === 'present') ? timestampTimeLabel(record.recordedAt) : null,
       hasRecordedAttendance: !!record,
       ...(override ? { overrideStatus: override.status } : {}),
       ...(permission ? { permissionStatus: permission.status } : {}),
@@ -252,7 +252,11 @@ export function toAttendanceSummary(
 ): AttendanceSummary {
   const participantIds = new Set(participants.map((item) => item.userId));
   const presentUsers = new Set(attendance.filter((item) => participantIds.has(item.userId)).map((item) => item.userId));
-  for (const item of overrides) if (item.status === 'present' && participantIds.has(item.userId)) presentUsers.add(item.userId);
+  for (const item of overrides) {
+    if (!participantIds.has(item.userId)) continue;
+    if (item.status === 'present') presentUsers.add(item.userId);
+    else presentUsers.delete(item.userId);
+  }
   return {
     total: participants.length,
     present: presentUsers.size,
@@ -280,7 +284,9 @@ export function toAssistantRecapItems(
         .filter((record) => participantIds.has(record.userId))
         .map((record) => record.userId));
       for (const override of overridesBySession[session.id] ?? []) {
-        if (override.status === 'present' && participantIds.has(override.userId)) presentUsers.add(override.userId);
+        if (!participantIds.has(override.userId)) continue;
+        if (override.status === 'present') presentUsers.add(override.userId);
+        else presentUsers.delete(override.userId);
       }
       const present = presentUsers.size;
       const total = session.studentIds.length;
