@@ -34,3 +34,11 @@ export function sessionCancelled(before, after, classItem, schedule, id) {
     body: `${classItem.courseName} · ${classItem.className} · ${schedule.title} · ${schedule.location}. Sesi dibatalkan.`,
     classId: after.classId, path: `/sesi/${id}` };
 }
+export function permissionDecided(before, after, id) {
+  if (!before || !after || before.status !== 'pending' || !['approved', 'rejected'].includes(after.status)) return null;
+  const rejected = after.status === 'rejected';
+  return { recipients: [after.userId], type: 'permission-decided',
+    title: rejected ? 'Pengajuan izin ditolak' : 'Pengajuan izin disetujui',
+    body: `${after.className} · ${after.sessionTitle}. Izin ${rejected ? 'ditolak' : 'disetujui'} oleh asisten.${rejected ? ` Alasan: ${after.decisionReason || 'Lihat catatan asisten pada detail izin.'}` : ''}`,
+    path: `/izin/${id}`, classId: after.classId };
+}
