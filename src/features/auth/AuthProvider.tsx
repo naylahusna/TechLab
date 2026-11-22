@@ -26,6 +26,7 @@ import {
 } from './model';
 import { createOwnProfile, updateOwnProfile } from './profile-service';
 import { createSessionStore } from './session-store';
+import { clearDevicePush } from '../notifications/device';
 
 function createAuthSession() {
   return createSessionStore({
@@ -98,6 +99,8 @@ function useAuthSession() {
         await updateOwnProfile(user.uid, fields);
       },
       async logout() {
+        const current = getFirebaseAuth().currentUser;
+        if (current) await clearDevicePush(current.uid);
         setAssistantModeUid(null);
         store.suspend();
         try {
