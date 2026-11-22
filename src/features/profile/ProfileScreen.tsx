@@ -10,6 +10,7 @@ import { FormField } from '../auth/AuthForm';
 import { authErrorMessage } from '../auth/model';
 import { roleLabels } from '../../core/roles';
 import { colors } from '../../theme/tokens';
+import { NotificationSettings } from '../notifications/NotificationSettings';
 
 export function ProfileScreen() {
   const auth = useAuth();
@@ -125,6 +126,7 @@ export function ProfileScreen() {
           onPress={() => setConfirmLogout(true)}
         />
       </View>
+      <NotificationSettings />
       <ConfirmationModal
         visible={confirmLogout}
         title="Keluar dari TechLab?"

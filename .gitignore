@@ -60,6 +60,10 @@ coverage/
 # macOS
 .DS_Store
 *.pem
+google-services.json
+GoogleService-Info.plist
+*service-account*.json
+*firebase-adminsdk*.json
 
 # local env files
 .env
