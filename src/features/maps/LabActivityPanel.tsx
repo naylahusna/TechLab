@@ -1,29 +1,29 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { Text } from '../../components/Text';
 import { colors } from '../../theme/tokens';
 import { findLabActivity, type LabActivity } from './lab-activity';
+import { MapSyncNotice } from './MapSyncNotice';
 import { useLabActivity } from './useLabActivity';
 
 const date = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeZone: 'Asia/Jakarta' });
 const time = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
 
 export function LabActivityPanel({ labName }: { labName: string }) {
-  const { data, error, loading, retry } = useLabActivity();
-  const [now] = useState(Date.now);
+  const { data, error, fromCache, loading, retry } = useLabActivity();
+  const [now, setNow] = useState(Date.now);
+  useFocusEffect(useCallback(() => {
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []));
   const activity = data && findLabActivity(data, labName, now);
   return (
     <View style={styles.panel}>
       {loading && <Text style={styles.detail}>Memuat aktivitas praktikum…</Text>}
-      {!!error && (
-        <>
-          <Text accessibilityRole="alert" style={styles.detail}>Aktivitas praktikum gagal dimuat. {error}</Text>
-          <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}>
-            <Text style={styles.heading}>Coba lagi</Text>
-          </Pressable>
-        </>
-      )}
+      <MapSyncNotice error={error} fromCache={fromCache} retry={retry} source="aktivitas praktikum" />
       {activity && (
         <>
           <ActivityRow title="Sedang berlangsung" activity={activity.ongoing} empty="Tidak ada aktivitas yang bisa kamu lihat saat ini." />
@@ -58,5 +58,4 @@ const styles = StyleSheet.create({
   heading: { color: colors.navy, fontWeight: '800', fontSize: 13 },
   course: { color: colors.navy, fontWeight: '700' },
   detail: { color: colors.muted, fontSize: 12 },
-  retry: { alignSelf: 'flex-start', backgroundColor: colors.paleBlue, borderRadius: 8, padding: 8 },
 });

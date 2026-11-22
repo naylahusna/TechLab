@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Text } from '../../components/Text';
@@ -9,6 +9,8 @@ import { ScreenHeader } from '../practitioner/components/ScreenHeader';
 import { colors } from '../../theme/tokens';
 import { MapViewport } from './MapViewport';
 import { campusCenter } from './map-document';
+import { MapSyncNotice } from './MapSyncNotice';
+import { useMapSubscription } from './useMapSubscription';
 import { LabActivityPanel } from './LabActivityPanel';
 import { useMapLocation } from './useMapLocation';
 import type { MapCenter, MapState } from './map-viewport-model';
@@ -16,27 +18,10 @@ import type { MapCenter, MapState } from './map-viewport-model';
 export function LabMapScreen() {
   const { currentUser } = useRole();
   const { state: location, retry: retryLocation } = useMapLocation();
-  const [labs, setLabs] = useState<LabLocation[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const { data: labs, error: labError, loading: labsLoading, fromCache: labsFromCache, retry: retryLabs } = useMapSubscription(subscribeToLabs);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoomSteps, setZoomSteps] = useState(0);
   const [focus, setFocus] = useState<MapState['focus']>(null);
-
-  useEffect(() => {
-    return watchLabLocations(
-      (locations) => {
-        setFailed(false);
-        const validLocations = locations.filter(({ name, latitude, longitude }) =>
-          typeof name === 'string'
-          && Number.isFinite(latitude) && Math.abs(latitude) <= 90
-          && Number.isFinite(longitude) && Math.abs(longitude) <= 180,
-        );
-        setLabs(validLocations);
-        setSelectedId((id) => validLocations.some((location) => location.id === id) ? id : null);
-      },
-      () => setFailed(true),
-    );
-  }, []);
 
   const selected = labs?.find(({ id }) => id === selectedId);
   const markers = useMemo(() => labs?.map(({ id, name, latitude, longitude }) => ({
@@ -72,14 +57,13 @@ export function LabMapScreen() {
             <ZoomButton label="Perkecil peta" symbol="−" onPress={() => setZoomSteps((steps) => steps - 1)} />
           </View>
         </View>
-        {failed ? (
-          <Text accessibilityRole="alert" style={styles.status}>Lokasi laboratorium gagal dimuat.</Text>
-        ) : labs === null ? (
+        <MapSyncNotice error={labError} fromCache={labsFromCache} retry={retryLabs} source="lokasi lab" />
+        {labsLoading ? (
           <View accessibilityLiveRegion="polite" style={styles.loading}>
             <ActivityIndicator color={colors.blue} />
             <Text style={styles.status}>Memuat lokasi laboratorium…</Text>
           </View>
-        ) : labs.length === 0 ? (
+        ) : labs?.length === 0 && !labsFromCache ? (
           <Text accessibilityLiveRegion="polite" style={styles.status}>Belum ada lokasi laboratorium.</Text>
         ) : null}
         <View>
@@ -114,6 +98,14 @@ export function LabMapScreen() {
       </View>
     </View>
   );
+}
+
+function subscribeToLabs(onData: (labs: LabLocation[], fromCache: boolean) => void, onError: (error: Error) => void) {
+  return watchLabLocations((locations, fromCache) => onData(locations.filter(({ name, latitude, longitude }) =>
+    typeof name === 'string'
+    && Number.isFinite(latitude) && Math.abs(latitude) <= 90
+    && Number.isFinite(longitude) && Math.abs(longitude) <= 180,
+  ), fromCache), onError, true);
 }
 
 function ZoomButton({ label, symbol, onPress }: { label: string; symbol: string; onPress: () => void }) {

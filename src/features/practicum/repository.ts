@@ -970,6 +970,97 @@ export function createPracticumRepository(db: Firestore) {
       return subscribeToMemberClasses(memberId, onChange, onError);
     },
 
+    subscribeToMapActivity(
+      uid: string,
+      asAssistant: boolean,
+      onChange: (data: { classes: PracticumClass[]; schedules: PracticumSchedule[]; sessions: PracticumSession[] }, fromCache: boolean) => void,
+      onError: SubscriptionErrorHandler,
+    ) {
+      type ClassActivity = {
+        schedules?: PracticumSchedule[];
+        sessions?: PracticumSession[];
+        scheduleCache: boolean;
+        sessionCache: boolean;
+        stop: (() => void)[];
+      };
+      const feeds = new Map<string, ClassActivity>();
+      let visibleClasses: PracticumClass[] = [];
+      let classCache = true;
+      let active = true;
+      let failed = false;
+
+      function emit() {
+        if (!active || failed) return;
+        const entries = [...feeds.values()];
+        if (entries.some((entry) => !entry.schedules || !entry.sessions)) return;
+        onChange({
+          classes: visibleClasses,
+          schedules: entries.flatMap((entry) => entry.schedules ?? []),
+          sessions: entries.flatMap((entry) => entry.sessions ?? []),
+        }, classCache || entries.some((entry) => entry.scheduleCache || entry.sessionCache));
+      }
+
+      function fail(error: Error) {
+        if (active && !failed) {
+          failed = true;
+          onError(error);
+        }
+      }
+
+      const stopClasses = onSnapshot(
+        query(classes, where('memberIds', 'array-contains', uid)),
+        { includeMetadataChanges: true },
+        (snapshot) => {
+          if (!active || failed) return;
+          classCache = snapshot.metadata.fromCache;
+          visibleClasses = snapshot.docs.map(toClass).filter((course) => !course.archivedAt
+            && (asAssistant ? course.assistantIds : course.studentIds).includes(uid));
+          const visibleIds = new Set(visibleClasses.map((course) => course.id));
+          for (const [id, feed] of feeds) {
+            if (visibleIds.has(id)) continue;
+            feeds.delete(id);
+            feed.stop.forEach((unsubscribe) => unsubscribe());
+          }
+          for (const id of visibleIds) {
+            if (feeds.has(id)) continue;
+            const feed: ClassActivity = { scheduleCache: true, sessionCache: true, stop: [] };
+            feeds.set(id, feed);
+            feed.stop.push(onSnapshot(
+              query(schedules, where('classId', '==', id), orderBy('startAt', 'asc')),
+              { includeMetadataChanges: true },
+              (update) => {
+                if (feeds.get(id) !== feed || !active) return;
+                feed.schedules = update.docs.map(toSchedule);
+                feed.scheduleCache = update.metadata.fromCache;
+                emit();
+              },
+              (error) => { if (feeds.get(id) === feed) fail(error); },
+            ));
+            feed.stop.push(onSnapshot(
+              query(sessions, where('classId', '==', id), orderBy('startAt', 'asc')),
+              { includeMetadataChanges: true },
+              (update) => {
+                if (feeds.get(id) !== feed || !active) return;
+                feed.sessions = update.docs.map(toSession);
+                feed.sessionCache = update.metadata.fromCache;
+                emit();
+              },
+              (error) => { if (feeds.get(id) === feed) fail(error); },
+            ));
+          }
+          emit();
+        },
+        fail,
+      );
+
+      return () => {
+        active = false;
+        stopClasses();
+        for (const feed of feeds.values()) feed.stop.forEach((unsubscribe) => unsubscribe());
+        feeds.clear();
+      };
+    },
+
     subscribeToScheduleOverview(
       memberId: string,
       onChange: SubscriptionListener,
