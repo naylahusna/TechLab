@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { onDocumentUpdated, onDocumentCreated } from 'firebase-functions/v2/firestore';
-import { sessionOpened, scheduleChanged, sessionCancelled } from './events.mjs';
+import { sessionOpened, scheduleChanged, sessionCancelled, permissionDecided } from './events.mjs';
 import { enqueue, deliver } from './delivery.mjs';
 
 initializeApp();
@@ -23,3 +23,5 @@ export const notifyScheduleChanged = onDocumentUpdated({ ...options, document: '
 });
 export const dispatchPush = onDocumentCreated({ ...options, document: 'notificationDeliveries/{id}' },
   async (event) => deliver(db, event.data.ref));
+export const notifyPermissionDecided = onDocumentUpdated({ ...options, document: 'permissions/{id}' },
+  async (event) => enqueue(db, event.id, permissionDecided(event.data.before.data(), event.data.after.data(), event.params.id)));

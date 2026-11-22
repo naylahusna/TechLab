@@ -1,8 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOpened, scheduleChanged, sessionCancelled } from './events.mjs';
+import { sessionOpened, scheduleChanged, sessionCancelled, permissionDecided } from './events.mjs';
 import { sendPush } from './delivery.mjs';
 const klass = { courseName: 'PPK', className: 'A', studentIds: ['p1', 'p2'], assistantIds: ['a1'] };
+test('permission approval/rejection targets the owner and includes human decision, never AI updates', () => {
+  const pending = { status: 'pending', userId: 'p1', className: 'A', sessionTitle: 'UI' };
+  const approved = permissionDecided(pending, { ...pending, status: 'approved' }, 'permission1');
+  assert.deepEqual(approved.recipients, ['p1']); assert.match(approved.body, /disetujui/);
+  assert.equal(approved.path, '/izin/permission1');
+  const rejected = permissionDecided(pending, { ...pending, status: 'rejected', decisionReason: 'Dokumen belum lengkap' }, 'permission1');
+  assert.match(rejected.body, /ditolak.*Dokumen belum lengkap/);
+  assert.equal(permissionDecided(pending, { ...pending, aiStatus: 'completed' }, 'permission1'), null);
+  assert.equal(permissionDecided({ ...pending, status: 'approved' }, { ...pending, status: 'approved' }, 'permission1'), null);
+});
 test('schedule notifications include only affected class members and meaningful changes', () => {
   const before = { classId: 'a', title: 'UI', location: 'Lab A', startAt: new Date('2026-11-23T01:00:00Z'), endAt: new Date('2026-11-23T03:00:00Z') };
   assert.equal(scheduleChanged(before, { ...before, updatedAt: new Date() }, klass, 's1'), null);
