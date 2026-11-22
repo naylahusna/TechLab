@@ -172,9 +172,11 @@ export default function SesiRoute() {
         onBack={goBack}
         onOpenAttendance={() => router.push(`/sesi/${session.id}/presensi`)}
       />
-      <View style={{ paddingHorizontal: 16, paddingTop: 4, width: '100%', maxWidth: 900, alignSelf: 'center' }}>
-        <ActionButton title="Scan QR Presensi" secondary onPress={() => router.push({ pathname: '/qr-attendance', params: { sessionId } })} />
-      </View>
+      {session.status === 'open' && practitionerSession.myAttendance.status === 'belum-presensi' ? (
+        <View style={{ paddingHorizontal: 16, paddingTop: 4, width: '100%', maxWidth: 900, alignSelf: 'center' }}>
+          <ActionButton title="Scan QR Presensi" secondary onPress={() => router.push({ pathname: '/qr-attendance', params: { sessionId } })} />
+        </View>
+      ) : null}
       <View
         style={{
           paddingHorizontal: 16,

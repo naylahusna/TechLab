@@ -24,8 +24,7 @@ export function ClassDetailScreen({ classId }: { classId: string }) {
   const [archiveError, setArchiveError] = useState('');
 
   function goBack() {
-    if (router.canGoBack()) router.back();
-    else router.replace('/kelas');
+    router.dismissTo('/kelas');
   }
 
   function goEdit() {
@@ -47,7 +46,7 @@ export function ClassDetailScreen({ classId }: { classId: string }) {
     try {
       await getPracticumRepository().archiveClass(classId);
       setConfirmVisible(false);
-      router.replace('/kelas');
+      router.dismissTo('/kelas');
     } catch (cause) {
       setArchiveError(practicumErrorMessage(cause));
       setConfirmVisible(false);

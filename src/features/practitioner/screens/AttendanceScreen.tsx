@@ -209,7 +209,7 @@ export function AttendanceScreen({
               <Button
                 label="Catat Presensi"
                 disabled={
-                  (attendanceAction.disabled && attendanceAction.kind !== 'outside-time') ||
+                  attendanceAction.disabled ||
                   location.state.status !== 'ready' ||
                   locationValidation.status !== 'inside' ||
                   !labLocation ||

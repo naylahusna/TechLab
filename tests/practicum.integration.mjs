@@ -18,7 +18,7 @@ const {
   signInWithEmailAndPassword,
   signOut,
 } = require('firebase/auth');
-const { connectFirestoreEmulator, getFirestore } = require('firebase/firestore');
+const { connectFirestoreEmulator, doc, getFirestore, serverTimestamp, setDoc } = require('firebase/firestore');
 const {
   createPracticumRepository,
 } = require('../dist/tests/src/features/practicum/repository.js');
@@ -138,6 +138,18 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
     const openedSession = await assistantRepo.getSession(sessionId);
     assert.equal(openedSession.openedBy, assistantId);
     assert.equal(openedSession.closedBy, null);
+    const attendanceCode = 'TL-PRAC123-ABCDEFGH';
+    const qrPayload = {
+      sessionId,
+      classId,
+      assistantId,
+      attendanceCode,
+      status: 'active',
+      expiresAt: openedSession.endAt,
+      updatedAt: serverTimestamp(),
+    };
+    await setDoc(doc(db, 'attendanceQrSessions', sessionId), qrPayload);
+    await setDoc(doc(db, 'attendanceQrCodes', attendanceCode), qrPayload);
 
     const assistantClasses = await assistantRepo.listClassesForAssistant(assistantId);
     assert.equal(assistantClasses.length, 1);
@@ -270,24 +282,32 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
         latitude: 0,
         longitude: 0,
         accuracy: 10,
-      }),
+      }, 'lab-informatika-b', attendanceCode),
       /di luar radius/i,
     );
     await assert.rejects(
       () => practitionerRepo.recordAttendance(sessionId, practitionerId),
       /koordinat perangkat/i,
     );
-    await practitionerRepo.recordAttendance(sessionId, practitionerId, {
-      latitude: -7.0482375,
-      longitude: 110.440765625,
-      accuracy: 10,
-    });
     await assert.rejects(
       () => practitionerRepo.recordAttendance(sessionId, practitionerId, {
         latitude: -7.0482375,
         longitude: 110.440765625,
         accuracy: 10,
-      }),
+      }, 'lab-informatika-b', 'TL-INVALID-00000000'),
+      /barcode presensi tidak valid/i,
+    );
+    await practitionerRepo.recordAttendance(sessionId, practitionerId, {
+      latitude: -7.0482375,
+      longitude: 110.440765625,
+      accuracy: 10,
+    }, 'lab-informatika-b', attendanceCode);
+    await assert.rejects(
+      () => practitionerRepo.recordAttendance(sessionId, practitionerId, {
+        latitude: -7.0482375,
+        longitude: 110.440765625,
+        accuracy: 10,
+      }, 'lab-informatika-b', attendanceCode),
       /sudah presensi/,
     );
 
@@ -331,7 +351,7 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
         latitude: -7.0482375,
         longitude: 110.440765625,
         accuracy: 10,
-      }),
+      }, 'lab-informatika-b', attendanceCode),
       /saat sesi dibuka/,
     );
   } finally {

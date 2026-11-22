@@ -95,7 +95,13 @@ export default function QrAttendanceRoute() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.screen}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace('/jadwal');
+            }}
+            style={styles.backButton}
+          >
             <Text style={styles.back}>← Kembali</Text>
           </Pressable>
           <Text style={styles.title}>Scan Barcode Presensi</Text>
