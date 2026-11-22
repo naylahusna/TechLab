@@ -1,4 +1,4 @@
-import { doc, runTransaction, serverTimestamp, type Firestore } from 'firebase/firestore';
+import { deleteField, doc, runTransaction, serverTimestamp, type Firestore } from 'firebase/firestore';
 import { validateProfile, type ProfileFields, type RegistrationRole } from './model';
 
 export function createProfileRepository(db: Firestore) {
@@ -16,6 +16,7 @@ export function createProfileRepository(db: Firestore) {
             name: data.name,
             number: data.number,
             role: data.role,
+            ...(data.rejectionReason ? { rejectionReason: data.rejectionReason } : {}),
             updatedAt: serverTimestamp(),
           });
           return;
@@ -32,6 +33,22 @@ export function createProfileRepository(db: Firestore) {
           ...clean,
           role,
           updatedAt: serverTimestamp(),
+        });
+      });
+    },
+    async continueAsPractitioner(uid: string) {
+      const profile = doc(db, 'users', uid);
+      const directory = doc(db, 'userDirectory', uid);
+      await runTransaction(db, async (transaction) => {
+        const existing = (await transaction.get(profile)).data();
+        if (existing?.role === 'praktikan') return;
+        if (existing?.role !== 'asprak_ditolak' || existing.rejectionReason !== 'no_practitioner_account') {
+          throw new Error('Akun ini belum bisa dilanjutkan sebagai Praktikan. Hubungi Aslab.');
+        }
+        const update = { role: 'praktikan', rejectionReason: deleteField(), updatedAt: serverTimestamp() };
+        transaction.update(profile, update);
+        transaction.set(directory, {
+          uid, name: existing.name, number: existing.number, role: 'praktikan', updatedAt: serverTimestamp(),
         });
       });
     },

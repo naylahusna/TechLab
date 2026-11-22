@@ -3,7 +3,13 @@ import { isRole, type Role } from '../../core/roles';
 export type RegistrationRole = 'praktikan' | 'calon_asprak';
 
 export type ProfileFields = { name: string; number: string };
-export type UserProfile = ProfileFields & { uid: string; role: Role };
+export type RejectionReason = 'no_practitioner_account' | 'other';
+export type UserProfile = ProfileFields & { uid: string; role: Role; rejectionReason?: RejectionReason };
+
+export const rejectionReasonLabels: Record<RejectionReason, string> = {
+  no_practitioner_account: 'Belum ada akun Praktikan dengan nama dan NIM yang cocok.',
+  other: 'Pengajuan belum memenuhi syarat. Hubungi Aslab untuk mengetahui detailnya.',
+};
 
 export function validateProfile(fields: ProfileFields) {
   const name = fields.name.trim();
@@ -33,7 +39,13 @@ export function parseProfile(uid: string, data: Record<string, unknown>): UserPr
   ) {
     throw new Error('Profil akun tidak valid. Hubungi pengelola TechLab.');
   }
-  return { uid, role: data.role, ...validateProfile({ name: data.name, number: data.number }) };
+  const rejectionReason = data.role === 'asprak_ditolak' &&
+    (data.rejectionReason === 'no_practitioner_account' || data.rejectionReason === 'other')
+      ? data.rejectionReason : undefined;
+  return {
+    uid, role: data.role, ...validateProfile({ name: data.name, number: data.number }),
+    ...(rejectionReason ? { rejectionReason } : {}),
+  };
 }
 
 export function authErrorMessage(error: unknown): string {
@@ -44,7 +56,7 @@ export function authErrorMessage(error: unknown): string {
     case 'auth/wrong-password':
       return 'Email atau password tidak sesuai.';
     case 'auth/email-already-in-use':
-      return 'Email sudah terdaftar. Silakan login.';
+      return 'Email sudah terdaftar. Masuk dengan email ini untuk melihat status akun atau melanjutkan pendaftaran yang tersedia.';
     case 'auth/invalid-email':
       return 'Alamat email tidak valid.';
     case 'auth/weak-password':
