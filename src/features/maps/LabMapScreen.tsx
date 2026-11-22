@@ -9,6 +9,7 @@ import { ScreenHeader } from '../practitioner/components/ScreenHeader';
 import { colors } from '../../theme/tokens';
 import { MapViewport } from './MapViewport';
 import { campusCenter } from './map-document';
+import { LabActivityPanel } from './LabActivityPanel';
 import { useMapLocation } from './useMapLocation';
 import type { MapCenter, MapState } from './map-viewport-model';
 
@@ -126,7 +127,7 @@ function ZoomButton({ label, symbol, onPress }: { label: string; symbol: string;
 
 function LabDetails({ lab, onClose }: { lab: LabLocation; onClose: () => void }) {
   return (
-    <View style={styles.details} testID="lab-details" accessibilityLiveRegion="polite">
+    <ScrollView style={styles.detailsScroll} contentContainerStyle={styles.details} testID="lab-details" accessibilityLiveRegion="polite">
       <View style={styles.detailsHeader}>
         <Text accessibilityRole="header" style={styles.detailsTitle}>{lab.name}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Tutup detail laboratorium"
@@ -140,8 +141,8 @@ function LabDetails({ lab, onClose }: { lab: LabLocation; onClose: () => void })
       </Text>
       <Text style={styles.status}>Radius presensi {Number.isFinite(lab.radiusMeters) && lab.radiusMeters > 0
         ? `${lab.radiusMeters} m` : 'belum tercatat'}</Text>
-      <Text style={styles.status}>Jadwal aktivitas belum tersedia di peta.</Text>
-    </View>
+      <LabActivityPanel labName={lab.name} />
+    </ScrollView>
   );
 }
 
@@ -170,6 +171,7 @@ const styles = StyleSheet.create({
   },
   zoomPressed: { backgroundColor: colors.paleBlue },
   zoomSymbol: { color: colors.navy, fontSize: 22, fontWeight: '800' },
+  detailsScroll: { flexGrow: 0, maxHeight: 230 },
   details: { padding: 12, gap: 3, backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 16 },
   detailsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
   detailsTitle: { flex: 1, color: colors.navy, fontSize: 17, fontWeight: '800' },
