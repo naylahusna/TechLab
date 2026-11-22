@@ -29,6 +29,7 @@ import type {
   AttendanceSummary,
   ParticipantItem,
 } from '../types';
+import { AssistantQrCard } from '../../attendance-qr/AssistantQrCard';
 
 type AssistantSessionDetailScreenProps = {
   session: AssistantSessionItem;
@@ -38,6 +39,7 @@ type AssistantSessionDetailScreenProps = {
   onOpenSession: () => { ok: boolean; message?: string } | Promise<{ ok: boolean; message?: string }>;
   onCloseSession: () => { ok: boolean; message?: string } | Promise<{ ok: boolean; message?: string }>;
   onOpenRecap?: () => void;
+  sessionId?: string;
 };
 
 export function AssistantSessionDetailScreen({
@@ -48,6 +50,7 @@ export function AssistantSessionDetailScreen({
   onOpenSession,
   onCloseSession,
   onOpenRecap,
+  sessionId,
 }: AssistantSessionDetailScreenProps) {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<AttendanceFilter>('semua');
@@ -145,6 +148,8 @@ export function AssistantSessionDetailScreen({
             <Text style={styles.infoValue}>{session.statusLabel}</Text>
           </View>
         </View>
+
+        {sessionId && session.status === 'open' ? <AssistantQrCard sessionId={sessionId} practicalName={session.practicalName} lab={session.lab} schedule={session.dateLabel} /> : null}
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Pengelolaan Sesi</Text>

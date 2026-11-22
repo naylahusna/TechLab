@@ -127,6 +127,7 @@ export default function SesiRoute() {
           onOpenSession={openSession}
           onCloseSession={closeSession}
           onOpenRecap={() => router.push(`/sesi/${session.id}/rekap`)}
+          sessionId={session.id}
         />
       </View>
     );
@@ -160,6 +161,9 @@ export default function SesiRoute() {
         onBack={goBack}
         onOpenAttendance={() => router.push(`/sesi/${session.id}/presensi`)}
       />
+      <View style={{ paddingHorizontal: 16, paddingTop: 4, width: '100%', maxWidth: 900, alignSelf: 'center' }}>
+        <ActionButton title="Scan QR Presensi" secondary onPress={() => router.push('/qr-attendance')} />
+      </View>
       <View
         style={{
           paddingHorizontal: 16,

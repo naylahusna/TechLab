@@ -4,10 +4,16 @@ import { onDocumentUpdated, onDocumentCreated } from 'firebase-functions/v2/fire
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { sessionOpened, scheduleChanged, sessionCancelled, permissionDecided } from './events.mjs';
 import { enqueue, deliver, checkReceipts, maintainDeliveries } from './delivery.mjs';
+import { createAttendanceQrHandlers } from './attendance-qr.mjs';
+import { onCall } from 'firebase-functions/v2/https';
 
 initializeApp();
 const db = getFirestore();
 const options = { region: 'asia-southeast2', retry: true };
+const attendanceQr = createAttendanceQrHandlers(db);
+export const createAttendanceQr = onCall({ region: options.region }, attendanceQr.create);
+export const disableAttendanceQr = onCall({ region: options.region }, attendanceQr.disable);
+export const recordQrAttendance = onCall({ region: options.region }, attendanceQr.attend);
 export const notifySessionOpened = onDocumentUpdated(
   { ...options, document: 'sessions/{id}' },
   async (event) => {
