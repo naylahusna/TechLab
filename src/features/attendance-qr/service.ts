@@ -86,7 +86,7 @@ export async function disableQr(sessionId: string) {
 
 export async function getQrSessionByCode(attendanceCode: string) {
   const snapshot = await getDoc(doc(getFirebaseFirestore(), codeCollection, attendanceCode));
-  if (!snapshot.exists()) throw new Error('Kode QR tidak dikenal. Minta asisten membuat QR yang aktif.');
+  if (!snapshot.exists()) throw new Error('Kode QR belum tersimpan. Minta asisten membuat QR baru dari aplikasi versi terbaru.');
   const data = snapshot.data();
   if (data.attendanceCode !== attendanceCode || data.status !== 'active') throw new Error('QR presensi sudah dinonaktifkan.');
   if (data.expiresAt.toMillis() <= Date.now()) throw new Error('QR presensi sudah kedaluwarsa.');

@@ -25,6 +25,8 @@ import { calculateDistanceMeters } from '../practitioner/lib/location-validation
 import { attendanceId, participantId, PRACTICUM_COLLECTIONS, sessionIdForSchedule } from './ids';
 import type {
   PracticumAttendance,
+  PracticumAttendanceOverride,
+  AttendanceOverrideStatus,
   PracticumClass,
   PracticumClassInput,
   PracticumDirectoryUser,
@@ -106,8 +108,10 @@ function deriveRecapStatus(
   attendance: PracticumAttendance | null,
   permission: PracticumPermission | null,
   sessionStatus: PracticumSessionStatus,
+  override?: PracticumAttendanceOverride | null,
 ): PracticumRecapStatus {
   if (attendance) return 'present';
+  if (override) return override.status;
   if (permission?.status === 'approved') return 'excused';
   if (permission?.status === 'pending') return 'pending';
   if (sessionStatus === 'closed' || sessionStatus === 'cancelled') return 'absent';
@@ -175,6 +179,23 @@ function toPermission(snapshot: DocumentSnapshot<DocumentData>): PracticumPermis
     decidedAt: asNullableTimestamp(data.decidedAt),
     createdAt: asTimestamp(data.createdAt),
     updatedAt: asTimestamp(data.updatedAt),
+  };
+}
+
+function toAttendanceOverride(snapshot: DocumentSnapshot<DocumentData>): PracticumAttendanceOverride {
+  const data = snapshot.data() ?? {};
+  const status = data.status === 'present' || data.status === 'excused' || data.status === 'absent' || data.status === 'pending'
+    ? data.status
+    : 'pending';
+  return {
+    id: snapshot.id,
+    sessionId: asString(data.sessionId),
+    classId: asString(data.classId),
+    userId: asString(data.userId),
+    status,
+    updatedBy: asString(data.updatedBy),
+    updatedAt: asTimestamp(data.updatedAt),
+    createdAt: asTimestamp(data.createdAt),
   };
 }
 
@@ -258,6 +279,7 @@ export function createPracticumRepository(db: Firestore) {
   const sessions = collection(db, PRACTICUM_COLLECTIONS.sessions);
   const attendances = collection(db, PRACTICUM_COLLECTIONS.attendances);
   const permissions = collection(db, PRACTICUM_COLLECTIONS.permissions);
+  const attendanceOverrides = collection(db, 'attendanceStatusOverrides');
   const userDirectory = collection(db, PRACTICUM_COLLECTIONS.userDirectory);
 
   async function classesForAssistant(assistantId: string): Promise<PracticumClass[]> {
@@ -946,6 +968,43 @@ export function createPracticumRepository(db: Firestore) {
       return snapshot.docs.map(toPermission);
     },
 
+    async listAttendanceOverrides(sessionId: string, classId: string): Promise<PracticumAttendanceOverride[]> {
+      const snapshot = await getDocs(query(
+        attendanceOverrides,
+        where('sessionId', '==', sessionId),
+        where('classId', '==', classId),
+      ));
+      return snapshot.docs.map(toAttendanceOverride);
+    },
+
+    async setAttendanceOverride(sessionId: string, classId: string, userId: string, status: AttendanceOverrideStatus): Promise<void> {
+      const assistantId = getAuth(db.app).currentUser?.uid;
+      if (!assistantId) throw new PracticumError('FORBIDDEN', 'Silakan login sebagai asisten.');
+      const ref = doc(attendanceOverrides, attendanceId(sessionId, userId));
+      await runTransaction(db, async (transaction) => {
+        const [sessionSnapshot, participantSnapshot, attendanceSnapshot, overrideSnapshot] = await Promise.all([
+          transaction.get(doc(sessions, sessionId)),
+          transaction.get(doc(participants, participantId(classId, userId))),
+          transaction.get(doc(attendances, attendanceId(sessionId, userId))),
+          transaction.get(ref),
+        ]);
+        if (!sessionSnapshot.exists() || toSession(sessionSnapshot).classId !== classId)
+          throw new PracticumError('NOT_FOUND', 'Sesi tidak ditemukan pada kelas tersebut.');
+        if (!['open', 'closed'].includes(toSession(sessionSnapshot).status))
+          throw new PracticumError('SESSION_NOT_OPEN', 'Status kehadiran manual hanya dapat diubah pada sesi yang sudah dibuka.');
+        if (!participantSnapshot.exists() || toParticipant(participantSnapshot).leftAt)
+          throw new PracticumError('NOT_ENROLLED', 'Praktikan tidak terdaftar aktif pada kelas ini.');
+        if (attendanceSnapshot.exists() && status !== 'present')
+          throw new PracticumError('INVALID_TRANSITION', 'Presensi QR yang sudah tercatat tidak dapat diubah ke status lain.');
+        const now = serverTimestamp();
+        if (overrideSnapshot.exists()) {
+          transaction.update(ref, { status, updatedBy: assistantId, updatedAt: now });
+        } else {
+          transaction.set(ref, { sessionId, classId, userId, status, updatedBy: assistantId, createdAt: now, updatedAt: now });
+        }
+      });
+    },
+
     subscribeToClass(
       classId: string,
       onChange: SubscriptionListener,
@@ -1207,6 +1266,7 @@ export function createPracticumRepository(db: Firestore) {
     ) {
       let stopAttendance: (() => void) | undefined;
       let stopPermissions: (() => void) | undefined;
+      let stopOverrides: (() => void) | undefined;
       let lastClassId: string | null = null;
       const cacheStates = new Map<string, boolean>();
       const emit = () => {
@@ -1221,11 +1281,14 @@ export function createPracticumRepository(db: Firestore) {
           if (!snapshot.exists()) {
             stopAttendance?.();
             stopPermissions?.();
+            stopOverrides?.();
             stopAttendance = undefined;
             stopPermissions = undefined;
+            stopOverrides = undefined;
             lastClassId = null;
             cacheStates.delete('attendance');
             cacheStates.delete('permissions');
+            cacheStates.delete('overrides');
             emit();
             return;
           }
@@ -1234,6 +1297,7 @@ export function createPracticumRepository(db: Firestore) {
             lastClassId = session.classId;
             stopAttendance?.();
             stopPermissions?.();
+            stopOverrides?.();
             stopAttendance = subscribeToQuery(
               query(
                 attendances,
@@ -1258,6 +1322,14 @@ export function createPracticumRepository(db: Firestore) {
               },
               onError,
             );
+            stopOverrides = subscribeToQuery(
+              query(attendanceOverrides, where('sessionId', '==', sessionId), where('classId', '==', session.classId)),
+              (fromCache) => {
+                cacheStates.set('overrides', fromCache);
+                emit();
+              },
+              onError,
+            );
           }
           emit();
         },
@@ -1268,6 +1340,7 @@ export function createPracticumRepository(db: Firestore) {
         stopSession();
         stopAttendance?.();
         stopPermissions?.();
+        stopOverrides?.();
       };
     },
 
@@ -1276,21 +1349,27 @@ export function createPracticumRepository(db: Firestore) {
       if (!sessionSnapshot.exists())
         throw new PracticumError('NOT_FOUND', 'Sesi praktikum tidak ditemukan.');
       const session = toSession(sessionSnapshot);
-      const [participants, attendance, permissionsList] = await Promise.all([
+      const [participants, attendance, permissionsList, overrides] = await Promise.all([
         participantsByIds(session.classId, session.studentIds),
         listAttendanceForSession(session),
         listPermissionsForSession(session),
+        getDocs(query(attendanceOverrides, where('sessionId', '==', session.id), where('classId', '==', session.classId))),
       ]);
       const attendanceByUser = new Map(attendance.map((item) => [item.userId, item]));
       const permissionByUser = new Map(permissionsList.map((item) => [item.userId, item]));
+      const overrideByUser = new Map(overrides.docs.map((snapshot) => {
+        const override = toAttendanceOverride(snapshot);
+        return [override.userId, override] as const;
+      }));
       return participants.map((participant) => {
         const attendanceRecord = attendanceByUser.get(participant.userId) ?? null;
         const permission = permissionByUser.get(participant.userId) ?? null;
+        const override = overrideByUser.get(participant.userId) ?? null;
         return {
           participant,
           attendance: attendanceRecord,
           permission,
-          status: deriveRecapStatus(attendanceRecord, permission, session.status),
+          status: deriveRecapStatus(attendanceRecord, permission, session.status, override),
         };
       });
     },

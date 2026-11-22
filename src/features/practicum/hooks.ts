@@ -10,6 +10,7 @@ import { practicumErrorMessage } from './errors';
 import { toAssistantRecapItems, toPractitionerHistoryItems } from './session-view';
 import type {
   PracticumAttendance,
+  PracticumAttendanceOverride,
   PracticumClass,
   PracticumParticipant,
   PracticumPermission,
@@ -365,16 +366,20 @@ export function useAssistantRecapOverview() {
         repository.listSessionsForAssistant(assistantId),
       ]);
       const attendanceBySession: Record<string, PracticumAttendance[]> = {};
+      const overridesBySession: Record<string, PracticumAttendanceOverride[]> = {};
       await Promise.all(
         sessions
           .filter((session) => session.status !== 'scheduled')
           .map(async (session) => {
-            attendanceBySession[session.id] = await repository.listAttendance(session.id);
+            [attendanceBySession[session.id], overridesBySession[session.id]] = await Promise.all([
+              repository.listAttendance(session.id),
+              repository.listAttendanceOverrides(session.id, session.classId),
+            ]);
           }),
       );
       setState({
         status: 'ready',
-        items: toAssistantRecapItems(classes, schedules, sessions, attendanceBySession),
+        items: toAssistantRecapItems(classes, schedules, sessions, attendanceBySession, overridesBySession),
         error: null,
         refreshing: false,
       });
@@ -530,6 +535,7 @@ type SessionDetailState = {
   participants: PracticumParticipant[];
   attendance: PracticumAttendance[];
   permissions: PracticumPermission[];
+  attendanceOverrides: PracticumAttendanceOverride[];
   error: string | null;
   refreshing: boolean;
 };
@@ -546,6 +552,7 @@ export function useSessionDetail(sessionId: string | undefined) {
     participants: [],
     attendance: [],
     permissions: [],
+    attendanceOverrides: [],
     error: null,
     refreshing: false,
   });
@@ -563,6 +570,7 @@ export function useSessionDetail(sessionId: string | undefined) {
         participants: [],
         attendance: [],
         permissions: [],
+        attendanceOverrides: [],
         error: null,
         refreshing: false,
       });
@@ -586,6 +594,7 @@ export function useSessionDetail(sessionId: string | undefined) {
           participants: [],
           attendance: [],
           permissions: [],
+          attendanceOverrides: [],
           error: null,
           refreshing: false,
         });
@@ -607,11 +616,13 @@ export function useSessionDetail(sessionId: string | undefined) {
       let participants: PracticumParticipant[] = [];
       let attendance: PracticumAttendance[] = [];
       let permissions: PracticumPermission[] = [];
+      let attendanceOverrides: PracticumAttendanceOverride[] = [];
       if (role === 'asisten') {
-        [participants, attendance, permissions] = await Promise.all([
+        [participants, attendance, permissions, attendanceOverrides] = await Promise.all([
           repository.listParticipantsByIds(session.classId, session.studentIds),
           repository.listAttendance(sessionId),
           repository.listPermissions(sessionId, session.classId),
+          repository.listAttendanceOverrides(sessionId, session.classId),
         ]);
       } else {
         const own = await repository.getAttendance(sessionId, userId);
@@ -625,6 +636,7 @@ export function useSessionDetail(sessionId: string | undefined) {
         participants,
         attendance,
         permissions,
+        attendanceOverrides,
         error: null,
         refreshing: false,
       });

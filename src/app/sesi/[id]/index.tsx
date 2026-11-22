@@ -28,6 +28,7 @@ import { ActionButton } from '../../../components/ActionButton';
 import { usePermissions } from '../../../features/permission/hooks';
 import { PermissionBadge, ui } from '../../../features/permission/ui';
 import { disableQr } from '../../../features/attendance-qr/service';
+import type { AttendanceOverrideStatus } from '../../../features/practicum/types';
 
 export default function SesiRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -90,8 +91,9 @@ export default function SesiRoute() {
       detail.attendance,
       session.status,
       detail.permissions,
+      detail.attendanceOverrides,
     );
-    const summary = toAttendanceSummary(detail.participants, detail.attendance);
+    const summary = toAttendanceSummary(detail.participants, detail.attendance, detail.attendanceOverrides);
 
     async function openSession() {
       try {
@@ -114,6 +116,11 @@ export default function SesiRoute() {
       }
     }
 
+    async function setParticipantStatus(participantId: string, status: AttendanceOverrideStatus) {
+      await getPracticumRepository().setAttendanceOverride(session.id, classItem.id, participantId, status);
+      await detail.reload();
+    }
+
     return (
       <View style={styles.screen}>
         <SyncStatusBanner
@@ -131,6 +138,7 @@ export default function SesiRoute() {
           onOpenRecap={() => router.push(`/sesi/${session.id}/rekap`)}
           sessionId={session.id}
           classId={classItem.id}
+          onSetParticipantStatus={setParticipantStatus}
         />
       </View>
     );

@@ -10,6 +10,7 @@ type AttendanceFilterChipsProps = {
   counts?: {
     all: number;
     present: number;
+    excused?: number;
     notPresent: number;
   };
 };
@@ -17,6 +18,7 @@ type AttendanceFilterChipsProps = {
 const OPTIONS: { key: AttendanceFilter; label: string }[] = [
   { key: 'semua', label: 'Semua' },
   { key: 'hadir', label: 'Hadir' },
+  { key: 'izin', label: 'Izin' },
   { key: 'belum-hadir', label: 'Belum Hadir' },
 ];
 
@@ -33,6 +35,7 @@ export function AttendanceFilterChips({
         if (counts) {
           if (option.key === 'semua') count = counts.all;
           if (option.key === 'hadir') count = counts.present;
+          if (option.key === 'izin') count = counts.excused;
           if (option.key === 'belum-hadir') count = counts.notPresent;
         }
 
@@ -67,6 +70,7 @@ export function AttendanceFilterChips({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   chip: {
