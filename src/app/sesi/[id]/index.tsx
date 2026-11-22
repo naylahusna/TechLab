@@ -27,6 +27,7 @@ import { colors } from '../../../theme/tokens';
 import { ActionButton } from '../../../components/ActionButton';
 import { usePermissions } from '../../../features/permission/hooks';
 import { PermissionBadge, ui } from '../../../features/permission/ui';
+import { closeQrSession } from '../../../features/attendance-qr/service';
 
 export default function SesiRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -104,7 +105,7 @@ export default function SesiRoute() {
 
     async function closeSession() {
       try {
-        await getPracticumRepository().closeSession(session.id, userId);
+        await closeQrSession(session.id);
         await detail.reload();
         return { ok: true, message: 'Sesi ditutup.' };
       } catch (cause) {

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Text } from '../components/Text';
 import { useAuth } from '../features/auth/AuthProvider';
-import { recordQrAttendance } from '../features/attendance-qr/service';
+import { recordQrAttendance, verifyQrAttendance } from '../features/attendance-qr/service';
 
 export default function QrAttendanceRoute() {
   const router = useRouter();
@@ -18,13 +18,19 @@ export default function QrAttendanceRoute() {
     try {
       const match = data.match(/^techlab:\/\/attendance\?token=(.+)$/);
       if (!match) throw new Error('QR Code tidak valid.');
-      const payload = await recordQrAttendance(decodeURIComponent(match[1]));
+      const token = decodeURIComponent(match[1]);
+      await verifyQrAttendance(token);
+      const payload = await recordQrAttendance(token);
       const time = payload.attendanceTime ? new Date(payload.attendanceTime).toLocaleString('id-ID') : 'Waktu tidak tersedia';
       setResult({ ok: true, message: payload.alreadyRecorded ? 'ALREADY RECORDED' : 'ATTENDANCE SUCCESSFUL', detail: payload.alreadyRecorded ? `Presensi sebelumnya tercatat pada ${time}.` : `${payload.name} · ${payload.nim} · ${time}` });
     } catch (e) {
-      const message = (e as { message?: string }).message ?? '';
-      const already = message.includes('already-exists') || message.includes('ALREADY_RECORDED');
-      setResult({ ok: already, message: already ? 'ALREADY RECORDED' : message.includes('deadline-exceeded') ? 'SESI SUDAH BERAKHIR' : message.includes('permission-denied') ? 'PRAKTIKAN TIDAK TERDAFTAR' : 'QR CODE TIDAK VALID', detail: already ? 'Presensi sebelumnya sudah tercatat.' : 'Periksa sesi QR dan coba kembali.' });
+      const error = e as { message?: string; code?: string };
+      const message = error.message ?? '';
+      const already = error.code === 'already-exists' || message.includes('ALREADY_RECORDED');
+      const expired = error.code === 'session-expired';
+      const notEnrolled = error.code === 'not-enrolled';
+      const disabled = error.code === 'qr-disabled';
+      setResult({ ok: already, message: already ? 'ALREADY RECORDED' : expired ? 'SESI SUDAH BERAKHIR' : notEnrolled ? 'PRAKTIKAN TIDAK TERDAFTAR' : disabled ? 'QR DINONAKTIFKAN' : 'QR CODE TIDAK VALID', detail: already ? message : message || 'Periksa sesi QR dan coba kembali.' });
     } finally { setBusy(false); }
   }
   if (!auth.profile) return <View style={styles.screen}><Text>Silakan login terlebih dahulu.</Text></View>;
