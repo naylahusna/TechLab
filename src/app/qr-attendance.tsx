@@ -44,6 +44,13 @@ export default function QrAttendanceRoute() {
       return;
     }
 
+    if (!cleanCode.startsWith('TL-')) {
+      setMessage('Barcode yang terdeteksi bukan kode presensi TechLab (harus diawali "TL-"). Arahkan kamera tepat ke QR code dari asisten.');
+      handled.current = false;
+      setCanRetry(true);
+      return;
+    }
+
     handled.current = true;
     setBusy(true);
     setMessage('Memeriksa barcode presensi…');

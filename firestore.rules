@@ -354,8 +354,9 @@ service cloud.firestore {
     }
 
     match /attendanceQrCodes/{attendanceCode} {
-      allow get: if (isActiveAccount() && !exists(/databases/$(database)/documents/attendanceQrCodes/$(attendanceCode)))
-        || (resource.data.attendanceCode == attendanceCode
+      allow get: if (isActiveAccount() && resource == null)
+        || (resource != null
+        && resource.data.attendanceCode == attendanceCode
         && ((isAssistant() && resource.data.assistantId == request.auth.uid && isAssignedAssistant(resource.data.classId))
           || (isPractitioner()
             && resource.data.status == 'active'
