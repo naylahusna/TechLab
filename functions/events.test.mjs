@@ -1,8 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOpened } from './events.mjs';
+import { sessionOpened, scheduleChanged, sessionCancelled } from './events.mjs';
 import { sendPush } from './delivery.mjs';
 const klass = { courseName: 'PPK', className: 'A', studentIds: ['p1', 'p2'], assistantIds: ['a1'] };
+test('schedule notifications include only affected class members and meaningful changes', () => {
+  const before = { classId: 'a', title: 'UI', location: 'Lab A', startAt: new Date('2026-11-23T01:00:00Z'), endAt: new Date('2026-11-23T03:00:00Z') };
+  assert.equal(scheduleChanged(before, { ...before, updatedAt: new Date() }, klass, 's1'), null);
+  const event = scheduleChanged(before, { ...before, title: 'Firebase', location: 'Lab B', startAt: new Date('2026-11-24T01:00:00Z') }, klass, 's1');
+  assert.deepEqual(event.recipients, ['p1', 'p2', 'a1']);
+  assert.match(event.body, /Firebase.*Judul.*Waktu.*Lab B/);
+  assert.match(scheduleChanged(before, { ...before, archivedAt: new Date() }, klass, 's1').body, /diarsipkan/);
+  const cancelled = sessionCancelled({ status: 'scheduled' }, { status: 'cancelled', classId: 'a' }, klass, before, 's1');
+  assert.equal(cancelled.type, 'schedule-cancelled');
+  assert.equal(sessionCancelled({ status: 'cancelled' }, { status: 'cancelled' }, klass, before, 's1'), null);
+});
 test('opening targets only class/session intersection and ignores unrelated updates', () => {
   const after = { status: 'open', studentIds: ['p1', 'outsider'], classId: 'a' };
   const event = sessionOpened({ status: 'scheduled' }, after, klass, { title: 'UI', location: 'Lab A' }, 's1');
