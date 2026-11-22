@@ -79,6 +79,10 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
             ? 'Aslab akan mencocokkan nama dan NIM dengan akun praktikan kamu sebelum menyetujui.'
             : reason ? rejectionReasonLabels[reason] : 'Hubungi Aslab jika kamu perlu meninjau status akun asprak kamu.'}
         </Text>
+        {auth.fromCache && (
+          <Text style={styles.message}>Status tersimpan di perangkat. Sambungkan internet untuk mengecek keputusan terbaru.</Text>
+        )}
+        <ActionButton secondary title="Perbarui status" disabled={converting} onPress={auth.retry} />
         {canContinue && (
           <>
             <ActionButton title={converting ? 'Memproses…' : 'Lanjut sebagai Praktikan'}

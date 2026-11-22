@@ -17,6 +17,7 @@ const filters = [
   { value: 'semua', label: 'Semua' },
   { value: 'calon_asprak', label: 'Menunggu' },
   { value: 'asisten', label: 'Asprak aktif' },
+  { value: 'riwayat', label: 'Riwayat' },
 ] as const;
 type Filter = typeof filters[number]['value'];
 
@@ -62,10 +63,13 @@ function UserDirectory() {
   }), [attempt]);
 
   const needle = query.trim().toLowerCase();
-  const filtered = users?.filter((user) =>
-    (filter === 'semua' || user.role === filter) &&
-    (user.name.toLowerCase().includes(needle) || user.number.toLowerCase().includes(needle)),
-  );
+  const filtered = users?.filter((user) => {
+    const historical = user.role === 'asprak_ditolak' || user.role === 'asprak_dicabut';
+    const matchesFilter = filter === 'semua' ? !historical
+      : filter === 'riwayat' ? historical : user.role === filter;
+    return matchesFilter
+      && (user.name.toLowerCase().includes(needle) || user.number.toLowerCase().includes(needle));
+  });
   const currentTarget = users?.find(({ uid }) => uid === pending?.user.uid);
 
   async function confirm() {
@@ -109,7 +113,7 @@ function UserDirectory() {
       )}
       {!loadError && users === null && <Text>Memuat pengguna…</Text>}
       {users !== null && fromCache && <Text>Menunggu data server untuk mengubah peran.</Text>}
-      {filtered?.length === 0 && <Text>Tidak ada pengguna yang cocok.</Text>}
+      {filtered?.length === 0 && <Text>{filter === 'riwayat' ? 'Riwayat penolakan dan pencabutan masih kosong.' : 'Tidak ada pengguna yang cocok.'}</Text>}
       {filtered?.map((user) => (
         <View key={user.uid} style={styles.card}>
           <Text style={styles.name}>{user.name}</Text>
