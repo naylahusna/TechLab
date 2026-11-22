@@ -55,7 +55,21 @@ test('push tokens are private, owner-only and cannot be reassigned by another ac
   await assertFails(setDoc(ref('bob'), { ...fields, uid: 'bob' }));
   await assertFails(deleteDoc(ref('bob')));
   await assertSucceeds(deleteDoc(ref('alice')));
+  await assertSucceeds(deleteDoc(ref('alice')));
   await assertSucceeds(setDoc(ref('bob'), { ...fields, uid: 'bob' }));
+});
+test('notification history is owner-readable and server-written; delivery tokens never readable by clients', async () => {
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'users/alice/notifications/n1'), { title: 'Sesi dibuka' });
+    await setDoc(doc(context.firestore(), 'notificationDeliveries/n1'), { uid: 'alice', token: 'secret-token' });
+  });
+  const alice = env.authenticatedContext('alice').firestore();
+  const bob = env.authenticatedContext('bob').firestore();
+  await assertSucceeds(getDoc(doc(alice, 'users/alice/notifications/n1')));
+  await assertFails(getDoc(doc(bob, 'users/alice/notifications/n1')));
+  await assertFails(setDoc(doc(alice, 'users/alice/notifications/n1'), { title: 'Forged' }));
+  await assertFails(getDoc(doc(alice, 'notificationDeliveries/n1')));
+  await assertFails(setDoc(doc(alice, 'notificationDeliveries/new'), { uid: 'alice' }));
 });
 async function seed(uid = 'alice', role = 'praktikan') {
   await env.withSecurityRulesDisabled(async (context) => {

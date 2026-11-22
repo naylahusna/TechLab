@@ -23,7 +23,8 @@ service cloud.firestore {
         && token.matches('^(Expo|Exponent)PushToken\\[.+\\]$')
         && request.resource.data.platform in ['android', 'ios']
         && request.resource.data.updatedAt == request.time;
-      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow delete: if isAuthenticated() &&
+        (!exists(/databases/$(database)/documents/userPushTokens/$(token)) || resource.data.uid == request.auth.uid);
     }
     function isOwner(userId) { return isAuthenticated() && request.auth.uid == userId; }
     function uidUnchanged(userId) { return request.resource.data.uid == userId; }
