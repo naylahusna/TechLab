@@ -73,7 +73,7 @@ export default function TabsLayout() {
           href: isAdmin ? null : undefined,
           tabBarButtonTestID: 'tab-izin',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon kind="catatan" color={color} selected={focused} />
+            <TabIcon kind="izin" color={color} selected={focused} />
           ),
         }}
       />
@@ -84,7 +84,7 @@ export default function TabsLayout() {
           href: isAdmin ? undefined : null,
           tabBarButtonTestID: 'tab-kelola-pengguna',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon kind="catatan" color={color} selected={focused} />
+            <TabIcon kind="users" color={color} selected={focused} />
           ),
         }}
       />
@@ -95,7 +95,7 @@ export default function TabsLayout() {
           href: isAdmin ? undefined : null,
           tabBarButtonTestID: 'tab-lokasi',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon kind="lokasi" color={color} selected={focused} />
+            <TabIcon kind="lab" color={color} selected={focused} />
           ),
         }}
       />
@@ -105,7 +105,7 @@ export default function TabsLayout() {
           title: 'Maps',
           tabBarButtonTestID: 'tab-maps',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon kind="lokasi" color={color} selected={focused} />
+            <TabIcon kind="maps" color={color} selected={focused} />
           ),
         }}
       />
