@@ -8,6 +8,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isAuthenticated() { return request.auth != null; }
+    match /users/{userId}/notifications/{notificationId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if false;
+    }
+    match /notificationDeliveries/{id} { allow read, write: if false; }
     match /userPushTokens/{token} {
       allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
       allow create, update: if isAuthenticated()

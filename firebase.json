@@ -1,5 +1,6 @@
 {
   "auth": { "providers": { "emailPassword": true } },
+  "functions": { "source": "functions", "codebase": "notifications" },
   "firestore": {
     "database": "(default)",
     "location": "asia-southeast2",
