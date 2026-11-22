@@ -7,6 +7,7 @@ import { AuthProvider } from '../features/auth/AuthProvider';
 import { AuthBoundary } from '../features/auth/AuthBoundary';
 import { appFonts } from '../theme/fonts';
 import { colors } from '../theme/tokens';
+import { NotificationRegistration } from '../features/notifications/NotificationRegistration';
 
 export default function RootLayout() {
   const [loaded, error] = useFonts(appFonts);
@@ -24,6 +25,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
+        <NotificationRegistration />
         <AuthBoundary>
           <Stack screenOptions={{ headerShown: false }} />
         </AuthBoundary>

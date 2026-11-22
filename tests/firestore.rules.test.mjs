@@ -45,6 +45,18 @@ const data = (uid, overrides = {}) => ({
   ...overrides,
 });
 const own = (uid = 'alice') => doc(env.authenticatedContext(uid).firestore(), 'users', uid);
+test('push tokens are private, owner-only and cannot be reassigned by another account', async () => {
+  const token = 'ExpoPushToken[test-device]';
+  const ref = (uid) => doc(env.authenticatedContext(uid).firestore(), 'userPushTokens', token);
+  const fields = { uid: 'alice', token, platform: 'android', updatedAt: serverTimestamp() };
+  await assertSucceeds(setDoc(ref('alice'), fields));
+  await assertSucceeds(getDoc(ref('alice')));
+  await assertFails(getDoc(ref('bob')));
+  await assertFails(setDoc(ref('bob'), { ...fields, uid: 'bob' }));
+  await assertFails(deleteDoc(ref('bob')));
+  await assertSucceeds(deleteDoc(ref('alice')));
+  await assertSucceeds(setDoc(ref('bob'), { ...fields, uid: 'bob' }));
+});
 async function seed(uid = 'alice', role = 'praktikan') {
   await env.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), 'users', uid), data(uid, { role }));
