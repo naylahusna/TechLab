@@ -1409,8 +1409,15 @@ export function createPracticumRepository(db: Firestore) {
         );
       const labData = labSnapshot.data();
       if (
-        labData.name !== schedule.location
-        ||
+        typeof labData.name !== 'string'
+        || labData.name.trim().toLowerCase() !== schedule.location.trim().toLowerCase()
+      ) {
+        throw new PracticumError(
+          'INVALID_INPUT',
+          `Lokasi lab "${labData.name}" tidak cocok dengan lokasi sesi "${schedule.location}".`,
+        );
+      }
+      if (
         typeof labData.latitude !== 'number'
         || typeof labData.longitude !== 'number'
         || typeof labData.radiusMeters !== 'number'
