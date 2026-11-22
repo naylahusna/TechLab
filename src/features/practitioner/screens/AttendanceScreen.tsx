@@ -198,11 +198,44 @@ export function AttendanceScreen({
           {qrCode ? <FeedbackBanner tone="success" title="Barcode valid" message="Sekarang periksa lokasi perangkat, lalu catat presensi." /> : null}
           {succeeded ? <FeedbackBanner tone="success" title="Presensi berhasil" message="Kehadiranmu sudah tercatat untuk sesi ini." /> : null}
           <View style={styles.actionBlock}>
-            {!qrCode ? <Button label="Scan Barcode Presensi" disabled={attendance.status === 'hadir' || attendanceAction.disabled} onPress={onScanQr} /> : null}
-            {qrCode ? <Button label="Catat Presensi" disabled={attendanceAction.disabled || location.state.status !== 'ready' || locationValidation.status !== 'inside' || !labLocation || succeeded} onPress={() => { setSubmitError(null); setConfirmVisible(true); }} /> : null}
-            {qrCode ? <Button label="Scan Ulang Barcode" variant="secondary" disabled={submitting} onPress={onScanQr} /> : null}
+            {!qrCode ? (
+              <Button
+                label="Scan Barcode Presensi"
+                disabled={attendance.status === 'hadir' || session.status !== 'dibuka'}
+                onPress={onScanQr}
+              />
+            ) : null}
+            {qrCode ? (
+              <Button
+                label="Catat Presensi"
+                disabled={
+                  (attendanceAction.disabled && attendanceAction.kind !== 'outside-time') ||
+                  location.state.status !== 'ready' ||
+                  locationValidation.status !== 'inside' ||
+                  !labLocation ||
+                  succeeded
+                }
+                onPress={() => {
+                  setSubmitError(null);
+                  setConfirmVisible(true);
+                }}
+              />
+            ) : null}
+            {qrCode ? (
+              <Button
+                label="Scan Ulang Barcode"
+                variant="secondary"
+                disabled={submitting}
+                onPress={onScanQr}
+              />
+            ) : null}
             {attendanceAction.reason ? <Text style={styles.reason}>{attendanceAction.reason}</Text> : null}
-            {qrCode && locationValidation.status === 'outside' ? <Text style={styles.reason}>Jarak yang terbaca {Math.round(locationValidation.distanceMeters)} m; batas radius {locationValidation.allowedRadiusMeters} m. Periksa lokasi laboratorium atau segarkan koordinat GPS.</Text> : null}
+            {qrCode && locationValidation.status === 'outside' ? (
+              <Text style={styles.reason}>
+                Jarak yang terbaca {Math.round(locationValidation.distanceMeters)} m; batas radius{' '}
+                {locationValidation.allowedRadiusMeters} m. Periksa lokasi laboratorium atau segarkan koordinat GPS.
+              </Text>
+            ) : null}
           </View>
         </View>
       </ScrollView>

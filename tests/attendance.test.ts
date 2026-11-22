@@ -239,3 +239,16 @@ test('an attendance write notifies once and its immutable record survives repeat
   assert.equal(selectAttendanceRecord(store.getSnapshot(), 'sesi-02', 'praktikan-01'), record);
   stop();
 });
+
+test('extractAttendanceCode normalizes raw barcode input, URLs, lowercase and manual text', () => {
+  const extractAttendanceCode = (rawInput: string): string => {
+    const trimmed = rawInput.trim();
+    const match = trimmed.match(/TL-[A-Za-z0-9]+-[A-Za-z0-9]+/i);
+    return match ? match[0].toUpperCase() : trimmed.toUpperCase();
+  };
+  assert.equal(extractAttendanceCode('TL-M8ABC123-ABCDEFGH'), 'TL-M8ABC123-ABCDEFGH');
+  assert.equal(extractAttendanceCode('  tl-m8abc123-abcdefgh  '), 'TL-M8ABC123-ABCDEFGH');
+  assert.equal(extractAttendanceCode('https://techlab.app/presensi?code=TL-M8ABC123-ABCDEFGH'), 'TL-M8ABC123-ABCDEFGH');
+  assert.equal(extractAttendanceCode('{"code":"TL-M8ABC123-ABCDEFGH"}'), 'TL-M8ABC123-ABCDEFGH');
+  assert.equal(extractAttendanceCode('tl-test-12345678'), 'TL-TEST-12345678');
+});

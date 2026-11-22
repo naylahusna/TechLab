@@ -31,6 +31,12 @@
         {
           "locationWhenInUsePermission": "Digunakan untuk menampilkan posisi kamu di Maps dan memverifikasi lokasi saat mencatat presensi."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Digunakan untuk memindai barcode QR presensi praktikum."
+        }
       ]
     ],
     "extra": {
