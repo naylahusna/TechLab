@@ -29,6 +29,8 @@ import type {
   AttendanceSummary,
   ParticipantItem,
 } from '../types';
+import { AssistantQrCard } from '../../attendance-qr/AssistantQrCard';
+import type { AttendanceOverrideStatus } from '../../practicum/types';
 
 type AssistantSessionDetailScreenProps = {
   session: AssistantSessionItem;
@@ -38,6 +40,9 @@ type AssistantSessionDetailScreenProps = {
   onOpenSession: () => { ok: boolean; message?: string } | Promise<{ ok: boolean; message?: string }>;
   onCloseSession: () => { ok: boolean; message?: string } | Promise<{ ok: boolean; message?: string }>;
   onOpenRecap?: () => void;
+  sessionId?: string;
+  classId?: string;
+  onSetParticipantStatus: (userId: string, status: AttendanceOverrideStatus) => Promise<void>;
 };
 
 export function AssistantSessionDetailScreen({
@@ -48,12 +53,17 @@ export function AssistantSessionDetailScreen({
   onOpenSession,
   onCloseSession,
   onOpenRecap,
+  sessionId,
+  classId,
+  onSetParticipantStatus,
 }: AssistantSessionDetailScreenProps) {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<AttendanceFilter>('semua');
   const [modalAction, setModalAction] = useState<'open' | 'close' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [statusBusyUser, setStatusBusyUser] = useState<string | null>(null);
 
   const filteredParticipants = filterParticipants(participants, filter);
   const tone = getSessionStatusTone(session.status);
@@ -91,6 +101,18 @@ export function AssistantSessionDetailScreen({
       setActionError('Terjadi kesalahan saat memproses tindakan sesi.');
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleParticipantStatus(userId: string, status: AttendanceOverrideStatus) {
+    setStatusBusyUser(userId);
+    setStatusError(null);
+    try {
+      await onSetParticipantStatus(userId, status);
+    } catch (cause) {
+      setStatusError(cause instanceof Error ? cause.message : 'Status praktikan tidak dapat diperbarui.');
+    } finally {
+      setStatusBusyUser(null);
     }
   }
 
@@ -145,6 +167,8 @@ export function AssistantSessionDetailScreen({
             <Text style={styles.infoValue}>{session.statusLabel}</Text>
           </View>
         </View>
+
+        {sessionId && classId && session.status === 'open' ? <AssistantQrCard sessionId={sessionId} classId={classId} practicalName={session.practicalName} lab={session.lab} schedule={session.dateLabel} /> : null}
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Pengelolaan Sesi</Text>
@@ -209,6 +233,7 @@ export function AssistantSessionDetailScreen({
               counts={{
                 all: summary.total,
                 present: summary.present,
+                excused: participants.filter((item) => item.status === 'excused').length,
                 notPresent: summary.notPresent,
               }}
             />
@@ -219,11 +244,19 @@ export function AssistantSessionDetailScreen({
           ) : filteredParticipants.length === 0 ? (
             <AssistantEmptyState kind="filter" />
           ) : (
-            <View style={styles.participantList}>
-              {filteredParticipants.map((item) => (
-                <ParticipantCard key={item.id} participant={item} />
-              ))}
-            </View>
+            <>
+              {statusError ? <Text style={styles.actionHint}>{statusError}</Text> : null}
+              <View style={styles.participantList}>
+                {filteredParticipants.map((item) => (
+                  <ParticipantCard
+                    key={item.id}
+                    participant={item}
+                    disabled={statusBusyUser === item.id}
+                    onSetStatus={(status) => { void handleParticipantStatus(item.id, status); }}
+                  />
+                ))}
+              </View>
+            </>
           )}
         </View>
       </ScrollView>

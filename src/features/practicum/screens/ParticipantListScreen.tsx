@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
@@ -30,11 +30,10 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
   const searchSequence = useRef(0);
 
   function goBack() {
-    if (router.canGoBack()) router.back();
-    else router.replace(`/kelas/${classId}`);
+    router.dismissTo(`/kelas/${classId}`);
   }
 
-  async function search() {
+  const search = useCallback(async () => {
     const query = term.trim();
     const sequence = ++searchSequence.current;
     if (!query) {
@@ -57,12 +56,12 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
     } finally {
       if (sequence === searchSequence.current) setSearching(false);
     }
-  }
+  }, [term]);
 
   useEffect(() => {
     const timer = setTimeout(() => { void search(); }, term.trim() ? 250 : 0);
     return () => clearTimeout(timer);
-  }, [term]);
+  }, [search, term]);
 
   async function add(user: PracticumDirectoryUser) {
     if (busyId) return;

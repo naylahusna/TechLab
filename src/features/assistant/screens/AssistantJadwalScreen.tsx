@@ -39,7 +39,7 @@ export function AssistantJadwalScreen({
     <View style={styles.screen}>
       <ScreenHeader
         title="Selamat datang!"
-        roleLabel="Asisten"
+        roleLabel="Asprak"
         greeting={assistantName}
         initials={assistantInitials}
         summary={summary}

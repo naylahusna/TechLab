@@ -2,8 +2,9 @@ import type {
   AttendanceStatus as CoreAttendanceStatus,
   SessionStatus as CoreSessionStatus,
 } from '../../core/types';
+import type { AttendanceOverrideStatus } from '../practicum/types';
 
-export type AttendanceFilter = 'semua' | 'hadir' | 'belum-hadir';
+export type AttendanceFilter = 'semua' | 'hadir' | 'izin' | 'belum-hadir';
 
 export type AssistantBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 
@@ -27,10 +28,12 @@ export type ParticipantItem = {
   name: string;
   nim: string;
   group: string;
-  status: CoreAttendanceStatus;
+  status: CoreAttendanceStatus | 'excused';
   statusLabel: string;
   attendedAtLabel: string | null;
   permissionStatus?: 'pending' | 'approved' | 'rejected';
+  hasRecordedAttendance?: boolean;
+  overrideStatus?: AttendanceOverrideStatus;
 };
 
 export type AttendanceSummary = {

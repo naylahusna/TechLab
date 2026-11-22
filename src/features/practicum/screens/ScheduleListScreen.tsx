@@ -37,8 +37,7 @@ export function ScheduleListScreen({ classId }: { classId: string }) {
   const [actionError, setActionError] = useState('');
 
   function goBack() {
-    if (router.canGoBack()) router.back();
-    else router.replace(`/kelas/${classId}`);
+    router.dismissTo(`/kelas/${classId}`);
   }
 
   function openCreate() {

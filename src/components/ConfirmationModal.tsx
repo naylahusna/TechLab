@@ -9,6 +9,7 @@ type Props = {
   title: string;
   description: string;
   confirmLabel: string;
+  confirmDanger?: boolean;
   eyebrow?: string;
   confirmTestID?: string;
   cancelTestID?: string;
@@ -21,6 +22,7 @@ export function ConfirmationModal({
   title,
   description,
   confirmLabel,
+  confirmDanger = false,
   eyebrow = 'KONFIRMASI PENGGUNA',
   confirmTestID = 'confirm-switch',
   cancelTestID = 'cancel-switch',
@@ -43,7 +45,7 @@ export function ConfirmationModal({
               {title}
             </Text>
             <Text style={styles.description}>{description}</Text>
-            <ActionButton title={confirmLabel} onPress={onConfirm} testID={confirmTestID} />
+            <ActionButton title={confirmLabel} danger={confirmDanger} onPress={onConfirm} testID={confirmTestID} />
             <ActionButton title="Batal" secondary onPress={onCancel} testID={cancelTestID} />
           </ScrollView>
         </View>

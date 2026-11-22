@@ -17,6 +17,7 @@ import type {
 import { formatDateLabel, formatTimeLabel } from '../practitioner/lib/argamapping';
 import type {
   PracticumAttendance,
+  PracticumAttendanceOverride,
   PracticumClass,
   PracticumParticipant,
   PracticumPermission,
@@ -214,15 +215,16 @@ export function toAssistantParticipants(
   attendance: PracticumAttendance[],
   sessionStatus: PracticumSession['status'],
   permissions: readonly PracticumPermission[] = [],
+  overrides: readonly PracticumAttendanceOverride[] = [],
 ): ParticipantItem[] {
   const byUser = new Map(attendance.map((item) => [item.userId, item]));
+  const overridesByUser = new Map(overrides.map((item) => [item.userId, item]));
   const closed = sessionStatus === 'closed' || sessionStatus === 'cancelled';
   return participants.map((participant) => {
     const record = byUser.get(participant.userId) ?? null;
-    const status = record ? 'present' : closed ? 'absent' : 'pending';
-    const permission = record
-      ? undefined
-      : permissions.find((p) => p.userId === participant.userId);
+    const override = overridesByUser.get(participant.userId);
+    const permission = permissions.find((p) => p.userId === participant.userId);
+    const status = override?.status ?? (record ? 'present' : permission?.status === 'approved' ? 'excused' : closed ? 'absent' : 'pending');
     return {
       id: participant.userId,
       name: participant.studentName,
@@ -230,12 +232,14 @@ export function toAssistantParticipants(
       group: '',
       status,
       statusLabel:
-        permission?.status === 'approved'
+        override?.status === 'present' ? 'Hadir (Manual)' : override?.status === 'excused' ? 'Izin (Manual)' : override?.status === 'absent' ? 'Tidak Hadir (Manual)' : override?.status === 'pending' ? 'Belum Presensi' : permission?.status === 'approved'
           ? 'Izin Disetujui'
           : permission?.status === 'pending'
             ? 'Izin Menunggu'
-            : attendanceStatusLabels[status],
-      attendedAtLabel: record ? timestampTimeLabel(record.recordedAt) : null,
+            : status === 'excused' ? 'Izin' : attendanceStatusLabels[status],
+      attendedAtLabel: record && (!override || override.status === 'present') ? timestampTimeLabel(record.recordedAt) : null,
+      hasRecordedAttendance: !!record,
+      ...(override ? { overrideStatus: override.status } : {}),
       ...(permission ? { permissionStatus: permission.status } : {}),
     };
   });
@@ -244,13 +248,19 @@ export function toAssistantParticipants(
 export function toAttendanceSummary(
   participants: PracticumParticipant[],
   attendance: PracticumAttendance[],
+  overrides: readonly PracticumAttendanceOverride[] = [],
 ): AttendanceSummary {
   const participantIds = new Set(participants.map((item) => item.userId));
-  const present = attendance.filter((item) => participantIds.has(item.userId)).length;
+  const presentUsers = new Set(attendance.filter((item) => participantIds.has(item.userId)).map((item) => item.userId));
+  for (const item of overrides) {
+    if (!participantIds.has(item.userId)) continue;
+    if (item.status === 'present') presentUsers.add(item.userId);
+    else presentUsers.delete(item.userId);
+  }
   return {
     total: participants.length,
-    present,
-    notPresent: participants.length - present,
+    present: presentUsers.size,
+    notPresent: participants.length - presentUsers.size,
   };
 }
 
@@ -259,6 +269,7 @@ export function toAssistantRecapItems(
   schedules: readonly PracticumSchedule[],
   sessions: readonly PracticumSession[],
   attendanceBySession: Readonly<Record<string, readonly PracticumAttendance[]>>,
+  overridesBySession: Readonly<Record<string, readonly PracticumAttendanceOverride[]>> = {},
 ): SessionWithSummary[] {
   const classById = new Map(classes.map((item) => [item.id, item]));
   const scheduleById = new Map(schedules.map((item) => [item.id, item]));
@@ -269,9 +280,15 @@ export function toAssistantRecapItems(
       const classItem = classById.get(session.classId);
       if (!classItem) return [];
       const participantIds = new Set(session.studentIds);
-      const present = (attendanceBySession[session.id] ?? []).filter((record) =>
-        participantIds.has(record.userId),
-      ).length;
+      const presentUsers = new Set((attendanceBySession[session.id] ?? [])
+        .filter((record) => participantIds.has(record.userId))
+        .map((record) => record.userId));
+      for (const override of overridesBySession[session.id] ?? []) {
+        if (!participantIds.has(override.userId)) continue;
+        if (override.status === 'present') presentUsers.add(override.userId);
+        else presentUsers.delete(override.userId);
+      }
+      const present = presentUsers.size;
       const total = session.studentIds.length;
       return [
         {

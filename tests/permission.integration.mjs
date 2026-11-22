@@ -119,6 +119,19 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
       assistant.profile.uid,
     );
     await assistant.practicum.openSession(sessionId, assistant.profile.uid);
+    const openedSession = await assistant.practicum.getSession(sessionId);
+    const attendanceCode = 'TL-PERM123-ABCDEFGH';
+    const qrPayload = {
+      sessionId,
+      classId,
+      assistantId: assistant.profile.uid,
+      attendanceCode,
+      status: 'active',
+      expiresAt: openedSession.endAt,
+      updatedAt: serverTimestamp(),
+    };
+    await setDoc(doc(assistant.db, 'attendanceQrSessions', sessionId), qrPayload);
+    await setDoc(doc(assistant.db, 'attendanceQrCodes', attendanceCode), qrPayload);
     const input = {
       sessionId,
       reason: 'Sedang sakit dan harus beristirahat.',
@@ -183,7 +196,7 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
         latitude: 0,
         longitude: 0,
         accuracy: 10,
-      }),
+      }, 'lab-informatika-b', attendanceCode),
       /di luar radius/i,
     );
     await assert.rejects(
@@ -194,7 +207,7 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
       latitude: -7.0482375,
       longitude: 110.440765625,
       accuracy: 10,
-    }));
+    }, 'lab-informatika-b', attendanceCode));
     let observed;
     const approved = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Real-time decision not received')), 8000);
@@ -267,7 +280,7 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
       latitude: -7.0482375,
       longitude: 110.440765625,
       accuracy: 10,
-    });
+    }, 'lab-informatika-b', attendanceCode);
     assert.equal(
       (await assistant.practicum.listRecap(sessionId)).find(
         (row) => row.participant.userId === student2.profile.uid,

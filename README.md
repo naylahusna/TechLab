@@ -4,6 +4,10 @@ Aplikasi presensi praktikum berbasis **React Native dan Expo** untuk membantu pr
 
 Repository ini digunakan bersama dari awal pengembangan sampai proyek selesai.
 
+## QR Attendance API
+
+QR attendance uses the local Express backend, Firebase Authentication ID-token verification, and the existing Cloud Firestore project. Setup, credential handling, LAN access from a phone, and endpoint details are in [server/README.md](server/README.md). Start it with `npm run attendance:dev` from the repository root, or use `npm run dev` inside `server`.
+
 ## Ruang Lingkup Sprint 1
 
 Sprint pertama berfokus pada mockup frontend interaktif dengan dua peran:

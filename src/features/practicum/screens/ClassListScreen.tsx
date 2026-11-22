@@ -23,8 +23,7 @@ export function ClassListScreen() {
   } = useAssistantClasses();
 
   function goBack() {
-    if (router.canGoBack()) router.back();
-    else router.replace('/jadwal');
+    router.dismissTo('/jadwal');
   }
 
   function openCreate() {

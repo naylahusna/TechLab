@@ -16,10 +16,11 @@ import { toPractitionerSessionDetail, toPraktikanIdentity } from '../../../featu
 import { colors } from '../../../theme/tokens';
 
 export default function AttendanceRoute() {
-  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const { id, qrCode: scannedQrCode } = useLocalSearchParams<{ id?: string | string[]; qrCode?: string | string[] }>();
   const auth = useAuth();
   const router = useRouter();
   const sessionId = typeof id === 'string' ? id : undefined;
+  const qrCode = typeof scannedQrCode === 'string' ? scannedQrCode : null;
   const detail = useSessionDetail(sessionId);
   const permissionResource = usePermissions();
 
@@ -59,13 +60,16 @@ export default function AttendanceRoute() {
     if (myPermission.status === 'pending') session.myAttendance.status = 'izin-menunggu';
   }
 
-  async function confirmAttendance(location: { latitude: number; longitude: number; accuracy: number | null }) {
+  async function confirmAttendance(location: { latitude: number; longitude: number; accuracy: number | null }, labLocationId: string, code: string) {
     try {
-      await getPracticumRepository().recordAttendance(session.id, auth.profile!.uid, location);
+      await getPracticumRepository().recordAttendance(session.id, auth.profile!.uid, location, labLocationId, code);
       await detail.reload();
       return { ok: true as const };
     } catch (cause) {
-      return { ok: false as const, reason: practicumErrorMessage(cause) };
+      const reason = (cause as { code?: string })?.code === 'permission-denied'
+        ? 'Firestore menolak pencatatan. Pastikan Firestore Rules terbaru sudah di-deploy dan akun praktikan masih terdaftar di kelas.'
+        : practicumErrorMessage(cause);
+      return { ok: false as const, reason };
     }
   }
 
@@ -75,7 +79,9 @@ export default function AttendanceRoute() {
       <AttendanceScreen
         session={session}
         praktikan={toPraktikanIdentity(auth.profile)}
+        qrCode={qrCode}
         onBack={goBack}
+        onScanQr={() => router.push({ pathname: '/qr-attendance', params: { sessionId } })}
         onConfirmAttendance={confirmAttendance}
       />
     </View>

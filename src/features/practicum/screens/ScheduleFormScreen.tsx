@@ -157,7 +157,7 @@ export function ScheduleFormScreen({
       } else {
         throw new Error('Jadwal tidak ditemukan.');
       }
-      router.replace(`/kelas/${classId}/jadwal`);
+      router.dismissTo(`/kelas/${classId}/jadwal`);
     } catch (cause) {
       setError(practicumErrorMessage(cause));
     } finally {

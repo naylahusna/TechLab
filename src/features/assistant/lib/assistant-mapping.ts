@@ -46,7 +46,7 @@ export function getSessionStatusTone(status: Session['status']): AssistantBadgeT
 
 /** Map status kehadiran peserta ke badge tone semantik. */
 export function getAttendanceStatusTone(
-  status: AttendanceEntry['status'],
+  status: ParticipantItem['status'],
 ): AssistantBadgeTone {
   switch (status) {
     case 'present':
@@ -55,6 +55,8 @@ export function getAttendanceStatusTone(
       return 'neutral';
     case 'absent':
       return 'danger';
+    case 'excused':
+      return 'info';
     default:
       return 'neutral';
   }
@@ -97,6 +99,7 @@ export function filterParticipants(
   if (filter === 'hadir') {
     return participants.filter((item) => item.status === 'present');
   }
+  if (filter === 'izin') return participants.filter((item) => item.status === 'excused');
   if (filter === 'belum-hadir') {
     return participants.filter(
       (item) => item.status === 'pending' || item.status === 'absent',

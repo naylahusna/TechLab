@@ -42,7 +42,7 @@ export function AssistantRekapScreen({
       <ScreenHeader
         title="Rekap Kehadiran"
         subtitle="Pantau kehadiran praktikan pada seluruh sesi praktikum penugasanmu."
-        roleLabel="Asisten"
+        roleLabel="Asprak"
         greeting={assistantName}
         initials={assistantInitials}
         summary={summary}

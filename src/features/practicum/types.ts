@@ -89,6 +89,19 @@ export type PracticumAttendance = Readonly<{
   labName: string | null;
 }>;
 
+export type AttendanceOverrideStatus = 'present' | 'excused' | 'absent' | 'pending';
+
+export type PracticumAttendanceOverride = Readonly<{
+  id: string;
+  sessionId: string;
+  classId: string;
+  userId: string;
+  status: AttendanceOverrideStatus;
+  updatedBy: string;
+  updatedAt: Timestamp;
+  createdAt: Timestamp;
+}>;
+
 export type PracticumClassInput = Readonly<{
   className: string;
   courseName: string;

@@ -79,10 +79,10 @@ export function ClassFormScreen({ mode, classId }: ClassFormScreenProps) {
       const clean = validateClassInput({ className, courseName });
       if (mode === 'create') {
         await getPracticumRepository().createClass(clean, auth.profile.uid);
-        router.replace('/kelas');
+        router.dismissTo('/kelas');
       } else if (classId) {
         await getPracticumRepository().updateClass(classId, clean);
-        router.replace(`/kelas/${classId}`);
+        router.dismissTo(`/kelas/${classId}`);
       } else {
         throw new Error('Kelas tidak ditemukan.');
       }

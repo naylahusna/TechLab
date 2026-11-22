@@ -132,6 +132,7 @@ export function ProfileScreen() {
         title="Keluar dari TechLab?"
         description="Kamu perlu login kembali untuk mengakses akun."
         confirmLabel="Keluar"
+        confirmDanger
         onConfirm={() => {
           void logout();
         }}

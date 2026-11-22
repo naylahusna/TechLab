@@ -27,6 +27,8 @@ import { colors } from '../../../theme/tokens';
 import { ActionButton } from '../../../components/ActionButton';
 import { usePermissions } from '../../../features/permission/hooks';
 import { PermissionBadge, ui } from '../../../features/permission/ui';
+import { disableQr } from '../../../features/attendance-qr/service';
+import type { AttendanceOverrideStatus } from '../../../features/practicum/types';
 
 export default function SesiRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -89,8 +91,9 @@ export default function SesiRoute() {
       detail.attendance,
       session.status,
       detail.permissions,
+      detail.attendanceOverrides,
     );
-    const summary = toAttendanceSummary(detail.participants, detail.attendance);
+    const summary = toAttendanceSummary(detail.participants, detail.attendance, detail.attendanceOverrides);
 
     async function openSession() {
       try {
@@ -105,11 +108,17 @@ export default function SesiRoute() {
     async function closeSession() {
       try {
         await getPracticumRepository().closeSession(session.id, userId);
+        try { await disableQr(session.id); } catch { /* QR may already be unavailable. */ }
         await detail.reload();
         return { ok: true, message: 'Sesi ditutup.' };
       } catch (cause) {
         return { ok: false, message: practicumErrorMessage(cause) };
       }
+    }
+
+    async function setParticipantStatus(participantId: string, status: AttendanceOverrideStatus) {
+      await getPracticumRepository().setAttendanceOverride(session.id, classItem.id, participantId, status);
+      await detail.reload();
     }
 
     return (
@@ -127,6 +136,9 @@ export default function SesiRoute() {
           onOpenSession={openSession}
           onCloseSession={closeSession}
           onOpenRecap={() => router.push(`/sesi/${session.id}/rekap`)}
+          sessionId={session.id}
+          classId={classItem.id}
+          onSetParticipantStatus={setParticipantStatus}
         />
       </View>
     );
@@ -160,6 +172,11 @@ export default function SesiRoute() {
         onBack={goBack}
         onOpenAttendance={() => router.push(`/sesi/${session.id}/presensi`)}
       />
+      {session.status === 'open' && practitionerSession.myAttendance.status === 'belum-presensi' ? (
+        <View style={{ paddingHorizontal: 16, paddingTop: 4, width: '100%', maxWidth: 900, alignSelf: 'center' }}>
+          <ActionButton title="Scan QR Presensi" secondary onPress={() => router.push({ pathname: '/qr-attendance', params: { sessionId } })} />
+        </View>
+      ) : null}
       <View
         style={{
           paddingHorizontal: 16,

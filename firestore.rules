@@ -334,6 +334,114 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /attendanceQrSessions/{sessionId} {
+      function qrSession() {
+        return exists(/databases/$(database)/documents/sessions/$(sessionId))
+          ? get(/databases/$(database)/documents/sessions/$(sessionId)).data
+          : null;
+      }
+      function validQrRecord(data) {
+        return data.keys().hasAll(['sessionId', 'classId', 'assistantId', 'attendanceCode', 'status', 'expiresAt', 'updatedAt'])
+          && data.keys().hasOnly(['sessionId', 'classId', 'assistantId', 'attendanceCode', 'status', 'expiresAt', 'updatedAt'])
+          && data.sessionId == sessionId
+          && data.classId is string && data.classId.size() > 0 && data.classId.size() <= 64
+          && data.assistantId == request.auth.uid
+          && data.attendanceCode is string && data.attendanceCode.matches('^TL-[A-Z0-9]{1,12}-[A-Z0-9]{8}$')
+          && data.status in ['active', 'disabled']
+          && data.expiresAt is timestamp
+          && data.updatedAt == request.time;
+      }
+      allow get: if isAssistant() && qrSession() != null && isAssignedAssistant(qrSession().classId);
+      allow list: if false;
+      allow create: if isAssistant()
+        && validQrRecord(request.resource.data)
+        && isAssignedAssistant(request.resource.data.classId)
+        && qrSession() != null
+        && qrSession().classId == request.resource.data.classId
+        && qrSession().status == 'open'
+        && qrSession().endAt == request.resource.data.expiresAt
+        && request.time < request.resource.data.expiresAt
+        && request.resource.data.status == 'active';
+      allow update: if isAssistant()
+        && validQrRecord(request.resource.data)
+        && isAssignedAssistant(resource.data.classId)
+        && request.resource.data.sessionId == resource.data.sessionId
+        && request.resource.data.classId == resource.data.classId
+        && request.resource.data.assistantId == resource.data.assistantId
+        && request.resource.data.expiresAt == resource.data.expiresAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attendanceCode', 'status', 'updatedAt'])
+        && qrSession() != null
+        && qrSession().classId == resource.data.classId
+        && (request.resource.data.status == 'disabled' || (qrSession().status == 'open' && request.time < request.resource.data.expiresAt));
+      allow delete: if false;
+    }
+
+    match /attendanceQrCodes/{attendanceCode} {
+      allow get: if (isActiveAccount() && resource == null)
+        || (resource != null
+        && resource.data.attendanceCode == attendanceCode
+        && ((isAssistant() && resource.data.assistantId == request.auth.uid && isAssignedAssistant(resource.data.classId))
+          || (isPractitioner()
+            && resource.data.status == 'active'
+            && request.time < resource.data.expiresAt
+            && exists(/databases/$(database)/documents/sessions/$(resource.data.sessionId))
+            && get(/databases/$(database)/documents/sessions/$(resource.data.sessionId)).data.classId == resource.data.classId
+            && get(/databases/$(database)/documents/sessions/$(resource.data.sessionId)).data.status == 'open')));
+      allow list: if false;
+      allow create: if isAssistant()
+        && request.resource.data.keys().hasAll(['sessionId', 'classId', 'assistantId', 'attendanceCode', 'status', 'expiresAt', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['sessionId', 'classId', 'assistantId', 'attendanceCode', 'status', 'expiresAt', 'updatedAt'])
+        && request.resource.data.attendanceCode == attendanceCode
+        && attendanceCode.matches('^TL-[A-Z0-9]{1,12}-[A-Z0-9]{8}$')
+        && request.resource.data.status == 'active'
+        && request.resource.data.assistantId == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && exists(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId))
+        && get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.classId == request.resource.data.classId
+        && get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.status == 'open'
+        && get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.endAt == request.resource.data.expiresAt
+        && request.time < request.resource.data.expiresAt
+        && isAssignedAssistant(request.resource.data.classId);
+      allow update: if isAssistant()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && request.resource.data.status == 'disabled'
+        && request.resource.data.updatedAt == request.time
+        && resource.data.assistantId == request.auth.uid
+        && isAssignedAssistant(resource.data.classId);
+      allow delete: if false;
+    }
+
+    match /attendanceStatusOverrides/{overrideId} {
+      function validOverride(data) {
+        return data.keys().hasAll(['sessionId', 'classId', 'userId', 'status', 'updatedBy', 'createdAt', 'updatedAt'])
+          && data.keys().hasOnly(['sessionId', 'classId', 'userId', 'status', 'updatedBy', 'createdAt', 'updatedAt'])
+          && overrideId == data.sessionId + '_' + data.userId
+          && data.status in ['present', 'excused', 'absent', 'pending']
+          && data.updatedBy == request.auth.uid
+          && data.createdAt is timestamp
+          && data.updatedAt == request.time
+          && exists(/databases/$(database)/documents/sessions/$(data.sessionId))
+          && get(/databases/$(database)/documents/sessions/$(data.sessionId)).data.classId == data.classId
+          && get(/databases/$(database)/documents/sessions/$(data.sessionId)).data.status in ['open', 'closed']
+          && exists(/databases/$(database)/documents/participants/$(data.classId + '_' + data.userId))
+          && get(/databases/$(database)/documents/participants/$(data.classId + '_' + data.userId)).data.leftAt == null;
+      }
+      allow get: if isAssistant() && (resource == null || isAssignedAssistant(resource.data.classId));
+      allow list: if isAssistant() && isAssignedAssistant(resource.data.classId);
+      allow create: if isAssistant()
+        && validOverride(request.resource.data)
+        && isAssignedAssistant(request.resource.data.classId);
+      allow update: if isAssistant()
+        && validOverride(request.resource.data)
+        && isAssignedAssistant(resource.data.classId)
+        && request.resource.data.sessionId == resource.data.sessionId
+        && request.resource.data.classId == resource.data.classId
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedBy', 'updatedAt']);
+      allow delete: if false;
+    }
+
     match /attendances/{attendanceId} {
       allow get: if isActiveAccount()
         && (attendanceId.matches('.*_' + request.auth.uid)
