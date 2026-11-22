@@ -232,6 +232,33 @@ test('unimplemented feature collections and orphan subcollections are denied', a
   }
 });
 
+test('attendance QR codes are assistant-only, tied to an open assigned session, and update safely', async () => {
+  const now = Date.now();
+  const expiresAt = Timestamp.fromMillis(now + 60_000);
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'users/assistant'), data('assistant', { role: 'asisten' }));
+    await setDoc(doc(context.firestore(), 'users/student'), data('student'));
+    await setDoc(doc(context.firestore(), 'classes/class-1'), { className: 'A', assistantIds: ['assistant'], studentIds: ['student'], memberIds: ['assistant', 'student'] });
+    await setDoc(doc(context.firestore(), 'sessions/session-1'), { classId: 'class-1', status: 'open', endAt: expiresAt });
+    await setDoc(doc(context.firestore(), 'participants/class-1_student'), { classId: 'class-1', userId: 'student', studentName: 'Student', studentNumber: '240001', joinedAt: Timestamp.fromMillis(now - 1000), leftAt: null });
+  });
+  const assistantDb = env.authenticatedContext('assistant').firestore();
+  const studentDb = env.authenticatedContext('student').firestore();
+  const ref = doc(assistantDb, 'attendanceQrSessions/session-1');
+  const record = { sessionId: 'session-1', classId: 'class-1', assistantId: 'assistant', attendanceCode: 'TL-M8ABC123-ABCDEFGH', status: 'active', expiresAt, updatedAt: serverTimestamp() };
+  await assertSucceeds(setDoc(ref, record));
+  await assertSucceeds(getDoc(ref));
+  await assertFails(getDoc(doc(studentDb, 'attendanceQrSessions/session-1')));
+  const codeRef = doc(assistantDb, 'attendanceQrCodes/TL-M8ABC123-ABCDEFGH');
+  await assertSucceeds(setDoc(codeRef, record));
+  await assertSucceeds(getDoc(doc(studentDb, 'attendanceQrCodes/TL-M8ABC123-ABCDEFGH')));
+  await assertSucceeds(updateDoc(ref, { status: 'disabled', updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(codeRef, { status: 'disabled', updatedAt: serverTimestamp() }));
+  await assertFails(getDoc(doc(studentDb, 'attendanceQrCodes/TL-M8ABC123-ABCDEFGH')));
+  await assertFails(updateDoc(doc(studentDb, 'attendanceQrSessions/session-1'), { attendanceCode: 'FORGED', updatedAt: serverTimestamp() }));
+  await assertFails(getDocs(collection(assistantDb, 'attendanceQrSessions')));
+});
+
 test('Aslab approves a separate candidate only with a matching practitioner, then can revoke it', async () => {
   await seed('admin', 'admin');
   await seed('assistant', 'asisten');

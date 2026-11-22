@@ -14,20 +14,24 @@ import { ATTENDANCE_STATUS_META, SESSION_STATUS_META } from '../lib/status';
 import { colors, fontWeights, radius, spacing, typography } from '../theme';
 import type { AttendanceActionResult, AttendanceLocationInput, PraktikanIdentity, SessionDetail } from '../types';
 import { validateAttendanceLocation } from '../lib/location-validation';
-import { useDeviceLocation, isPresensiDisabledByLocation } from '../lib/device-location';
+import { useDeviceLocation } from '../lib/device-location';
 import { watchLabLocations, type LabLocation } from '../../assistant/lab-locations';
 
 type AttendanceScreenProps = {
   session: SessionDetail;
   praktikan: PraktikanIdentity;
+  qrCode: string | null;
   onBack: () => void;
-  onConfirmAttendance: (location: AttendanceLocationInput) => AttendanceActionResult | Promise<AttendanceActionResult>;
+  onScanQr: () => void;
+  onConfirmAttendance: (location: AttendanceLocationInput, labLocationId: string, qrCode: string) => AttendanceActionResult | Promise<AttendanceActionResult>;
 };
 
 export function AttendanceScreen({
   session,
   praktikan,
+  qrCode,
   onBack,
+  onScanQr,
   onConfirmAttendance,
 }: AttendanceScreenProps) {
   const insets = useSafeAreaInsets();
@@ -72,12 +76,8 @@ export function AttendanceScreen({
   );
 
   async function confirmAttendance() {
-    if (submittingRef.current) return;
-    if (isPresensiDisabledByLocation(location.state)) {
-      setSubmitError(location.state.message);
-      return;
-    }
-    if (locationValidation.status !== 'inside') {
+    if (submittingRef.current || !qrCode) return;
+    if (location.state.status !== 'ready' || locationValidation.status !== 'inside' || !labLocation) {
       setSubmitError(locationValidation.message);
       return;
     }
@@ -85,17 +85,11 @@ export function AttendanceScreen({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      if (!location.state.coordinates) {
-        setSubmitError(location.state.message);
-        return;
-      }
-      const result = await onConfirmAttendance(location.state.coordinates);
+      const result = await onConfirmAttendance(location.state.coordinates, labLocation.id, qrCode);
       if (result.ok) {
         setSucceeded(true);
         setConfirmVisible(false);
-      } else {
-        setSubmitError(result.reason);
-      }
+      } else setSubmitError(result.reason);
     } catch {
       setSubmitError('Presensi gagal dicatat. Silakan coba lagi.');
     } finally {
@@ -201,21 +195,14 @@ export function AttendanceScreen({
             </Pressable>
           </View>
 
-          {succeeded ? (
-            <FeedbackBanner tone="success" title="Presensi berhasil" message="Kehadiranmu sudah tercatat untuk sesi ini." />
-          ) : null}
-
+          {qrCode ? <FeedbackBanner tone="success" title="Barcode valid" message="Sekarang periksa lokasi perangkat, lalu catat presensi." /> : null}
+          {succeeded ? <FeedbackBanner tone="success" title="Presensi berhasil" message="Kehadiranmu sudah tercatat untuk sesi ini." /> : null}
           <View style={styles.actionBlock}>
-            <Button
-              label={attendanceAction.label}
-              disabled={
-                attendanceAction.disabled
-                || isPresensiDisabledByLocation(location.state)
-                || locationValidation.status !== 'inside'
-              }
-              onPress={() => { setSubmitError(null); setConfirmVisible(true); }}
-            />
+            {!qrCode ? <Button label="Scan Barcode Presensi" disabled={attendance.status === 'hadir' || attendanceAction.disabled} onPress={onScanQr} /> : null}
+            {qrCode ? <Button label="Catat Presensi" disabled={attendanceAction.disabled || location.state.status !== 'ready' || locationValidation.status !== 'inside' || !labLocation || succeeded} onPress={() => { setSubmitError(null); setConfirmVisible(true); }} /> : null}
+            {qrCode ? <Button label="Scan Ulang Barcode" variant="secondary" disabled={submitting} onPress={onScanQr} /> : null}
             {attendanceAction.reason ? <Text style={styles.reason}>{attendanceAction.reason}</Text> : null}
+            {qrCode && locationValidation.status === 'outside' ? <Text style={styles.reason}>Jarak yang terbaca {Math.round(locationValidation.distanceMeters)} m; batas radius {locationValidation.allowedRadiusMeters} m. Periksa lokasi laboratorium atau segarkan koordinat GPS.</Text> : null}
           </View>
         </View>
       </ScrollView>

@@ -23,13 +23,20 @@ export function createAttendanceRouter({ db, auth, FieldValue, Timestamp, public
     try {
       const match = req.get('authorization')?.match(/^Bearer\s+(.+)$/i);
       if (!match) throw new HttpError(401, 'unauthenticated', 'Silakan login terlebih dahulu.');
-      const decoded = await auth.verifyIdToken(match[1]);
-      const userSnap = await db.doc(`users/${decoded.uid}`).get();
+      let decoded;
+      try { decoded = await auth.verifyIdToken(match[1]); }
+      catch { throw new HttpError(401, 'unauthenticated', 'Token login tidak valid atau sudah kedaluwarsa. Silakan login kembali.'); }
+      let userSnap;
+      try { userSnap = await db.doc(`users/${decoded.uid}`).get(); }
+      catch (error) {
+        console.error('Attendance API could not read Firebase user profile:', error?.message ?? 'unknown error');
+        throw new HttpError(503, 'firebase-admin-unavailable', 'Backend Firebase belum terhubung. Periksa kredensial Firebase Admin di server/.env lalu mulai ulang server.');
+      }
       if (!userSnap.exists) throw new HttpError(403, 'permission-denied', 'Profil akun tidak ditemukan.');
       req.identity = { ...userSnap.data(), uid: decoded.uid };
       next();
     } catch (error) {
-      next(error instanceof HttpError ? error : new HttpError(401, 'unauthenticated', 'Sesi login tidak valid. Silakan login kembali.'));
+      next(error instanceof HttpError ? error : new HttpError(500, 'internal', 'Server presensi mengalami kesalahan.'));
     }
   });
 

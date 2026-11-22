@@ -27,7 +27,7 @@ import { colors } from '../../../theme/tokens';
 import { ActionButton } from '../../../components/ActionButton';
 import { usePermissions } from '../../../features/permission/hooks';
 import { PermissionBadge, ui } from '../../../features/permission/ui';
-import { closeQrSession } from '../../../features/attendance-qr/service';
+import { disableQr } from '../../../features/attendance-qr/service';
 
 export default function SesiRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -105,7 +105,8 @@ export default function SesiRoute() {
 
     async function closeSession() {
       try {
-        await closeQrSession(session.id);
+        await getPracticumRepository().closeSession(session.id, userId);
+        try { await disableQr(session.id); } catch { /* QR may already be unavailable. */ }
         await detail.reload();
         return { ok: true, message: 'Sesi ditutup.' };
       } catch (cause) {
@@ -129,6 +130,7 @@ export default function SesiRoute() {
           onCloseSession={closeSession}
           onOpenRecap={() => router.push(`/sesi/${session.id}/rekap`)}
           sessionId={session.id}
+          classId={classItem.id}
         />
       </View>
     );
@@ -163,7 +165,7 @@ export default function SesiRoute() {
         onOpenAttendance={() => router.push(`/sesi/${session.id}/presensi`)}
       />
       <View style={{ paddingHorizontal: 16, paddingTop: 4, width: '100%', maxWidth: 900, alignSelf: 'center' }}>
-        <ActionButton title="Scan QR Presensi" secondary onPress={() => router.push('/qr-attendance')} />
+        <ActionButton title="Scan QR Presensi" secondary onPress={() => router.push({ pathname: '/qr-attendance', params: { sessionId } })} />
       </View>
       <View
         style={{

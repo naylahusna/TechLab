@@ -132,6 +132,24 @@ test('unregistered and unauthenticated practitioners cannot verify QR', async ()
   } finally { await closeServer(ctx.server); }
 });
 
+test('Firebase Admin profile read failure is reported as backend unavailable', async () => {
+  const app = createAttendanceApp({
+    db: { doc: () => ({ get: async () => { throw new Error('credentials missing'); } }) },
+    auth: { verifyIdToken: async () => ({ uid: 'student' }) },
+    allowedOrigins: ['http://localhost:8081'],
+  });
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  try {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/attendance/qr`, {
+      method: 'POST', headers: { Authorization: 'Bearer valid-token', 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 's1' }),
+    });
+    const result = await response.json();
+    assert.equal(response.status, 503);
+    assert.equal(result.code, 'firebase-admin-unavailable');
+  } finally { await closeServer(server); }
+});
+
 test('assistant can disable the QR without closing the session', async () => {
   const ctx = await setup();
   try {

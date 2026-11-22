@@ -1299,6 +1299,8 @@ export function createPracticumRepository(db: Firestore) {
       sessionId: string,
       userId: string,
       location: { latitude: number; longitude: number; accuracy: number | null },
+      labLocationId: string,
+      attendanceCode: string,
     ): Promise<string> {
       if (
         !location
@@ -1320,16 +1322,16 @@ export function createPracticumRepository(db: Firestore) {
       if (!scheduleSnapshot.exists())
         throw new PracticumError('NOT_FOUND', 'Lokasi laboratorium sesi tidak ditemukan.');
       const schedule = toSchedule(scheduleSnapshot);
-      const labSnapshot = await getDocs(
-        query(collection(db, 'labLocations'), where('name', '==', schedule.location), limit(1)),
-      );
-      if (labSnapshot.empty)
+      const labSnapshot = await getDoc(doc(db, 'labLocations', labLocationId));
+      if (!labSnapshot.exists())
         throw new PracticumError(
           'INVALID_INPUT',
           'Lokasi laboratorium sesi belum tersedia. Presensi tidak dapat dicatat.',
         );
-      const labData = labSnapshot.docs[0].data();
+      const labData = labSnapshot.data();
       if (
+        labData.name !== schedule.location
+        ||
         typeof labData.latitude !== 'number'
         || typeof labData.longitude !== 'number'
         || typeof labData.radiusMeters !== 'number'
@@ -1356,6 +1358,14 @@ export function createPracticumRepository(db: Firestore) {
         const sessionSnapshot = await transaction.get(sessionRef);
         if (!sessionSnapshot.exists())
           throw new PracticumError('NOT_FOUND', 'Sesi praktikum tidak ditemukan.');
+        const qrSnapshot = await transaction.get(doc(db, 'attendanceQrCodes', attendanceCode));
+        if (!qrSnapshot.exists()
+          || qrSnapshot.data().attendanceCode !== attendanceCode
+          || qrSnapshot.data().sessionId !== sessionId
+          || qrSnapshot.data().status !== 'active'
+          || qrSnapshot.data().expiresAt.toMillis() <= Date.now()) {
+          throw new PracticumError('INVALID_INPUT', 'Barcode presensi tidak valid atau sudah berakhir. Scan QR aktif lalu coba lagi.');
+        }
         const session = toSession(sessionSnapshot);
         if (session.status !== 'open')
           throw new PracticumError(

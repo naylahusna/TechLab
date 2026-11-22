@@ -40,6 +40,7 @@ type AssistantSessionDetailScreenProps = {
   onCloseSession: () => { ok: boolean; message?: string } | Promise<{ ok: boolean; message?: string }>;
   onOpenRecap?: () => void;
   sessionId?: string;
+  classId?: string;
 };
 
 export function AssistantSessionDetailScreen({
@@ -51,6 +52,7 @@ export function AssistantSessionDetailScreen({
   onCloseSession,
   onOpenRecap,
   sessionId,
+  classId,
 }: AssistantSessionDetailScreenProps) {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<AttendanceFilter>('semua');
@@ -149,7 +151,7 @@ export function AssistantSessionDetailScreen({
           </View>
         </View>
 
-        {sessionId && session.status === 'open' ? <AssistantQrCard sessionId={sessionId} practicalName={session.practicalName} lab={session.lab} schedule={session.dateLabel} /> : null}
+        {sessionId && classId && session.status === 'open' ? <AssistantQrCard sessionId={sessionId} classId={classId} practicalName={session.practicalName} lab={session.lab} schedule={session.dateLabel} /> : null}
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Pengelolaan Sesi</Text>
