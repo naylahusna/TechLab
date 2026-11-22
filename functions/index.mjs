@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { onDocumentUpdated, onDocumentCreated } from 'firebase-functions/v2/firestore';
-import { sessionOpened } from './events.mjs';
+import { sessionOpened, scheduleChanged, sessionCancelled } from './events.mjs';
 import { enqueue, deliver } from './delivery.mjs';
 
 initializeApp();
@@ -14,6 +14,12 @@ export const notifySessionOpened = onDocumentUpdated({ ...options, document: 'se
   ]);
   if (!classDoc.exists || !schedule.exists || schedule.data().archivedAt) return;
   await enqueue(db, event.id, sessionOpened(before, after, classDoc.data(), schedule.data(), event.params.id));
+  await enqueue(db, `${event.id}:cancelled`, sessionCancelled(before, after, classDoc.data(), schedule.data(), event.params.id));
+});
+export const notifyScheduleChanged = onDocumentUpdated({ ...options, document: 'schedules/{id}' }, async (event) => {
+  const before = event.data.before.data(), after = event.data.after.data();
+  const klass = await db.doc(`classes/${after.classId}`).get();
+  if (klass.exists) await enqueue(db, event.id, scheduleChanged(before, after, klass.data(), event.params.id));
 });
 export const dispatchPush = onDocumentCreated({ ...options, document: 'notificationDeliveries/{id}' },
   async (event) => deliver(db, event.data.ref));
