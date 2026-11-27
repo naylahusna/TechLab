@@ -176,6 +176,7 @@ test('Aslab can create and edit lab locations with the required location schema'
     latitude: -7.0482375,
     longitude: 110.440765625,
     radiusMeters: 100,
+    graceMinutes: 0,
     building: 'Gedung E FSM UNDIP',
     floor: 2,
     plusCode: '',
@@ -189,7 +190,12 @@ test('Aslab can create and edit lab locations with the required location schema'
   };
   await assertSucceeds(setDoc(ref, location));
   await assertFails(setDoc(doc(db, 'labLocations', 'outside'), { ...location, courseName: 'Jaringan' }));
-  await assertSucceeds(updateDoc(ref, { name: 'Lab Informatika B Baru', updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(ref, { name: 'Lab Informatika B Baru', graceMinutes: 10, updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(ref, { graceMinutes: -1, updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(ref, { archivedAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+  await assertSucceeds(getDoc(ref));
+  await assertFails(updateDoc(ref, { archivedAt: null, updatedAt: serverTimestamp() }));
+  await assertFails(deleteDoc(ref));
   await seed('assistant', 'asisten');
   const assistantDb = env.authenticatedContext('assistant').firestore();
   await assertFails(setDoc(doc(assistantDb, 'labLocations', 'assistant-lab'), { ...location, updatedBy: 'assistant' }));
@@ -201,10 +207,39 @@ test('Aslab can create and edit lab locations with the required location schema'
     { longitude: 181 },
     { radiusMeters: 0 },
     { radiusMeters: -1 },
+    { graceMinutes: -1 },
+    { graceMinutes: 1.5 },
+    { graceMinutes: '5' },
+    { latitude: NaN },
   ].entries()) {
     await assertFails(setDoc(doc(db, 'labLocations', `invalid-${index}`), { ...location, ...overrides }));
   }
 });
+test('legacy lab remains readable and can be updated without changing its ID', async () => {
+  await seed('admin', 'admin');
+  await seedLabScope('admin');
+  await env.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await setDoc(doc(db, 'labLocations', 'legacy'), {
+      courseName: 'Basis Data', name: 'Lab Lama', latitude: 0, longitude: 0, radiusMeters: 100,
+      building: 'Gedung E', floor: null, plusCode: '', pointType: 'building_map_reference',
+      roomCenterVerified: false, source: 'Peta lama', caution: '',
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: 'admin',
+    });
+  });
+  const db = env.authenticatedContext('admin').firestore();
+  const existing = doc(db, 'labLocations', 'legacy');
+  assert.equal((await getDoc(existing)).data().name, 'Lab Lama');
+  await assertSucceeds(updateDoc(existing, { graceMinutes: 15, updatedAt: serverTimestamp() }));
+  assert.equal((await getDoc(existing)).data().graceMinutes, 15);
+
+  const revision = doc(db, 'labCatalogRevisions', 'Basis%20Data');
+  await assertSucceeds(getDoc(revision));
+  await assertSucceeds(setDoc(revision, { courseName: 'Basis Data', updatedAt: serverTimestamp() }));
+  await assertSucceeds(setDoc(revision, { courseName: 'Basis Data', updatedAt: serverTimestamp() }));
+  await assertFails(setDoc(revision, { courseName: 'Jaringan', updatedAt: serverTimestamp() }));
+});
+
 test('practitioners cannot create, update, or delete lab locations', async () => {
   await seed('assistant', 'asisten');
   await seed('student', 'praktikan');
@@ -215,7 +250,7 @@ test('practitioners cannot create, update, or delete lab locations', async () =>
   const existing = doc(adminDb, 'labLocations', 'lab-b');
   await setDoc(existing, {
     courseName: 'Basis Data', name: 'Lab Informatika B', latitude: -7.0482375, longitude: 110.440765625,
-    radiusMeters: 100, building: 'Gedung E FSM UNDIP', floor: 2, plusCode: '',
+    radiusMeters: 100, graceMinutes: 0, building: 'Gedung E FSM UNDIP', floor: 2, plusCode: '',
     pointType: 'building_map_reference', roomCenterVerified: false,
     source: 'Google Maps listing', caution: 'Building reference',
     createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: 'admin',

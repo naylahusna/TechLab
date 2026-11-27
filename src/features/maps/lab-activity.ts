@@ -1,3 +1,4 @@
+import { labHasName } from '../assistant/lab-location-policy';
 import type { PracticumClass, PracticumSchedule, PracticumSession } from '../practicum/types';
 
 export type LabActivityData = {
@@ -12,13 +13,15 @@ export type LabActivity = {
   status: PracticumSession['status'];
 };
 
-export function findLabActivity(data: LabActivityData, labName: string, now: number) {
-  const normalizedName = labName.trim().toLocaleLowerCase('id');
+export function findLabActivity(
+  data: LabActivityData, labName: string, now: number, courseName?: string, previousNames?: readonly string[],
+) {
   const classes = new Map(data.classes.filter((item) => !item.archivedAt).map((item) => [item.id, item]));
   const sessions = new Map(data.sessions.map((item) => [item.scheduleId, item]));
   const activities = data.schedules.flatMap((schedule): LabActivity[] => {
     const course = classes.get(schedule.classId);
-    if (!course || schedule.archivedAt || schedule.location.trim().toLocaleLowerCase('id') !== normalizedName) return [];
+    if (!course || schedule.archivedAt || (courseName && course.courseName !== courseName)
+      || !labHasName({ name: labName, previousNames }, schedule.location)) return [];
     const session = sessions.get(schedule.id);
     const status = session?.classId === schedule.classId ? session.status : 'scheduled';
     return status === 'cancelled' || status === 'closed' ? [] : [{ schedule, course, status }];

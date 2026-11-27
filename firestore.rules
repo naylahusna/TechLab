@@ -593,14 +593,32 @@ service cloud.firestore {
         && request.resource.data.aiClassifiedAt == request.time;
     }
 
+    // Serializes catalog changes made by the lab form for a course.
+    match /labCatalogRevisions/{courseKey} {
+      allow get: if isAdmin() && (resource == null || hasCourseScope(resource.data.courseName));
+      allow create, update: if validLabCatalogRevision(request.resource.data)
+        && (resource == null || resource.data.courseName == request.resource.data.courseName);
+      allow list, delete: if false;
+    }
+
+    function validLabCatalogRevision(d) {
+      return d.keys().hasOnly(['courseName', 'updatedAt'])
+        && d.courseName is string && hasCourseScope(d.courseName)
+        && d.updatedAt == request.time;
+    }
+
     function validLabLocation(d) {
       return d.keys().hasAll(['courseName', 'name', 'latitude', 'longitude', 'radiusMeters', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
-        && d.keys().hasOnly(['courseName', 'name', 'latitude', 'longitude', 'radiusMeters', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
+        && d.keys().hasOnly(['courseName', 'name', 'latitude', 'longitude', 'radiusMeters', 'graceMinutes', 'previousNames', 'archivedAt', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
         && d.courseName is string && d.courseName.size() >= 1 && d.courseName.size() <= 100
         && d.name is string && d.name.size() >= 2 && d.name.size() <= 100 && d.name == d.name.trim()
         && d.latitude is number && d.latitude >= -90 && d.latitude <= 90
         && d.longitude is number && d.longitude >= -180 && d.longitude <= 180
         && d.radiusMeters is number && d.radiusMeters >= 1 && d.radiusMeters <= 5000
+        && d.get('graceMinutes', 0) is int && d.get('graceMinutes', 0) >= 0
+        && d.get('graceMinutes', 0) <= 9007199254740991
+        && d.get('previousNames', []) is list && d.get('previousNames', []).size() <= 30
+        && (d.get('archivedAt', null) == null || d.archivedAt is timestamp)
         && d.building is string && d.building.size() <= 120
         && (d.floor == null || d.floor is int)
         && d.plusCode is string && d.plusCode.size() <= 20
@@ -615,14 +633,21 @@ service cloud.firestore {
     match /labLocations/{locationId} {
       allow get, list: if userRole() in ['praktikan', 'asisten'] || hasCourseScope(resource.data.courseName);
       allow create: if hasCourseScope(request.resource.data.courseName) && validLabLocation(request.resource.data)
+        && request.resource.data.graceMinutes is int
+        && request.resource.data.get('previousNames', []).size() == 0
+        && request.resource.data.get('archivedAt', null) == null
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
       allow update: if hasCourseScope(resource.data.courseName)
         && request.resource.data.courseName == resource.data.courseName
         && validLabLocation(request.resource.data)
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.updatedAt == request.time;
-      allow delete: if hasCourseScope(resource.data.courseName);
+        && request.resource.data.updatedAt == request.time
+        && resource.data.get('archivedAt', null) == null
+        && (request.resource.data.get('archivedAt', null) == null
+          || (request.resource.data.archivedAt == request.time
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['archivedAt', 'updatedAt', 'updatedBy'])));
+      allow delete: if false;
     }
 
     match /{document=**} { allow read, write: if false; }

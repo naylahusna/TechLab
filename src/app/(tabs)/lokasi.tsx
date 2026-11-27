@@ -3,8 +3,10 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { Text } from '../../components/Text';
 import { ConfirmationModal } from '../../components/ConfirmationModal';
 import { useAuth } from '../../features/auth/AuthProvider';
-import { type LabLocation, removeLabLocation, saveLabLocation, watchAslabCourses, watchScopedLabLocations } from '../../features/assistant/lab-locations';
+import { type LabLocation, archiveLabLocation, saveLabLocation, watchAslabCourses, watchScopedLabLocations } from '../../features/assistant/lab-locations';
 import { ScreenHeader } from '../../features/practitioner/components/ScreenHeader';
+import { labHasName } from '../../features/assistant/lab-location-policy';
+import { getPracticumRepository } from '../../features/practicum/client';
 import { initialsFor } from '../../features/practicum/profile-view';
 import { colors } from '../../theme/tokens';
 
@@ -21,11 +23,13 @@ function LabLocations({ uid, name: profileName }: { uid: string; name: string })
   const [courses, setCourses] = useState<string[]>([]);
   const [courseName, setCourseName] = useState('');
   const [editing, setEditing] = useState<LabLocation | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<LabLocation | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<LabLocation | null>(null);
+  const [archiveImpact, setArchiveImpact] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [radius, setRadius] = useState('100');
+  const [graceMinutes, setGraceMinutes] = useState('0');
   const [building, setBuilding] = useState('');
   const [floor, setFloor] = useState('');
   const [busy, setBusy] = useState(false);
@@ -35,36 +39,51 @@ function LabLocations({ uid, name: profileName }: { uid: string; name: string })
     return watchScopedLabLocations(uid, setLocations, (e) => setError(e.message));
   }, [uid]);
   useEffect(() => watchAslabCourses(uid, setCourses, (e) => setError(e.message)), [uid]);
-  const reset = () => { setEditing(null); setCourseName(''); setName(''); setLatitude(''); setLongitude(''); setRadius('100'); setBuilding(''); setFloor(''); };
-  const edit = (item: LabLocation) => { setEditing(item); setCourseName(item.courseName); setName(item.name); setLatitude(String(item.latitude)); setLongitude(String(item.longitude)); setRadius(String(item.radiusMeters)); setBuilding(item.building); setFloor(item.floor == null ? '' : String(item.floor)); };
+  const reset = () => { setEditing(null); setCourseName(''); setName(''); setLatitude(''); setLongitude(''); setRadius('100'); setGraceMinutes('0'); setBuilding(''); setFloor(''); };
+  const edit = (item: LabLocation) => { setEditing(item); setCourseName(item.courseName); setName(item.name); setLatitude(String(item.latitude)); setLongitude(String(item.longitude)); setRadius(String(item.radiusMeters)); setGraceMinutes(String(item.graceMinutes)); setBuilding(item.building); setFloor(item.floor == null ? '' : String(item.floor)); };
   const submit = async () => {
     const selectedCourse = courseName.trim() || (courses.length === 1 ? courses[0] : '');
     if (!courses.includes(selectedCourse)) {
       setError('Pilih mata kuliah dalam cakupan penugasanmu.'); return;
     }
-    const cleanName = name.trim();
-    if (cleanName.length < 2) {
-      setError('Nama lab minimal 2 karakter.'); return;
-    }
-    if (!latitude.trim() || !longitude.trim() || !radius.trim()) {
-      setError('Latitude, longitude, dan radius wajib diisi.'); return;
-    }
-    const lat = Number(latitude), lng = Number(longitude), r = Number(radius), f = floor.trim() ? Number(floor) : null;
-    if (!building.trim() || !Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180 || !Number.isFinite(r) || r < 1 || r > 5000 || (f != null && !Number.isInteger(f))) {
-      setError('Periksa nama, gedung, koordinat, radius (1–5000 m), dan lantai.'); return;
+    if (busy) return;
+    if (!latitude.trim() || !longitude.trim() || !radius.trim() || !graceMinutes.trim()) {
+      setError('Latitude, longitude, radius, dan toleransi wajib diisi.'); return;
     }
     setBusy(true); setError('');
     try {
-      await saveLabLocation({ courseName: selectedCourse, name: cleanName, latitude: lat, longitude: lng, radiusMeters: r, building: building.trim(), floor: f, plusCode: editing?.plusCode ?? '' }, editing?.id);
+      await saveLabLocation({
+        courseName: selectedCourse, name, latitude: Number(latitude), longitude: Number(longitude),
+        radiusMeters: Number(radius), graceMinutes: Number(graceMinutes), building,
+        floor: floor.trim() ? Number(floor) : null, plusCode: editing?.plusCode ?? '',
+      }, editing?.id);
       reset();
     } catch (e) { setError(e instanceof Error ? e.message : 'Lokasi gagal disimpan.'); }
     finally { setBusy(false); }
   };
+  async function previewArchive(item: LabLocation) {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const repo = getPracticumRepository();
+      const classes = await repo.listClassesForAslab([item.courseName]);
+      const schedules = (await Promise.all(classes.map((course) => repo.listSchedules(course.id)))).flat();
+      setArchiveImpact(schedules.filter((schedule) =>
+        !schedule.archivedAt && schedule.endAt.toMillis() > Date.now() && labHasName(item, schedule.location)).length);
+      setArchiveTarget(item);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Jadwal terkait gagal diperiksa.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <View style={styles.page}>
       <ScreenHeader
         title="Lokasi laboratorium"
-        subtitle="Atur titik lokasi dan radius presensi dalam meter."
+        subtitle="Kelola koordinat, radius presensi, dan toleransi lab."
         roleLabel="Aslab"
         greeting={profileName}
         initials={initialsFor(profileName)}
@@ -96,6 +115,7 @@ function LabLocations({ uid, name: profileName }: { uid: string; name: string })
             <Field label="Radius presensi (m)" value={radius} onChangeText={setRadius} keyboardType="decimal-pad" placeholder="100" />
             <Field label="Lantai (opsional)" value={floor} onChangeText={setFloor} keyboardType="number-pad" placeholder="2" />
           </View>
+          <Field label="Toleransi keterlambatan (menit)" value={graceMinutes} onChangeText={setGraceMinutes} keyboardType="number-pad" placeholder="0" />
           {!!error && <Text style={styles.error}>{error}</Text>}
           <View style={styles.row}>
             <Pressable disabled={busy} onPress={submit} style={styles.button}>
@@ -118,42 +138,46 @@ function LabLocations({ uid, name: profileName }: { uid: string; name: string })
               {item.building}{item.floor == null ? '' : ` · Lantai ${item.floor}`}
             </Text>
             <Text style={styles.detail}>
-              {item.latitude}, {item.longitude} · radius {item.radiusMeters} m
+              {item.latitude}, {item.longitude} · radius {item.radiusMeters} m · toleransi {item.graceMinutes} menit
             </Text>
             <Text style={styles.detail}>
               Plus Code: {item.plusCode || 'belum diisi'} · referensi gedung
             </Text>
-            <View style={styles.row}>
-              <Pressable onPress={() => edit(item)} style={styles.secondary}>
+            {item.archivedAt ? <Text style={styles.muted}>Diarsipkan</Text> : <View style={styles.row}>
+              <Pressable disabled={busy} onPress={() => edit(item)} style={styles.secondary}>
                 <Text style={styles.secondaryText}>Ubah</Text>
               </Pressable>
               <Pressable
-                onPress={() => setDeleteTarget(item)}
+                disabled={busy}
+                onPress={() => { void previewArchive(item); }}
                 style={styles.delete}
               >
-                <Text style={styles.deleteText}>Hapus</Text>
+                <Text style={styles.deleteText}>Arsipkan</Text>
               </Pressable>
-            </View>
+            </View>}
           </View>
         ))}
         {locations.length === 0 && <Text style={styles.muted}>Belum ada lokasi tersimpan.</Text>}
       </ScrollView>
       <ConfirmationModal
-        visible={deleteTarget !== null}
-        title="Hapus lokasi laboratorium?"
-        description={deleteTarget ? `${deleteTarget.name} akan dihapus dari daftar lokasi.` : ''}
-        confirmLabel={busy ? 'Menghapus…' : 'Hapus lokasi'}
-        eyebrow="KONFIRMASI HAPUS"
+        visible={archiveTarget !== null}
+        title="Arsipkan lokasi laboratorium?"
+        description={archiveTarget ? `${archiveTarget.name} dipakai oleh ${archiveImpact ?? 0} jadwal yang masih berlangsung atau akan datang. Jadwal tersebut tetap menyimpan lokasinya. Lab ini tidak lagi muncul sebagai pilihan baru atau marker Maps.` : ''}
+        confirmLabel={busy ? 'Mengarsipkan…' : 'Arsipkan lokasi'}
+        eyebrow="KONFIRMASI ARSIP"
         confirmTestID="confirm-delete-lab-location"
         cancelTestID="cancel-delete-lab-location"
-        onCancel={() => setDeleteTarget(null)}
+        onCancel={() => setArchiveTarget(null)}
         onConfirm={() => {
-          if (!deleteTarget || busy) return;
-          const target = deleteTarget;
+          if (!archiveTarget || busy) return;
+          const target = archiveTarget;
           setBusy(true); setError('');
-          void removeLabLocation(target.id)
-            .then(() => setDeleteTarget(null))
-            .catch((e) => setError(e instanceof Error ? e.message : 'Lokasi gagal dihapus.'))
+          void archiveLabLocation(target.id)
+            .then(() => {
+              if (editing?.id === target.id) reset();
+              setArchiveTarget(null);
+            })
+            .catch((e) => setError(e instanceof Error ? e.message : 'Lokasi gagal diarsipkan.'))
             .finally(() => setBusy(false));
         }}
       />

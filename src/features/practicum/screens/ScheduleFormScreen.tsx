@@ -39,6 +39,7 @@ export function ScheduleFormScreen({
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
+  const [originalLocation, setOriginalLocation] = useState('');
   const [labOptions, setLabOptions] = useState<string[]>([]);
   const [labLoadError, setLabLoadError] = useState('');
   const [now, setNow] = useState(() => new Date());
@@ -55,13 +56,28 @@ export function ScheduleFormScreen({
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => watchLabLocations(
-    (items) => {
-      setLabOptions(items.map((item) => item.name));
-      setLabLoadError('');
-    },
-    () => setLabLoadError('Lokasi lab gagal dimuat. Periksa koneksi lalu coba lagi.'),
-  ), []);
+  useEffect(() => {
+    let active = true;
+    let stop: (() => void) | undefined;
+    const fail = () => {
+      if (!active) return;
+      setLabOptions([]);
+      setLabLoadError('Lokasi lab gagal dimuat. Periksa koneksi lalu coba lagi.');
+    };
+    void getPracticumRepository().getClass(classId).then((course) => {
+      if (!active) return;
+      if (!course) return fail();
+      stop = watchLabLocations((items) => {
+        setLabOptions(items.filter((item) => !item.archivedAt
+          && (!item.courseName || item.courseName === course.courseName)).map((item) => item.name));
+        setLabLoadError('');
+      }, fail);
+    }).catch(fail);
+    return () => {
+      active = false;
+      stop?.();
+    };
+  }, [classId]);
 
   const minSelectableDate = getMinScheduleDate(now);
   const availableStartTimes = getAvailableStartTimes(date, now);
@@ -105,6 +121,7 @@ export function ScheduleFormScreen({
         setStartTime(formatTimeInput(item.startAt));
         setEndTime(formatTimeInput(item.endAt));
         setLocation(item.location);
+        setOriginalLocation(item.location);
       })
       .catch((cause) => {
         if (!active) return;
@@ -133,6 +150,10 @@ export function ScheduleFormScreen({
 
   async function submit() {
     if (submitting) return;
+    if (!labOptions.includes(location) && !(mode === 'edit' && location && location === originalLocation)) {
+      setError('Pilih lab aktif untuk mata kuliah ini.');
+      return;
+    }
     const startAt = parseDateTime(date, startTime);
     const endAt = parseDateTime(date, endTime);
     if (!startAt || !endAt) {

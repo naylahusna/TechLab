@@ -104,8 +104,8 @@ export function LabMapScreen() {
 }
 
 function subscribeToLabs(onData: (labs: LabLocation[], fromCache: boolean) => void, onError: (error: Error) => void, aslabUid?: string) {
-  const receive = (locations: LabLocation[], fromCache: boolean) => onData(locations.filter(({ name, latitude, longitude }) =>
-    typeof name === 'string'
+  const receive = (locations: LabLocation[], fromCache: boolean) => onData(locations.filter(({ name, latitude, longitude, archivedAt }) =>
+    !archivedAt && typeof name === 'string'
     && Number.isFinite(latitude) && Math.abs(latitude) <= 90
     && Number.isFinite(longitude) && Math.abs(longitude) <= 180,
   ), fromCache);
@@ -137,7 +137,7 @@ function LabDetails({ lab, onClose }: { lab: LabLocation; onClose: () => void })
       </Text>
       <Text style={styles.status}>Radius presensi {Number.isFinite(lab.radiusMeters) && lab.radiusMeters > 0
         ? `${lab.radiusMeters} m` : 'belum tercatat'}</Text>
-      <LabActivityPanel labName={lab.name} />
+      <LabActivityPanel labName={lab.name} courseName={lab.courseName} previousNames={lab.previousNames} />
     </ScrollView>
   );
 }
