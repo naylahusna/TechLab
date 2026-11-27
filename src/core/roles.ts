@@ -1,4 +1,5 @@
 export type RestrictedRole = 'calon_asprak' | 'asprak_ditolak' | 'asprak_dicabut';
+// Persisted role codes: admin = Aslab, asisten = Asprak, praktikan = Praktikan.
 export type Role = 'praktikan' | 'asisten' | 'admin' | RestrictedRole;
 
 export const applicationStatusLabels: Record<RestrictedRole, string> = {

@@ -52,11 +52,18 @@ async function seedUser(uid, role = 'praktikan', number = '240101001') {
   });
 }
 
-async function seedClass(classId, assistantId, studentIds = []) {
+async function seedAslab(uid, courseNames) {
+  await seedUser(uid, 'admin');
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'aslabScopes', uid), { courseNames });
+  });
+}
+
+async function seedClass(classId, assistantId, studentIds = [], courseName = 'Pemrograman Perangkat Bergerak') {
   await env.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), 'classes', classId), {
       className: 'Informatika A',
-      courseName: 'Pemrograman Perangkat Bergerak',
+      courseName,
       assistantIds: [assistantId],
       studentIds,
       memberIds: [assistantId, ...studentIds],
@@ -123,12 +130,12 @@ test('schedule overview allows empty membership queries but rejects unscoped and
   for (const uid of ['praktikan-1', 'asisten-1']) {
     const db = env.authenticatedContext(uid).firestore();
     const result = await assertSucceeds(
-      getDocs(query(collection(db, 'classes'), where('memberIds', 'array-contains', uid))),
+      getDocs(query(collection(db, 'classes'), where(uid.startsWith('asisten') ? 'assistantIds' : 'studentIds', 'array-contains', uid))),
     );
     assert.equal(result.empty, true);
     await assertFails(getDocs(collection(db, 'classes')));
     await assertFails(
-      getDocs(query(collection(db, 'classes'), where('memberIds', 'array-contains', 'someone-else'))),
+      getDocs(query(collection(db, 'classes'), where(uid.startsWith('asisten') ? 'assistantIds' : 'studentIds', 'array-contains', 'someone-else'))),
     );
   }
 });
@@ -143,7 +150,7 @@ test('schedule overview queries work for both roles and deny unrelated schedules
   for (const uid of ['asisten-1', 'praktikan-1']) {
     const db = env.authenticatedContext(uid).firestore();
     const classes = await assertSucceeds(
-      getDocs(query(collection(db, 'classes'), where('memberIds', 'array-contains', uid))),
+      getDocs(query(collection(db, 'classes'), where(uid.startsWith('asisten') ? 'assistantIds' : 'studentIds', 'array-contains', uid))),
     );
     assert.equal(classes.size, 1);
     for (const name of ['schedules', 'sessions']) {
@@ -159,14 +166,15 @@ test('schedule overview queries work for both roles and deny unrelated schedules
   }
 });
 
-test('assistant creates a class with self and cannot manage another assistant class', async () => {
+test('only a scoped Aslab can create a class and change its distribution', async () => {
   await seedUser('asisten-1', 'asisten');
   await seedUser('asisten-2', 'asisten');
   await seedUser('praktikan-1');
 
-  const assistant = env.authenticatedContext('asisten-1').firestore();
+  await seedAslab('admin-1', ['Pemrograman Perangkat Bergerak']);
+  const admin = env.authenticatedContext('admin-1').firestore();
   await assertSucceeds(
-    setDoc(doc(assistant, 'classes', 'class-1'), {
+    setDoc(doc(admin, 'classes', 'class-1'), {
       className: 'Informatika A',
       courseName: 'Pemrograman Perangkat Bergerak',
       assistantIds: ['asisten-1'],
@@ -201,15 +209,25 @@ test('assistant creates a class with self and cannot manage another assistant cl
   );
 });
 
-test('assistant adds participant only when identity number matches the user profile', async () => {
+test('scoped Aslab adds participants with matching identities and Asprak cannot change distribution', async () => {
   await seedUser('asisten-1', 'asisten');
   await seedUser('praktikan-1', 'praktikan', '240101001');
   await seedUser('praktikan-2', 'praktikan', '240101002');
   await seedClass('class-1', 'asisten-1');
 
+  await seedAslab('admin-1', ['Pemrograman Perangkat Bergerak']);
+  const admin = env.authenticatedContext('admin-1').firestore();
   const assistant = env.authenticatedContext('asisten-1').firestore();
+  const participant = {
+    classId: 'class-1', userId: 'praktikan-1', studentName: 'Praktikan Demo',
+    studentNumber: '240101001', joinedAt: serverTimestamp(), leftAt: null,
+  };
+  await assertFails(setDoc(doc(assistant, 'participants', 'class-1_praktikan-1'), participant));
+  await assertFails(updateDoc(doc(assistant, 'classes', 'class-1'), {
+    studentIds: ['praktikan-1'], memberIds: ['asisten-1', 'praktikan-1'], updatedAt: serverTimestamp(),
+  }));
   await assertSucceeds(
-    setDoc(doc(assistant, 'participants', 'class-1_praktikan-1'), {
+    setDoc(doc(admin, 'participants', 'class-1_praktikan-1'), {
       classId: 'class-1',
       userId: 'praktikan-1',
       studentName: 'Praktikan Demo',
@@ -219,7 +237,7 @@ test('assistant adds participant only when identity number matches the user prof
     }),
   );
   await assertFails(
-    setDoc(doc(assistant, 'participants', 'class-1_praktikan-2'), {
+    setDoc(doc(admin, 'participants', 'class-1_praktikan-2'), {
       classId: 'class-1',
       userId: 'praktikan-2',
       studentName: 'Praktikan Demo 2',
@@ -228,6 +246,36 @@ test('assistant adds participant only when identity number matches the user prof
       leftAt: null,
     }),
   );
+});
+
+test('course and roster changes apply to an existing authenticated context', async () => {
+  await seedAslab('admin-1', ['Basis Data']);
+  await seedUser('asisten-1', 'asisten');
+  await seedUser('praktikan-1');
+  await seedClass('allowed', 'asisten-1', ['praktikan-1'], 'Basis Data');
+  await seedClass('other', 'asisten-1', [], 'Jaringan');
+  await seedSchedule('schedule-1', 'allowed');
+  await seedSession('schedule-1', 'schedule-1', 'allowed');
+
+  const admin = env.authenticatedContext('admin-1').firestore();
+  const assistant = env.authenticatedContext('asisten-1').firestore();
+  const student = env.authenticatedContext('praktikan-1').firestore();
+  const guest = env.unauthenticatedContext().firestore();
+  await assertSucceeds(getDoc(doc(admin, 'classes', 'allowed')));
+  await assertSucceeds(getDocs(query(collection(admin, 'classes'), where('courseName', 'in', ['Basis Data']))));
+  await assertFails(getDoc(doc(admin, 'classes', 'other')));
+  await assertFails(getDocs(collection(admin, 'classes')));
+  await assertFails(setDoc(doc(admin, 'aslabScopes', 'admin-1'), { courseNames: ['Jaringan'] }));
+  await assertSucceeds(getDoc(doc(assistant, 'sessions', 'schedule-1')));
+  await assertSucceeds(getDoc(doc(student, 'sessions', 'schedule-1')));
+  await assertFails(getDoc(doc(guest, 'sessions', 'schedule-1')));
+
+  await assertSucceeds(updateDoc(doc(admin, 'classes', 'allowed'), {
+    assistantIds: [], studentIds: [], memberIds: [], updatedAt: serverTimestamp(),
+  }));
+  await assertFails(getDoc(doc(assistant, 'sessions', 'schedule-1')));
+  await assertFails(getDoc(doc(student, 'sessions', 'schedule-1')));
+  await assertSucceeds(getDoc(doc(assistant, 'classes', 'other')));
 });
 
 test('practitioner reads only classes, schedules, and sessions of their enrollment', async () => {

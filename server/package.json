@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node --watch index.mjs",
     "start": "node index.mjs",
-    "test": "node --test attendance-api.test.mjs"
+    "test": "node --test attendance-api.test.mjs aslab-scope-backfill.test.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

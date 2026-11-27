@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 import { Text } from '../../components/Text';
 import { roleLabels } from '../../core/roles';
 import { useRole } from '../../core/role-context';
-import { watchLabLocations, type LabLocation } from '../assistant/lab-locations';
+import { watchLabLocations, watchScopedLabLocations, type LabLocation } from '../assistant/lab-locations';
 import { ScreenHeader } from '../practitioner/components/ScreenHeader';
 import { colors } from '../../theme/tokens';
 import { MapViewport } from './MapViewport';
@@ -18,7 +18,10 @@ import type { MapCenter, MapState } from './map-viewport-model';
 export function LabMapScreen() {
   const { currentUser } = useRole();
   const { state: location, retry: retryLocation } = useMapLocation();
-  const { data: labs, error: labError, loading: labsLoading, fromCache: labsFromCache, retry: retryLabs } = useMapSubscription(subscribeToLabs);
+  const aslabUid = currentUser?.role === 'admin' ? currentUser.id : undefined;
+  const subscribe = useCallback((onData: (labs: LabLocation[], fromCache: boolean) => void, onError: (error: Error) => void) =>
+    subscribeToLabs(onData, onError, aslabUid), [aslabUid]);
+  const { data: labs, error: labError, loading: labsLoading, fromCache: labsFromCache, retry: retryLabs } = useMapSubscription(subscribe);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoomSteps, setZoomSteps] = useState(0);
   const [focus, setFocus] = useState<MapState['focus']>(null);
@@ -100,12 +103,13 @@ export function LabMapScreen() {
   );
 }
 
-function subscribeToLabs(onData: (labs: LabLocation[], fromCache: boolean) => void, onError: (error: Error) => void) {
-  return watchLabLocations((locations, fromCache) => onData(locations.filter(({ name, latitude, longitude }) =>
+function subscribeToLabs(onData: (labs: LabLocation[], fromCache: boolean) => void, onError: (error: Error) => void, aslabUid?: string) {
+  const receive = (locations: LabLocation[], fromCache: boolean) => onData(locations.filter(({ name, latitude, longitude }) =>
     typeof name === 'string'
     && Number.isFinite(latitude) && Math.abs(latitude) <= 90
     && Number.isFinite(longitude) && Math.abs(longitude) <= 180,
-  ), fromCache), onError, true);
+  ), fromCache);
+  return aslabUid ? watchScopedLabLocations(aslabUid, receive, onError) : watchLabLocations(receive, onError, true);
 }
 
 function ZoomButton({ label, symbol, onPress }: { label: string; symbol: string; onPress: () => void }) {

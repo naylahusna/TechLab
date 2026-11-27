@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { Text } from '../../components/Text';
 import { ConfirmationModal } from '../../components/ConfirmationModal';
 import { useAuth } from '../../features/auth/AuthProvider';
-import { type LabLocation, removeLabLocation, saveLabLocation, watchLabLocations } from '../../features/assistant/lab-locations';
+import { type LabLocation, removeLabLocation, saveLabLocation, watchAslabCourses, watchScopedLabLocations } from '../../features/assistant/lab-locations';
 import { ScreenHeader } from '../../features/practitioner/components/ScreenHeader';
 import { initialsFor } from '../../features/practicum/profile-view';
 import { colors } from '../../theme/tokens';
@@ -13,11 +13,13 @@ export default function LabLocationsRoute() {
   if (profile?.role !== 'admin') {
     return <View style={styles.page}><Text>Halaman ini hanya untuk Aslab.</Text></View>;
   }
-  return <LabLocations name={profile.name} />;
+  return <LabLocations key={profile.uid} uid={profile.uid} name={profile.name} />;
 }
 
-function LabLocations({ name: profileName }: { name: string }) {
+function LabLocations({ uid, name: profileName }: { uid: string; name: string }) {
   const [locations, setLocations] = useState<LabLocation[]>([]);
+  const [courses, setCourses] = useState<string[]>([]);
+  const [courseName, setCourseName] = useState('');
   const [editing, setEditing] = useState<LabLocation | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LabLocation | null>(null);
   const [name, setName] = useState('');
@@ -30,11 +32,16 @@ function LabLocations({ name: profileName }: { name: string }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    return watchLabLocations(setLocations, (e) => setError(e.message));
-  }, []);
-  const reset = () => { setEditing(null); setName(''); setLatitude(''); setLongitude(''); setRadius('100'); setBuilding(''); setFloor(''); };
-  const edit = (item: LabLocation) => { setEditing(item); setName(item.name); setLatitude(String(item.latitude)); setLongitude(String(item.longitude)); setRadius(String(item.radiusMeters)); setBuilding(item.building); setFloor(item.floor == null ? '' : String(item.floor)); };
+    return watchScopedLabLocations(uid, setLocations, (e) => setError(e.message));
+  }, [uid]);
+  useEffect(() => watchAslabCourses(uid, setCourses, (e) => setError(e.message)), [uid]);
+  const reset = () => { setEditing(null); setCourseName(''); setName(''); setLatitude(''); setLongitude(''); setRadius('100'); setBuilding(''); setFloor(''); };
+  const edit = (item: LabLocation) => { setEditing(item); setCourseName(item.courseName); setName(item.name); setLatitude(String(item.latitude)); setLongitude(String(item.longitude)); setRadius(String(item.radiusMeters)); setBuilding(item.building); setFloor(item.floor == null ? '' : String(item.floor)); };
   const submit = async () => {
+    const selectedCourse = courseName.trim() || (courses.length === 1 ? courses[0] : '');
+    if (!courses.includes(selectedCourse)) {
+      setError('Pilih mata kuliah dalam cakupan penugasanmu.'); return;
+    }
     const cleanName = name.trim();
     if (cleanName.length < 2) {
       setError('Nama lab minimal 2 karakter.'); return;
@@ -48,7 +55,7 @@ function LabLocations({ name: profileName }: { name: string }) {
     }
     setBusy(true); setError('');
     try {
-      await saveLabLocation({ name: cleanName, latitude: lat, longitude: lng, radiusMeters: r, building: building.trim(), floor: f, plusCode: editing?.plusCode ?? '' }, editing?.id);
+      await saveLabLocation({ courseName: selectedCourse, name: cleanName, latitude: lat, longitude: lng, radiusMeters: r, building: building.trim(), floor: f, plusCode: editing?.plusCode ?? '' }, editing?.id);
       reset();
     } catch (e) { setError(e instanceof Error ? e.message : 'Lokasi gagal disimpan.'); }
     finally { setBusy(false); }
@@ -65,6 +72,20 @@ function LabLocations({ name: profileName }: { name: string }) {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={styles.card}>
           <Text style={styles.heading}>{editing ? 'Ubah lokasi' : 'Tambah lokasi'}</Text>
+          {editing ? <Text>{editing.courseName}</Text> : (
+            <View style={styles.field}>
+              <Text style={styles.label}>Mata kuliah</Text>
+              {courses.length === 0 && <Text style={styles.muted}>Belum ada cakupan mata kuliah.</Text>}
+              {courses.map((course) => (
+                <Pressable key={course} onPress={() => setCourseName(course)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: course === courseName || courses.length === 1 }}
+                  style={course === courseName || courses.length === 1 ? styles.button : styles.secondary}>
+                  <Text style={course === courseName || courses.length === 1 ? styles.buttonText : styles.secondaryText}>{course}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
           <Field label="Nama lab" value={name} onChangeText={setName} placeholder="Lab Informatika B" />
           <Field label="Gedung" value={building} onChangeText={setBuilding} placeholder="Gedung E FSM UNDIP" />
           <View style={styles.row}>
@@ -92,6 +113,7 @@ function LabLocations({ name: profileName }: { name: string }) {
         {locations.map((item) => (
           <View key={item.id} style={styles.card}>
             <Text style={styles.heading}>{item.name}</Text>
+            <Text style={styles.muted}>{item.courseName}</Text>
             <Text style={styles.muted}>
               {item.building}{item.floor == null ? '' : ` · Lantai ${item.floor}`}
             </Text>

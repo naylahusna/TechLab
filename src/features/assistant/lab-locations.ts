@@ -3,6 +3,7 @@ import {
   collection,
   onSnapshot,
   orderBy,
+  where,
   query,
   serverTimestamp,
   setDoc,
@@ -16,6 +17,7 @@ import { getFirebaseAuth } from '../../services/firebase/auth';
 
 export type LabLocation = {
   id: string;
+  courseName: string;
   name: string;
   latitude: number;
   longitude: number;
@@ -33,6 +35,7 @@ export const LOCATION_SOURCE = 'Google Maps business listing Plus Codes, convert
 export const LOCATION_CAUTION = 'Building-level map reference points only; NOT independently surveyed room coordinates and NOT adequate to distinguish nearby labs with GPS geofencing.';
 
 const LAB_LOCATION_FIELDS = new Set([
+  'courseName',
   'name',
   'latitude',
   'longitude',
@@ -53,6 +56,7 @@ function hasExpectedLabLocationShape(data: Record<string, unknown>) {
   const keys = Object.keys(data);
   return keys.length === LAB_LOCATION_FIELDS.size
     && keys.every((key) => LAB_LOCATION_FIELDS.has(key))
+    && typeof data.courseName === 'string'
     && typeof data.name === 'string'
     && typeof data.latitude === 'number'
     && data.latitude >= -90 && data.latitude <= 90
@@ -70,6 +74,45 @@ function hasExpectedLabLocationShape(data: Record<string, unknown>) {
     && data.createdAt != null
     && data.updatedAt != null
     && typeof data.updatedBy === 'string';
+}
+
+export function watchAslabCourses(uid: string, onData: (courses: string[]) => void, onError: (error: Error) => void): Unsubscribe {
+  return onSnapshot(doc(getFirebaseFirestore(), 'aslabScopes', uid), (snapshot) => {
+    const courses: unknown = snapshot.data()?.courseNames;
+    onData(Array.isArray(courses) ? courses.filter((value): value is string => typeof value === 'string') : []);
+  }, onError);
+}
+
+export function watchScopedLabLocations(
+  uid: string,
+  onData: (locations: LabLocation[], fromCache: boolean) => void,
+  onError: (error: Error) => void,
+): Unsubscribe {
+  let stopLocations: Unsubscribe | undefined;
+  const stopScope = watchAslabCourses(uid, (courses) => {
+    stopLocations?.();
+    onData([], true);
+    if (courses.length === 0) {
+      onData([], false);
+      return;
+    }
+    stopLocations = onSnapshot(
+      query(collection(getFirebaseFirestore(), 'labLocations'), where('courseName', 'in', courses)),
+      { includeMetadataChanges: true },
+      (snapshot) => onData(snapshot.docs
+        .map((item) => ({ ...item.data(), id: item.id }) as LabLocation)
+        .sort((left, right) => left.name.localeCompare(right.name)), snapshot.metadata.fromCache),
+      onError,
+    );
+  }, (error) => {
+    stopLocations?.();
+    onData([], false);
+    onError(error);
+  });
+  return () => {
+    stopScope();
+    stopLocations?.();
+  };
 }
 
 export function watchLabLocations(onData: (locations: LabLocation[], fromCache: boolean) => void, onError: (error: Error) => void, includeMetadataChanges = false): Unsubscribe {
@@ -93,7 +136,7 @@ export async function saveLabLocation(input: Omit<LabLocation, 'id' | 'pointType
     const ref = doc(db, 'labLocations', id);
     const existing = await getDoc(ref);
     if (!existing.exists() || !hasExpectedLabLocationShape(existing.data())) {
-      throw new Error('Data lokasi lama tidak sesuai format. Hapus lalu tambahkan ulang melalui formulir.');
+      throw new Error('Data lokasi lama perlu diperiksa sebelum dapat diubah.');
     }
     await setDoc(ref, { ...payload, createdAt: existing.data().createdAt });
   } else {

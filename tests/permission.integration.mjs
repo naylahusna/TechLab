@@ -96,17 +96,21 @@ test('permission SRS-13/15/16/17: authenticated submit, isolation, race protecti
       );
     });
     const [assistant, otherAssistant, student, student2, outsider] = clients;
-    const classId = await assistant.practicum.createClass(
-      { className: 'Kelas Izin', courseName: 'PPK' },
-      assistant.profile.uid,
-    );
-    for (const participant of [student, student2])
-      await assistant.practicum.addParticipant({
-        classId,
-        userId: participant.profile.uid,
-        studentName: participant.profile.name,
-        studentNumber: participant.profile.number,
-      });
+    const classId = await env.withSecurityRulesDisabled(async (context) => {
+      const setupRepo = createPracticumRepository(context.firestore());
+      const id = await setupRepo.createClass(
+        { className: 'Kelas Izin', courseName: 'PPK' },
+        assistant.profile.uid,
+      );
+      for (const participant of [student, student2])
+        await setupRepo.addParticipant({
+          classId: id,
+          userId: participant.profile.uid,
+          studentName: participant.profile.name,
+          studentNumber: participant.profile.number,
+        });
+      return id;
+    });
     const scheduleId = await assistant.practicum.createSchedule({
       classId,
       title: 'Sesi Integrasi Izin',

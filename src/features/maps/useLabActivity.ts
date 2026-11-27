@@ -7,8 +7,8 @@ import { useMapSubscription } from './useMapSubscription';
 
 export function useLabActivity() {
   const { profile } = useAuth();
-  const uid = profile?.uid;
-  const canAssist = profile?.role === 'asisten' || profile?.role === 'admin';
+  const uid = profile?.role === 'admin' ? undefined : profile?.uid;
+  const canAssist = profile?.role === 'asisten';
   const subscribe = useCallback((
     onData: (data: LabActivityData, fromCache: boolean) => void,
     onError: (error: Error) => void,

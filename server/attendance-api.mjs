@@ -45,10 +45,16 @@ export function createAttendanceRouter({ db, auth, FieldValue, Timestamp, public
   }
 
   async function assistantCanManage(req, classId, tx) {
-    requireRole(req, ['asisten', 'admin']);
-    const classRef = db.doc(`classes/${classId}`);
-    const classSnap = tx ? await tx.get(classRef) : await classRef.get();
-    if (!classSnap.exists || (req.identity.role !== 'admin' && !classSnap.data().assistantIds?.includes(req.identity.uid)))
+    requireRole(req, ['asisten']);
+    const read = (path) => {
+      const ref = db.doc(path);
+      return tx ? tx.get(ref) : ref.get();
+    };
+    const profile = (await read(`users/${req.identity.uid}`)).data();
+    const classSnap = await read(`classes/${classId}`);
+    const course = classSnap.data();
+    if (profile?.role !== 'asisten' || !Array.isArray(course?.assistantIds)
+      || !course.assistantIds.includes(req.identity.uid))
       throw new HttpError(403, 'permission-denied', 'Asisten tidak ditugaskan pada kelas ini.');
     return classSnap;
   }
@@ -109,6 +115,8 @@ export function createAttendanceRouter({ db, auth, FieldValue, Timestamp, public
         db.doc(`schedules/${session.scheduleId}`).get(),
         db.doc(`attendances/${qr.sessionId}_${req.identity.uid}`).get(),
       ]);
+      if (session.classId !== qr.classId || !classSnap.data()?.studentIds?.includes(req.identity.uid))
+        throw new HttpError(403, 'not-enrolled', 'Praktikan tidak terdaftar pada kelas ini.');
       res.json({ valid: true, alreadyRecorded: attendanceSnap.exists, attendanceTime: attendanceSnap.exists ? attendanceSnap.data().recordedAt?.toDate?.()?.toISOString?.() ?? null : null, session: { id: qr.sessionId, practicalSubject: classSnap.data()?.courseName ?? '', className: classSnap.data()?.className ?? '', laboratory: scheduleSnap.data()?.location ?? '', startAt: session.startAt.toDate().toISOString(), endAt: session.endAt.toDate().toISOString() } });
     } catch (error) { next(error); }
   });
@@ -132,7 +140,14 @@ export function createAttendanceRouter({ db, auth, FieldValue, Timestamp, public
         const session = sessionSnap.data();
         const currentQr = currentQrSnap.data();
         await validateLiveQr(currentQr, session);
-        if (!participantSnap.exists || participantSnap.data().leftAt) throw new HttpError(403, 'not-enrolled', 'Praktikan tidak terdaftar pada kelas ini.');
+        const [classSnap, profileSnap] = await Promise.all([
+          tx.get(db.doc(`classes/${qr.classId}`)),
+          tx.get(db.doc(`users/${req.identity.uid}`)),
+        ]);
+        if (profileSnap.data()?.role !== 'praktikan' || currentQr.classId !== qr.classId
+          || currentQr.sessionId !== qr.sessionId || session.classId !== qr.classId
+          || !classSnap.data()?.studentIds?.includes(req.identity.uid)
+          || !participantSnap.exists || participantSnap.data().leftAt) throw new HttpError(403, 'not-enrolled', 'Praktikan tidak terdaftar pada kelas ini.');
         if (attendanceSnap.exists) {
           result = { alreadyRecorded: true, attendanceTime: attendanceSnap.data().recordedAt?.toDate?.()?.toISOString?.() ?? null };
           return;
@@ -149,7 +164,7 @@ export function createAttendanceRouter({ db, auth, FieldValue, Timestamp, public
 
   router.post('/disable', async (req, res, next) => {
     try {
-      requireRole(req, ['asisten', 'admin']);
+      requireRole(req, ['asisten']);
       const sessionId = requireDocumentId(req.body?.sessionId, 'Sesi');
       const qrRef = db.doc(`${qrCollection}/${sessionId}`);
       await db.runTransaction(async (tx) => {

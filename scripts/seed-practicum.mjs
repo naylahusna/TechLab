@@ -105,8 +105,13 @@ try {
       ),
     );
 
+    await setDoc(doc(db, 'aslabScopes', adminId), {
+      courseNames: ['Pemrograman Perangkat Bergerak', 'Basis Data'],
+    });
+
     await Promise.all(labLocations.map((item) => setDoc(doc(db, 'labLocations', item.id), {
       name: item.name,
+      courseName: item.id === 'lab-informatika-b' ? 'Pemrograman Perangkat Bergerak' : 'Basis Data',
       latitude: item.latitude,
       longitude: item.longitude,
       radiusMeters: 100,

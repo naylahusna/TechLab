@@ -3,10 +3,15 @@ import type { ReactNode } from 'react';
 
 import { useAuth } from '../../auth/AuthProvider';
 
-/** Guard route kelas: hanya asisten yang boleh mengelola kelas. */
-export function AssistantRoute({ children }: { children: ReactNode }) {
+export function AssistantRoute({
+  children, access = 'assistant',
+}: { children: ReactNode; access?: 'assistant' | 'aslab' | 'staff' }) {
   const auth = useAuth();
   if (!auth.profile) return <Redirect href="/" />;
-  if (auth.profile.role !== 'asisten') return <Redirect href="/jadwal" />;
+  const isAssistant = auth.profile.role === 'asisten';
+  const isAslab = auth.profile.role === 'admin';
+  if (!(isAssistant && access !== 'aslab') && !(isAslab && access !== 'assistant')) {
+    return <Redirect href={isAslab ? '/lokasi' : '/jadwal'} />;
+  }
   return <>{children}</>;
 }

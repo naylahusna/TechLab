@@ -65,8 +65,30 @@ service cloud.firestore {
     function isActiveAccount() { return userRole() in ['praktikan', 'asisten', 'admin']; }
     function isPractitioner() { return userRole() == 'praktikan'; }
 
+    // aslabScopes/{uid}.courseNames uses the canonical names on existing classes.
+    // A trusted operator provisions scope. Application clients cannot grant it.
+    match /aslabScopes/{uid} {
+      allow get: if isOwner(uid) && isAdmin();
+      allow list, write: if false;
+    }
+
+    function hasCourseScope(courseName) {
+      return isAdmin() && courseName in get(
+        /databases/$(database)/documents/aslabScopes/$(request.auth.uid)
+      ).data.courseNames;
+    }
+
+    function managesClass(classId) {
+      return isAdmin() &&
+        hasCourseScope(get(/databases/$(database)/documents/classes/$(classId)).data.courseName);
+    }
+
+    function canOverseeClass(classId) {
+      return isAssignedAssistant(classId) || managesClass(classId);
+    }
+
     function isAssignedAssistant(classId) {
-      return isAssistant()
+      return userRole() == 'asisten'
         && exists(/databases/$(database)/documents/classes/$(classId))
         && request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.assistantIds;
     }
@@ -82,9 +104,9 @@ service cloud.firestore {
         && data.keys().hasOnly(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'createdAt', 'updatedAt', 'archivedAt'])
         && data.className is string && data.className.size() >= 1 && data.className.size() <= 100
         && data.courseName is string && data.courseName.size() >= 1 && data.courseName.size() <= 100
-        && data.assistantIds is list && data.assistantIds.size() >= 1 && data.assistantIds.size() <= 20
+        && data.assistantIds is list && data.assistantIds.size() <= 20
         && data.studentIds is list && data.studentIds.size() <= 200
-        && data.memberIds is list && data.memberIds.size() >= 1 && data.memberIds.size() <= 220
+        && data.memberIds is list && data.memberIds.size() <= 220
         && data.createdAt is timestamp && data.updatedAt is timestamp
         && (data.archivedAt == null || data.archivedAt is timestamp);
     }
@@ -219,53 +241,53 @@ service cloud.firestore {
     }
 
     match /classes/{classId} {
-      allow get: if isActiveAccount() && resource != null
-        && request.auth.uid in resource.data.memberIds;
-      allow list: if isActiveAccount()
-        && request.auth.uid in resource.data.memberIds;
-      allow create: if isAssistant() && isValidClass(request.resource.data)
-        && request.resource.data.assistantIds.hasAll([request.auth.uid])
+      allow get, list: if (userRole() == 'asisten' && request.auth.uid in resource.data.assistantIds)
+        || (isPractitioner() && request.auth.uid in resource.data.studentIds)
+        || hasCourseScope(resource.data.courseName);
+      allow create: if hasCourseScope(request.resource.data.courseName) && isValidClass(request.resource.data)
         && request.resource.data.studentIds.size() == 0
         && request.resource.data.memberIds.size() == request.resource.data.assistantIds.size()
         && request.resource.data.memberIds.hasAll(request.resource.data.assistantIds)
-        && request.resource.data.memberIds.hasAll([request.auth.uid])
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time
         && request.resource.data.archivedAt == null;
-      allow update: if isAssignedAssistant(classId)
+      allow update: if hasCourseScope(resource.data.courseName)
+        && hasCourseScope(request.resource.data.courseName)
+        && request.resource.data.memberIds.toSet() ==
+          request.resource.data.assistantIds.toSet().union(request.resource.data.studentIds.toSet())
         && isValidClass(request.resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'updatedAt', 'archivedAt'])
-        && request.resource.data.updatedAt == request.time
-        && request.resource.data.assistantIds.size() >= 1;
+        && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
 
     match /participants/{participantId} {
       allow get: if isActiveAccount()
-        && (participantId.matches('.*_' + request.auth.uid)
-          || isAssignedAssistant(participantId.split('_')[0]));
-      allow list: if isAssistant() && isAssignedAssistant(resource.data.classId);
-      allow create: if isAssistant()
+        && ((resource != null && (resource.data.userId == request.auth.uid
+              || canOverseeClass(resource.data.classId)))
+          || (resource == null && (participantId.matches('.*_' + request.auth.uid)
+              || canOverseeClass(participantId.split('_')[0]))));
+      allow list: if canOverseeClass(resource.data.classId);
+      allow create: if managesClass(request.resource.data.classId)
         && isValidParticipant(request.resource.data)
-        && isAssignedAssistant(request.resource.data.classId)
         && participantId == request.resource.data.classId + '_' + request.resource.data.userId
         && request.resource.data.joinedAt == request.time
         && request.resource.data.leftAt == null
         && exists(/databases/$(database)/documents/users/$(request.resource.data.userId))
         && get(/databases/$(database)/documents/users/$(request.resource.data.userId)).data.role == 'praktikan'
         && get(/databases/$(database)/documents/users/$(request.resource.data.userId)).data.number == request.resource.data.studentNumber;
-      allow update: if isAssignedAssistant(resource.data.classId)
+      allow update: if managesClass(resource.data.classId)
         && isValidParticipant(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leftAt', 'studentNumber'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leftAt', 'studentName', 'studentNumber'])
         && (request.resource.data.leftAt == null || request.resource.data.leftAt == request.time);
       allow delete: if false;
     }
 
     match /schedules/{scheduleId} {
       allow get: if isActiveAccount() && resource != null
-        && (isAssignedAssistant(resource.data.classId) || isActiveParticipant(resource.data.classId));
+        && (canOverseeClass(resource.data.classId) || isActiveParticipant(resource.data.classId));
       allow list: if isActiveAccount()
-        && (isAssignedAssistant(resource.data.classId) || isActiveParticipant(resource.data.classId));
+        && (canOverseeClass(resource.data.classId) || isActiveParticipant(resource.data.classId));
       allow create: if isAssistant() && isValidSchedule(request.resource.data)
         && isAssignedAssistant(request.resource.data.classId)
         && request.resource.data.createdAt == request.time
@@ -306,11 +328,11 @@ service cloud.firestore {
     match /sessions/{sessionId} {
       allow get: if isActiveAccount()
         && ((resource != null
-            && (isAssignedAssistant(resource.data.classId) || isActiveParticipant(resource.data.classId)))
-          || (exists(/databases/$(database)/documents/schedules/$(sessionId))
+            && (canOverseeClass(resource.data.classId) || isActiveParticipant(resource.data.classId)))
+          || (resource == null && exists(/databases/$(database)/documents/schedules/$(sessionId))
             && isAssignedAssistant(get(/databases/$(database)/documents/schedules/$(sessionId)).data.classId)));
       allow list: if isActiveAccount()
-        && (isAssignedAssistant(resource.data.classId) || isActiveParticipant(resource.data.classId));
+        && (canOverseeClass(resource.data.classId) || isActiveParticipant(resource.data.classId));
       allow create: if isAssistant() && isValidSession(request.resource.data)
         && sessionId == request.resource.data.scheduleId
         && isAssignedAssistant(request.resource.data.classId)
@@ -327,10 +349,13 @@ service cloud.firestore {
         && request.resource.data.openedBy == null
         && request.resource.data.closedBy == null
         && request.resource.data.cancelledBy == null;
-      allow update: if isAssignedAssistant(resource.data.classId)
-        && isValidSession(request.resource.data)
+      allow update: if isValidSession(request.resource.data)
         && request.resource.data.updatedAt == request.time
-        && (isSessionStatusTransition() || isSessionMetadataSync());
+        && ((isAssignedAssistant(resource.data.classId)
+            && (isSessionStatusTransition() || isSessionMetadataSync()))
+          || (managesClass(resource.data.classId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentIds', 'updatedAt'])
+            && isSessionMetadataSync()));
       allow delete: if false;
     }
 
@@ -381,7 +406,7 @@ service cloud.firestore {
         || (resource != null
         && resource.data.attendanceCode == attendanceCode
         && ((isAssistant() && resource.data.assistantId == request.auth.uid && isAssignedAssistant(resource.data.classId))
-          || (isPractitioner()
+          || (isActiveParticipant(resource.data.classId)
             && resource.data.status == 'active'
             && request.time < resource.data.expiresAt
             && exists(/databases/$(database)/documents/sessions/$(resource.data.sessionId))
@@ -444,9 +469,11 @@ service cloud.firestore {
 
     match /attendances/{attendanceId} {
       allow get: if isActiveAccount()
-        && (attendanceId.matches('.*_' + request.auth.uid)
-          || (exists(/databases/$(database)/documents/sessions/$(attendanceId.split('_')[0]))
-            && isAssignedAssistant(get(/databases/$(database)/documents/sessions/$(attendanceId.split('_')[0])).data.classId)));
+        && ((resource != null && (resource.data.userId == request.auth.uid
+              || isAssignedAssistant(resource.data.classId)))
+          || (resource == null && (attendanceId.matches('.*_' + request.auth.uid)
+            || (exists(/databases/$(database)/documents/sessions/$(attendanceId.split('_')[0]))
+              && isAssignedAssistant(get(/databases/$(database)/documents/sessions/$(attendanceId.split('_')[0])).data.classId)))));
       allow list: if isActiveAccount() && (resource.data.userId == request.auth.uid || isAssignedAssistant(resource.data.classId));
       allow create: if isPractitioner()
         && isValidAttendance(request.resource.data)
@@ -457,6 +484,7 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.startAt <= request.time
         && request.time <= get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.endAt
         && get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.classId == request.resource.data.classId
+        && isActiveParticipant(request.resource.data.classId)
         && exists(/databases/$(database)/documents/participants/$(request.resource.data.classId + '_' + request.auth.uid))
         && get(/databases/$(database)/documents/participants/$(request.resource.data.classId + '_' + request.auth.uid)).data.leftAt == null
         && !exists(/databases/$(database)/documents/attendances/$(attendanceId))
@@ -467,8 +495,8 @@ service cloud.firestore {
     }
 
     match /userDirectory/{uid} {
-      allow get: if isOwner(uid) || isAdmin() || (isAssistant() && resource.data.role in ['praktikan', 'asisten']);
-      allow list: if isAdmin() || (isAssistant() && resource.data.role == 'praktikan');
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
       allow create, update: if isOwner(uid)
         && matchesDirectoryProfile(
           request.resource.data, uid, getAfter(/databases/$(database)/documents/users/$(uid)).data
@@ -566,8 +594,9 @@ service cloud.firestore {
     }
 
     function validLabLocation(d) {
-      return d.keys().hasAll(['name', 'latitude', 'longitude', 'radiusMeters', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
-        && d.keys().hasOnly(['name', 'latitude', 'longitude', 'radiusMeters', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
+      return d.keys().hasAll(['courseName', 'name', 'latitude', 'longitude', 'radiusMeters', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
+        && d.keys().hasOnly(['courseName', 'name', 'latitude', 'longitude', 'radiusMeters', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
+        && d.courseName is string && d.courseName.size() >= 1 && d.courseName.size() <= 100
         && d.name is string && d.name.size() >= 2 && d.name.size() <= 100 && d.name == d.name.trim()
         && d.latitude is number && d.latitude >= -90 && d.latitude <= 90
         && d.longitude is number && d.longitude >= -180 && d.longitude <= 180
@@ -584,14 +613,16 @@ service cloud.firestore {
     }
 
     match /labLocations/{locationId} {
-      allow get, list: if isActiveAccount();
-      allow create: if isAdmin() && validLabLocation(request.resource.data)
+      allow get, list: if userRole() in ['praktikan', 'asisten'] || hasCourseScope(resource.data.courseName);
+      allow create: if hasCourseScope(request.resource.data.courseName) && validLabLocation(request.resource.data)
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
-      allow update: if isAdmin() && validLabLocation(request.resource.data)
+      allow update: if hasCourseScope(resource.data.courseName)
+        && request.resource.data.courseName == resource.data.courseName
+        && validLabLocation(request.resource.data)
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedAt == request.time;
-      allow delete: if isAdmin();
+      allow delete: if hasCourseScope(resource.data.courseName);
     }
 
     match /{document=**} { allow read, write: if false; }

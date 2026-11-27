@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
+import { useAuth } from '../../auth/AuthProvider';
 import { ActionButton } from '../../../components/ActionButton';
 import { ClassCard } from '../components/ClassCard';
 import { PracticumHeader } from '../components/PracticumHeader';
@@ -11,6 +12,7 @@ import { colors, spacing } from '../theme';
 
 export function ClassListScreen() {
   const router = useRouter();
+  const isAslab = useAuth().profile?.role === 'admin';
   const {
     status,
     classes,
@@ -23,7 +25,7 @@ export function ClassListScreen() {
   } = useAssistantClasses();
 
   function goBack() {
-    router.dismissTo('/jadwal');
+    router.dismissTo(isAslab ? '/lokasi' : '/jadwal');
   }
 
   function openCreate() {
@@ -37,7 +39,7 @@ export function ClassListScreen() {
   return (
     <View style={styles.screen}>
       <PracticumHeader
-        eyebrow="Asisten"
+        eyebrow={isAslab ? 'Aslab' : 'Asprak'}
         title="Kelola Kelas"
         subtitle="Kelola kelas praktikum yang kamu ampu."
         onBack={goBack}
@@ -65,13 +67,13 @@ export function ClassListScreen() {
           ListEmptyComponent={
             <EmptyState
               title="Belum ada kelas"
-              message="Buat kelas pertamamu untuk mulai mengelola peserta, jadwal, dan sesi."
-              actionLabel="Tambah Kelas"
-              onAction={openCreate}
+              message="Belum ada kelas dalam cakupan penugasanmu."
+              actionLabel={isAslab ? 'Tambah Kelas' : undefined}
+              onAction={isAslab ? openCreate : undefined}
             />
           }
           ListFooterComponent={
-            classes.length > 0 ? (
+            isAslab && classes.length > 0 ? (
               <View style={styles.footer}>
                 <ActionButton title="Tambah Kelas" onPress={openCreate} />
               </View>

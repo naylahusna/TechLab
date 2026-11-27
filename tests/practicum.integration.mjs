@@ -109,15 +109,19 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
 
     await signInWithEmailAndPassword(auth, assistantEmail, password);
     const assistantRepo = createPracticumRepository(db);
-    const classId = await assistantRepo.createClass(
-      { className: 'Informatika A', courseName: 'Pemrograman Perangkat Bergerak' },
-      assistantId,
-    );
-    await assistantRepo.addParticipant({
-      classId,
-      userId: practitionerId,
-      studentName: 'Praktikan Demo',
-      studentNumber: '240101001',
+    const classId = await env.withSecurityRulesDisabled(async (context) => {
+      const setupRepo = createPracticumRepository(context.firestore());
+      const id = await setupRepo.createClass(
+        { className: 'Informatika A', courseName: 'Pemrograman Perangkat Bergerak' },
+        assistantId,
+      );
+      await setupRepo.addParticipant({
+        classId: id,
+        userId: practitionerId,
+        studentName: 'Praktikan Demo',
+        studentNumber: '240101001',
+      });
+      return id;
     });
     const activeStartAt = new Date(Date.now() - 10 * 60_000);
     const activeEndAt = new Date(Date.now() + 110 * 60_000);
@@ -155,9 +159,7 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
     assert.equal(assistantClasses.length, 1);
     assert.deepEqual(assistantClasses[0].studentIds, [practitionerId]);
 
-    const directory = await assistantRepo.searchDirectoryUsers('240101001');
-    assert.equal(directory.length, 1);
-    assert.equal(directory[0].uid, practitionerId);
+    await assert.rejects(() => assistantRepo.searchDirectoryUsers('240101001'), { code: 'permission-denied' });
 
     const participants = await assistantRepo.listParticipants(classId);
     assert.equal(participants.length, 1);
@@ -168,9 +170,11 @@ test('practicum repository completes assistant, practitioner, and recap flow', a
     const assistantSessions = await assistantRepo.listSessionsForAssistant(assistantId);
     assert.equal(assistantSessions.length, 1);
 
-    const conflictClassId = await assistantRepo.createClass(
-      { className: 'Informatika B', courseName: 'Basis Data' },
-      assistantId,
+    const conflictClassId = await env.withSecurityRulesDisabled((context) =>
+      createPracticumRepository(context.firestore()).createClass(
+        { className: 'Informatika B', courseName: 'Basis Data' },
+        assistantId,
+      ),
     );
     const firstScheduleId = await assistantRepo.createSchedule({
       classId: conflictClassId,
