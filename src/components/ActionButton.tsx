@@ -1,12 +1,13 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 
-import { colors } from '../theme/tokens';
+import { colors, controls, radius, spacing } from '../theme/tokens';
 import { Text } from './Text';
 
 type Props = {
   title: string;
   onPress: () => void;
   disabled?: boolean;
+  busy?: boolean;
   secondary?: boolean;
   danger?: boolean;
   testID?: string;
@@ -16,6 +17,7 @@ export function ActionButton({
   title,
   onPress,
   disabled = false,
+  busy = false,
   secondary = false,
   danger = false,
   testID,
@@ -24,18 +26,19 @@ export function ActionButton({
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: disabled || busy, busy }}
+      disabled={disabled || busy}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
         secondary && styles.secondary,
         danger && styles.danger,
-        disabled && styles.disabled,
+        (disabled || busy) && styles.disabled,
         pressed && styles.pressed,
       ]}
     >
-      <Text
+      {busy ? <ActivityIndicator color={colors.navy} /> : <Text
         style={[
           styles.label,
           secondary && styles.secondaryLabel,
@@ -44,7 +47,7 @@ export function ActionButton({
         ]}
       >
         {title}
-      </Text>
+      </Text>}
     </Pressable>
   );
 }
@@ -52,9 +55,9 @@ export function ActionButton({
 const styles = StyleSheet.create({
   button: {
     backgroundColor: colors.blue,
-    borderRadius: 22,
-    minHeight: 56,
-    padding: 16,
+    borderRadius: radius.xl,
+    minHeight: controls.actionHeight,
+    padding: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },

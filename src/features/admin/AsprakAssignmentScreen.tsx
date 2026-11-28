@@ -36,8 +36,8 @@ export function AsprakAssignmentScreen({ classId }: { classId: string }) {
   }
 
   return (
-    <AppPage title="Kelola Asprak" subtitle={item ? item.courseName + ' · ' + item.className : 'Penugasan kelas'}>
-      <ActionButton title="Kembali ke kelas" secondary onPress={() => router.dismissTo(`/kelas/${classId}`)} />
+    <AppPage title="Kelola Asprak" subtitle={item ? item.courseName + ' · ' + item.className : 'Penugasan kelas'}
+      onBack={() => router.dismissTo(`/kelas/${classId}`)}>
       {status === 'loading' && <Text>Memuat kelas…</Text>}
       {!!error && <Text accessibilityRole="alert">{error}</Text>}
       {item && !item.labId && <Text>Tetapkan lab roster dari layar Kelola peserta terlebih dahulu.</Text>}

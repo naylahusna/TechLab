@@ -52,15 +52,8 @@ function Inbox({ uid }: { uid: string }) {
     [uid, retry],
   );
   return (
-    <AppPage title="Pemberitahuan" subtitle="Pembukaan sesi, perubahan jadwal, dan keputusan izin.">
-      <ActionButton
-        title="Kembali"
-        secondary
-        onPress={() => {
-          if (router.canGoBack()) router.back();
-          else router.replace('/profil');
-        }}
-      />
+    <AppPage title="Pemberitahuan" subtitle="Pembukaan sesi, perubahan jadwal, dan keputusan izin."
+      onBack={() => { if (router.canGoBack()) router.back(); else router.replace('/profil'); }}>
       {loading && <Text style={ui.copy}>Memuat pemberitahuan…</Text>}
       {cached && (
         <Text style={ui.meta}>

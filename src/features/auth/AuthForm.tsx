@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'rea
 import { SelectionLayout } from '../../components/SelectionLayout';
 import { Text } from '../../components/Text';
 import { ActionButton } from '../../components/ActionButton';
-import { colors } from '../../theme/tokens';
+import { colors, controls } from '../../theme/tokens';
 import { useAuth } from './AuthProvider';
 import { authErrorMessage, type RegistrationRole } from './model';
 
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     borderRadius: 14,
     padding: 14,
-    minHeight: 50,
+    minHeight: controls.fieldHeight,
     fontSize: 16,
     color: colors.navy,
     backgroundColor: colors.background,

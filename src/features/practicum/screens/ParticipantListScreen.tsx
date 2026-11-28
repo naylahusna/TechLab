@@ -325,7 +325,7 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
 
       <ConfirmationModal visible={!!pendingMove} title="Pindahkan Praktikan?"
         description={pendingMove ? `${pendingMove.participant.studentName} akan pindah ke ${pendingMove.target.className}. Jadwal dan catatan lama tetap tersimpan.` : ''}
-        confirmLabel="Pindahkan" onConfirm={() => void move()} onCancel={() => setPendingMove(null)} />
+        confirmLabel="Pindahkan" busy={!!busyId} onConfirm={() => void move()} onCancel={() => setPendingMove(null)} />
       <ConfirmationModal
         visible={!!pendingRemove}
         eyebrow="KONFIRMASI PESERTA"
