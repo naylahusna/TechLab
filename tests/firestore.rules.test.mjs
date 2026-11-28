@@ -159,110 +159,142 @@ test('operator-provisioned assistant can edit own profile but cannot change own 
     updateDoc(own('assistant'), { role: 'praktikan', updatedAt: serverTimestamp() }),
   );
 });
-async function seedLabScope(uid) {
+async function seedLabScope(uid, courseNames = ['Basis Data', 'Praktikum']) {
   await env.withSecurityRulesDisabled(async (context) => {
-    await setDoc(doc(context.firestore(), 'aslabScopes', uid), { courseNames: ['Basis Data', 'Praktikum'] });
+    await setDoc(doc(context.firestore(), 'aslabScopes', uid), { courseNames });
   });
 }
 
-test('Aslab can create and edit lab locations with the required location schema', async () => {
-  await seed('admin', 'admin');
-  const db = env.authenticatedContext('admin').firestore();
-  await seedLabScope('admin');
-  const ref = doc(db, 'labLocations', 'lab-b');
-  const location = {
-    courseName: 'Basis Data',
-    name: 'Lab Informatika B',
-    latitude: -7.0482375,
-    longitude: 110.440765625,
-    radiusMeters: 100,
-    graceMinutes: 0,
-    building: 'Gedung E FSM UNDIP',
-    floor: 2,
-    plusCode: '',
-    pointType: 'building_map_reference',
-    roomCenterVerified: false,
-    source: 'Google Maps business listing Plus Codes',
-    caution: 'Building-level map reference only',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    updatedBy: 'admin',
-  };
-  await assertSucceeds(setDoc(ref, location));
-  await assertFails(setDoc(doc(db, 'labLocations', 'outside'), { ...location, courseName: 'Jaringan' }));
-  await assertSucceeds(updateDoc(ref, { name: 'Lab Informatika B Baru', graceMinutes: 10, updatedAt: serverTimestamp() }));
-  await assertFails(updateDoc(ref, { graceMinutes: -1, updatedAt: serverTimestamp() }));
-  await assertSucceeds(updateDoc(ref, { archivedAt: serverTimestamp(), updatedAt: serverTimestamp() }));
-  await assertSucceeds(getDoc(ref));
-  await assertFails(updateDoc(ref, { archivedAt: null, updatedAt: serverTimestamp() }));
-  await assertFails(deleteDoc(ref));
-  await seed('assistant', 'asisten');
-  const assistantDb = env.authenticatedContext('assistant').firestore();
-  await assertFails(setDoc(doc(assistantDb, 'labLocations', 'assistant-lab'), { ...location, updatedBy: 'assistant' }));
-  await assertFails(setDoc(doc(db, 'labLocations', 'invalid'), { ...location, id: 'invalid' }));
-  for (const [index, overrides] of [
-    { latitude: -91 },
-    { latitude: 91 },
-    { longitude: -181 },
-    { longitude: 181 },
-    { radiusMeters: 0 },
-    { radiusMeters: -1 },
-    { graceMinutes: -1 },
-    { graceMinutes: 1.5 },
-    { graceMinutes: '5' },
-    { latitude: NaN },
-  ].entries()) {
-    await assertFails(setDoc(doc(db, 'labLocations', `invalid-${index}`), { ...location, ...overrides }));
-  }
-});
-test('legacy lab remains readable and can be updated without changing its ID', async () => {
-  await seed('admin', 'admin');
-  await seedLabScope('admin');
-  await env.withSecurityRulesDisabled(async (context) => {
-    const db = context.firestore();
-    await setDoc(doc(db, 'labLocations', 'legacy'), {
-      courseName: 'Basis Data', name: 'Lab Lama', latitude: 0, longitude: 0, radiusMeters: 100,
-      building: 'Gedung E', floor: null, plusCode: '', pointType: 'building_map_reference',
-      roomCenterVerified: false, source: 'Peta lama', caution: '',
-      createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: 'admin',
-    });
-  });
-  const db = env.authenticatedContext('admin').firestore();
-  const existing = doc(db, 'labLocations', 'legacy');
-  assert.equal((await getDoc(existing)).data().name, 'Lab Lama');
-  await assertSucceeds(updateDoc(existing, { graceMinutes: 15, updatedAt: serverTimestamp() }));
-  assert.equal((await getDoc(existing)).data().graceMinutes, 15);
-
-  const revision = doc(db, 'labCatalogRevisions', 'Basis%20Data');
-  await assertSucceeds(getDoc(revision));
-  await assertSucceeds(setDoc(revision, { courseName: 'Basis Data', updatedAt: serverTimestamp() }));
-  await assertSucceeds(setDoc(revision, { courseName: 'Basis Data', updatedAt: serverTimestamp() }));
-  await assertFails(setDoc(revision, { courseName: 'Jaringan', updatedAt: serverTimestamp() }));
-});
-
-test('practitioners cannot create, update, or delete lab locations', async () => {
-  await seed('assistant', 'asisten');
-  await seed('student', 'praktikan');
-  await seed('admin', 'admin');
-  const adminDb = env.authenticatedContext('admin').firestore();
-  const studentDb = env.authenticatedContext('student').firestore();
-  await seedLabScope('admin');
-  const existing = doc(adminDb, 'labLocations', 'lab-b');
-  await setDoc(existing, {
-    courseName: 'Basis Data', name: 'Lab Informatika B', latitude: -7.0482375, longitude: 110.440765625,
-    radiusMeters: 100, graceMinutes: 0, building: 'Gedung E FSM UNDIP', floor: 2, plusCode: '',
+function locationFields(uid) {
+  return {
+    name: 'Lab Informatika B', latitude: -7.0482375, longitude: 110.440765625, radiusMeters: 100,
+    building: 'Gedung E FSM UNDIP', floor: 2, plusCode: '',
     pointType: 'building_map_reference', roomCenterVerified: false,
     source: 'Google Maps listing', caution: 'Building reference',
-    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: 'admin',
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: uid,
+  };
+}
+
+function catalogBatch(db) {
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'labCatalogRevisions', 'catalog'), { updatedAt: serverTimestamp() });
+  return batch;
+}
+
+function createLab(db, id, courseName, fields) {
+  const batch = catalogBatch(db);
+  batch.set(doc(db, 'labLocations', id), { ...fields, catalogVersion: 2 });
+  batch.set(doc(db, 'labManagers', id), { courseName });
+  return batch.commit();
+}
+
+function updateLab(db, id, fields) {
+  const batch = catalogBatch(db);
+  batch.update(doc(db, 'labLocations', id), { ...fields, updatedAt: serverTimestamp() });
+  return batch.commit();
+}
+
+function saveCourseSettings(db, key, courseName, graceMinutes, labIds = ['lab-b']) {
+  const batch = catalogBatch(db);
+  batch.set(doc(db, 'courseLabSettings', key), { courseName, graceMinutes, labIds, updatedAt: serverTimestamp() });
+  return batch.commit();
+}
+
+test('one physical lab can serve two courses with independent grace and scoped editing', async () => {
+  await seed('admin', 'admin');
+  await seed('other-admin', 'admin');
+  await seedLabScope('admin', ['Basis Data']);
+  await seedLabScope('other-admin', ['Praktikum/PPK%']);
+  const db = env.authenticatedContext('admin').firestore();
+  const other = env.authenticatedContext('other-admin').firestore();
+  await assertSucceeds(createLab(db, 'lab-b', 'Basis Data', locationFields('admin')));
+  await assertSucceeds(saveCourseSettings(db, 'course-Basis Data', 'Basis Data', 5));
+  await assertSucceeds(saveCourseSettings(other, 'course-Praktikum%2FPPK%25', 'Praktikum/PPK%', 10));
+  await assertFails(saveCourseSettings(db, 'course-Praktikum%2FPPK%25', 'Praktikum/PPK%', 20));
+  await assertFails(saveCourseSettings(db, 'course-Praktikum%2FPPK%25', 'Basis Data', 20));
+  await assertFails(updateLab(other, 'lab-b', { radiusMeters: 500, updatedBy: 'other-admin' }));
+  await assertSucceeds(updateLab(db, 'lab-b', { radiusMeters: 125, updatedBy: 'admin' }));
+  assert.equal((await getDoc(doc(other, 'labLocations', 'lab-b'))).data().radiusMeters, 125);
+  assert.equal((await getDoc(doc(db, 'courseLabSettings', 'course-Basis Data'))).data().graceMinutes, 5);
+  assert.equal((await getDoc(doc(other, 'courseLabSettings', 'course-Praktikum%2FPPK%25'))).data().graceMinutes, 10);
+  await assertFails(saveCourseSettings(db, 'course-Basis Data', 'Basis Data', 5, ['lab-b', 'bad/id']));
+  await assertFails(saveCourseSettings(db, 'course-Basis Data', 'Basis Data', 5, []));
+  for (const invalid of [-1, 1.5, '5']) {
+    await assertFails(saveCourseSettings(db, 'course-Basis Data', 'Basis Data', invalid));
+  }
+});
+
+test('physical lab validates coordinates, protects legacy fields, and keeps archive readable', async () => {
+  await seed('admin', 'admin');
+  await seedLabScope('admin');
+  const db = env.authenticatedContext('admin').firestore();
+  const location = locationFields('admin');
+  await assertSucceeds(createLab(db, 'lab-b', 'Basis Data', location));
+  await assertFails(createLab(db, 'outside', 'Jaringan', location));
+  for (const [index, overrides] of [
+    { latitude: -91 }, { longitude: 181 }, { radiusMeters: 0 }, { latitude: NaN },
+    { graceMinutes: 5 }, { courseName: 'Basis Data' },
+  ].entries()) {
+    await assertFails(createLab(db, `invalid-${index}`, 'Basis Data', { ...location, ...overrides }));
+  }
+  const ref = doc(db, 'labLocations', 'lab-b');
+  await assertSucceeds(updateLab(db, 'lab-b', { archivedAt: serverTimestamp() }));
+  await assertSucceeds(getDoc(ref));
+  await assertFails(updateLab(db, 'lab-b', { archivedAt: null }));
+  await assertFails(deleteDoc(ref));
+});
+
+test('legacy lab stays readable and an in-scope Aslab can edit it using its existing ID', async () => {
+  await seed('admin', 'admin');
+  await seedLabScope('admin');
+  await env.withSecurityRulesDisabled((context) =>
+    setDoc(doc(context.firestore(), 'labLocations', 'legacy'), {
+      ...locationFields('admin'), courseName: 'Basis Data', graceMinutes: 15,
+    }),
+  );
+  const db = env.authenticatedContext('admin').firestore();
+  await assertSucceeds(updateLab(db, 'legacy', { radiusMeters: 130 }));
+  await assertFails(updateLab(db, 'legacy', { graceMinutes: 30 }));
+  const existing = (await getDoc(doc(db, 'labLocations', 'legacy'))).data();
+  assert.equal(existing.graceMinutes, 15);
+  assert.equal(existing.radiusMeters, 130);
+});
+
+test('practitioners cannot write the catalog or course settings', async () => {
+  await seed('student', 'praktikan');
+  const student = env.authenticatedContext('student').firestore();
+  await assertFails(createLab(student, 'lab-b', 'Basis Data', locationFields('student')));
+  await assertFails(saveCourseSettings(student, 'course-Basis Data', 'Basis Data', 10));
+});
+
+test('new schedule labId must reference an active lab linked to the class course', async () => {
+  await seed('admin', 'admin');
+  await seed('assistant', 'asisten');
+  await seedLabScope('admin');
+  const admin = env.authenticatedContext('admin').firestore();
+  const db = env.authenticatedContext('assistant').firestore();
+  await assertSucceeds(createLab(admin, 'lab-b', 'Basis Data', locationFields('admin')));
+  await assertSucceeds(saveCourseSettings(admin, 'course-Basis Data', 'Basis Data', 5));
+  await env.withSecurityRulesDisabled(async (context) => {
+    const seedDb = context.firestore();
+    for (const [id, courseName] of [['class-bd', 'Basis Data'], ['class-ppk', 'Praktikum']]) {
+      await setDoc(doc(seedDb, 'classes', id), { courseName, assistantIds: ['assistant'], studentIds: [] });
+    }
   });
-  await assertFails(setDoc(doc(studentDb, 'labLocations', 'student-lab'), {
-    name: 'Lab Baru', latitude: 0, longitude: 0, radiusMeters: 100,
-    building: 'Gedung E', floor: null, plusCode: '', pointType: 'building_map_reference',
-    roomCenterVerified: false, source: 'test', caution: 'test',
-    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: 'student',
-  }));
-  await assertFails(updateDoc(doc(studentDb, 'labLocations', 'lab-b'), { name: 'Lab Diubah', updatedAt: serverTimestamp() }));
-  await assertFails(deleteDoc(doc(studentDb, 'labLocations', 'lab-b')));
+  const fields = {
+    labId: 'lab-b', location: 'Lab Informatika B', title: 'Praktikum', classId: 'class-bd',
+    startAt: new Date('2026-12-01T01:00:00Z'), endAt: new Date('2026-12-01T02:00:00Z'),
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), archivedAt: null,
+  };
+  await assertSucceeds(setDoc(doc(db, 'schedules', 'bd'), fields));
+  await assertFails(setDoc(doc(db, 'schedules', 'ppk'), { ...fields, classId: 'class-ppk' }));
+  await assertSucceeds(saveCourseSettings(admin, 'course-Praktikum', 'Praktikum', 10, []));
+  await assertFails(setDoc(doc(db, 'schedules', 'ppk'), { ...fields, classId: 'class-ppk' }));
+  await assertSucceeds(saveCourseSettings(admin, 'course-Praktikum', 'Praktikum', 10));
+  await assertSucceeds(setDoc(doc(db, 'schedules', 'ppk'), { ...fields, classId: 'class-ppk' }));
+  await assertSucceeds(updateLab(admin, 'lab-b', { archivedAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(db, 'schedules', 'archived'), fields));
+  await assertSucceeds(updateDoc(doc(db, 'schedules', 'bd'), { title: 'Judul baru', updatedAt: serverTimestamp() }));
 });
 test('unimplemented feature collections and orphan subcollections are denied', async () => {
   const db = env.authenticatedContext('alice').firestore();

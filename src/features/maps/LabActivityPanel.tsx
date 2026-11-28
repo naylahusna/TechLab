@@ -11,8 +11,8 @@ import { useLabActivity } from './useLabActivity';
 const date = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeZone: 'Asia/Jakarta' });
 const time = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
 
-export function LabActivityPanel({ labName, courseName, previousNames }: {
-  labName: string; courseName: string; previousNames: readonly string[];
+export function LabActivityPanel({ labId, labName, previousNames, legacyCourseName }: {
+  labId: string; labName: string; previousNames: readonly string[]; legacyCourseName: string;
 }) {
   const { data, error, fromCache, loading, retry } = useLabActivity();
   const [now, setNow] = useState(Date.now);
@@ -21,7 +21,7 @@ export function LabActivityPanel({ labName, courseName, previousNames }: {
     const timer = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(timer);
   }, []));
-  const activity = data && findLabActivity(data, labName, now, courseName, previousNames);
+  const activity = data && findLabActivity(data, labName, now, labId, previousNames, legacyCourseName);
   return (
     <View style={styles.panel}>
       {loading && <Text style={styles.detail}>Memuat aktivitas praktikum…</Text>}

@@ -14,14 +14,16 @@ export type LabActivity = {
 };
 
 export function findLabActivity(
-  data: LabActivityData, labName: string, now: number, courseName?: string, previousNames?: readonly string[],
+  data: LabActivityData, labName: string, now: number, labId?: string, previousNames?: readonly string[], legacyCourseName?: string,
 ) {
   const classes = new Map(data.classes.filter((item) => !item.archivedAt).map((item) => [item.id, item]));
   const sessions = new Map(data.sessions.map((item) => [item.scheduleId, item]));
   const activities = data.schedules.flatMap((schedule): LabActivity[] => {
     const course = classes.get(schedule.classId);
-    if (!course || schedule.archivedAt || (courseName && course.courseName !== courseName)
-      || !labHasName({ name: labName, previousNames }, schedule.location)) return [];
+    if (!course || schedule.archivedAt) return [];
+    if (schedule.labId && labId ? schedule.labId !== labId
+      : (legacyCourseName && course.courseName !== legacyCourseName)
+        || !labHasName({ name: labName, previousNames }, schedule.location)) return [];
     const session = sessions.get(schedule.id);
     const status = session?.classId === schedule.classId ? session.status : 'scheduled';
     return status === 'cancelled' || status === 'closed' ? [] : [{ schedule, course, status }];

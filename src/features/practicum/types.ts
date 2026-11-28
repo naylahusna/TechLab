@@ -43,6 +43,7 @@ export type PracticumSchedule = Readonly<{
   startAt: Timestamp;
   endAt: Timestamp;
   location: string;
+  labId?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   archivedAt: Timestamp | null;
@@ -121,6 +122,7 @@ export type PracticumScheduleInput = Readonly<{
   startAt: Date;
   endAt: Date;
   location: string;
+  labId?: string;
 }>;
 
 export type PracticumPermissionStatus = 'pending' | 'approved' | 'rejected';

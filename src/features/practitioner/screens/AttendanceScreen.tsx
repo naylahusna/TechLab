@@ -67,7 +67,7 @@ export function AttendanceScreen({
     session.endsAt,
     now,
   );
-  const labLocation = selectLabForCourse(labLocations, session.practicalName, session.lab) ?? null;
+  const labLocation = selectLabForCourse(labLocations, session.practicalName, session.lab, session.labId) ?? null;
   const locationValidation = validateAttendanceLocation(
     location.state.coordinates,
     labLocation,

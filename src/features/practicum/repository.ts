@@ -208,6 +208,7 @@ function toSchedule(snapshot: DocumentSnapshot<DocumentData>): PracticumSchedule
     startAt: asTimestamp(data.startAt),
     endAt: asTimestamp(data.endAt),
     location: asString(data.location),
+    ...(typeof data.labId === 'string' ? { labId: data.labId } : {}),
     createdAt: asTimestamp(data.createdAt),
     updatedAt: asTimestamp(data.updatedAt),
     archivedAt: asNullableTimestamp(data.archivedAt),
@@ -804,6 +805,7 @@ export function createPracticumRepository(db: Firestore) {
         startAt: Timestamp.fromDate(clean.startAt),
         endAt: Timestamp.fromDate(clean.endAt),
         location: clean.location,
+        ...(clean.labId ? { labId: clean.labId } : {}),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         archivedAt: null,
@@ -821,6 +823,9 @@ export function createPracticumRepository(db: Firestore) {
       if (clean.classId !== current.classId)
         throw new PracticumError('INVALID_INPUT', 'Kelas jadwal tidak dapat diubah.');
 
+      if (current.labId && !clean.labId && clean.location !== current.location)
+        throw new PracticumError('INVALID_INPUT', 'Pilih ID lab saat mengganti lokasi jadwal.');
+
       const conflict = findScheduleConflict(await schedulesForClass(current.classId), {
         classId: current.classId,
         startAt: clean.startAt,
@@ -837,6 +842,7 @@ export function createPracticumRepository(db: Firestore) {
         startAt: nextStartAt,
         endAt: nextEndAt,
         location: clean.location,
+        ...(clean.labId ? { labId: clean.labId } : {}),
         updatedAt: serverTimestamp(),
       });
 

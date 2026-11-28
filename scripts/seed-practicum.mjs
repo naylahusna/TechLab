@@ -109,13 +109,19 @@ try {
       courseNames: ['Pemrograman Perangkat Bergerak', 'Basis Data'],
     });
 
+    const courseLabs = [
+      { courseName: 'Pemrograman Perangkat Bergerak', labIds: ['lab-informatika-b', 'lab-informatika-c'], graceMinutes: 10 },
+      { courseName: 'Basis Data', labIds: ['lab-informatika-b', 'lab-informatika-d'], graceMinutes: 5 },
+    ];
+    await Promise.all(courseLabs.map((course) =>
+      setDoc(doc(db, 'courseLabSettings', 'course-' + course.courseName), { ...course, updatedAt: now }),
+    ));
     await Promise.all(labLocations.map((item) => setDoc(doc(db, 'labLocations', item.id), {
       name: item.name,
-      courseName: ['lab-informatika-b', 'lab-informatika-c'].includes(item.id) ? 'Pemrograman Perangkat Bergerak' : 'Basis Data',
+      catalogVersion: 2,
       latitude: item.latitude,
       longitude: item.longitude,
       radiusMeters: 100,
-      graceMinutes: 0,
       building: item.building,
       floor: item.floor,
       plusCode: item.plusCode,
@@ -126,6 +132,10 @@ try {
       createdAt: now,
       updatedAt: now,
       updatedBy: assistantId,
+    })));
+
+    await Promise.all(labLocations.map((item) => setDoc(doc(db, 'labManagers', item.id), {
+      courseName: ['lab-informatika-b', 'lab-informatika-c'].includes(item.id) ? 'Pemrograman Perangkat Bergerak' : 'Basis Data',
     })));
 
     await Promise.all(users.map((user) =>
