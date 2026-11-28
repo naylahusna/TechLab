@@ -112,7 +112,7 @@ export async function saveCourseLabSettings(
   });
 }
 
-export async function saveLabLocation(input: LabLocationInput, courseName: string, id?: string): Promise<string> {
+export async function saveLabLocation(input: LabLocationInput, courseName: string, id?: string, reuseExisting = false): Promise<string> {
   const clean = validateLabLocation(input);
   const db = getFirebaseFirestore();
   const labs = collection(db, 'labLocations');
@@ -121,15 +121,32 @@ export async function saveLabLocation(input: LabLocationInput, courseName: strin
   const settingsRef = doc(db, 'courseLabSettings', courseLabKey(courseName));
   const uid = getFirebaseAuth().currentUser?.uid ?? '';
 
-  await runTransaction(db, async (transaction) => {
+  return runTransaction(db, async (transaction) => {
     await transaction.get(lock);
+    if (reuseExisting) {
+      if (!uid) throw new Error('Masuk sebagai Aslab untuk mengimpor lab.');
+      const scope = await transaction.get(doc(db, 'aslabScopes', uid));
+      if (!scope.data()?.courseNames?.includes(courseName)) throw new Error('Mata kuliah di luar cakupan Aslab.');
+    }
     const current = id ? (await transaction.get(ref)).data() : undefined;
     if (id && (!current || current.archivedAt != null)) throw new Error('Lab tidak tersedia atau sudah diarsipkan.');
     const savedSettings = !id ? await transaction.get(settingsRef) : undefined;
     // The shared revision makes concurrent saves retry their name check.
     const catalog = (await getDocsFromServer(labs)).docs.map((item) => toLabLocation(item.id, item.data()));
-    if (catalog.some((item) => item.id !== ref.id && labHasName(item, clean.name))) {
-      throw new Error('Nama lab sudah digunakan. Tautkan lab yang sudah ada ke mata kuliah.');
+    const matches = catalog.filter((item) => item.id !== ref.id && labHasName(item, clean.name));
+    if (matches.length > 0) {
+      const existing = matches[0];
+      if (!id && reuseExisting && matches.length === 1 && !existing.archivedAt
+        && existing.building === clean.building && (existing.floor ?? null) === clean.floor
+        && existing.latitude === clean.latitude && existing.longitude === clean.longitude
+        && existing.radiusMeters === clean.radiusMeters && (existing.plusCode ?? '') === clean.plusCode) {
+        const settings = savedSettings?.exists() ? toSettings(savedSettings.data()) : initialSettings(courseName, catalog);
+        if (savedSettings?.exists() && settings.labIds.includes(existing.id)) return existing.id;
+        transaction.set(settingsRef, { ...settings, labIds: [...new Set([...settings.labIds, existing.id])], updatedAt: serverTimestamp() });
+        transaction.set(lock, { updatedAt: serverTimestamp() });
+        return existing.id;
+      }
+      throw new Error('Nama lab sudah digunakan dengan data berbeda, terarsip, atau ambigu. Periksa katalog lab.');
     }
     const previousNames = current ? toLabLocation(ref.id, current).previousNames.filter((name) =>
       normalizeLabName(name) !== normalizeLabName(clean.name)) : [];
@@ -153,8 +170,8 @@ export async function saveLabLocation(input: LabLocationInput, courseName: strin
       });
     }
     transaction.set(lock, { updatedAt: serverTimestamp() });
+    return ref.id;
   });
-  return ref.id;
 }
 
 export async function listLabCourses(lab: LabLocation): Promise<string[]> {
