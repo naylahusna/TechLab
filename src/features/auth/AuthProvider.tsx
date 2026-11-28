@@ -10,6 +10,7 @@ import {
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
@@ -19,12 +20,13 @@ import { getFirebaseFirestore } from '../../services/firebase/firestore';
 import {
   authErrorMessage,
   parseProfile,
+  normalizeLoginEmail,
   validateCredentials,
   validateProfile,
   type ProfileFields,
   type RegistrationRole,
 } from './model';
-import { continueOwnAccountAsPractitioner, createOwnProfile, updateOwnProfile } from './profile-service';
+import { continueOwnAccountAsPractitioner, createOwnProfile, reapplyOwnAccountAsAssistant, updateOwnProfile } from './profile-service';
 import { createSessionStore } from './session-store';
 import { clearDevicePush } from '../notifications/device';
 
@@ -72,6 +74,19 @@ function useAuthSession() {
           validateCredentials(email, password),
           password,
         );
+      },
+      async resetPassword(email: string) {
+        try {
+          await sendPasswordResetEmail(getFirebaseAuth(), normalizeLoginEmail(email));
+        } catch (error) {
+          if ((error as { code?: string }).code !== 'auth/user-not-found') throw error;
+        }
+      },
+      async reapplyAsAssistant() {
+        const user = getFirebaseAuth().currentUser;
+        if (!user) throw new Error('Silakan login kembali.');
+        await reapplyOwnAccountAsAssistant(user.uid);
+        store.retry();
       },
       async register(email: string, password: string, fields: ProfileFields, role: RegistrationRole) {
         const normalized = validateCredentials(email, password, true);
