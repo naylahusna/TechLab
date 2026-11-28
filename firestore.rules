@@ -124,11 +124,12 @@ service cloud.firestore {
 
     function isValidSchedule(data) {
       return data.keys().hasAll(['classId', 'title', 'startAt', 'endAt', 'location', 'createdAt', 'updatedAt', 'archivedAt'])
-        && data.keys().hasOnly(['classId', 'title', 'startAt', 'endAt', 'location', 'createdAt', 'updatedAt', 'archivedAt'])
+        && data.keys().hasOnly(['classId', 'title', 'startAt', 'endAt', 'location', 'labId', 'createdAt', 'updatedAt', 'archivedAt'])
         && data.classId is string && data.classId.size() >= 1 && data.classId.size() <= 64
         && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
         && data.startAt is timestamp && data.endAt is timestamp && data.startAt < data.endAt
         && data.location is string && data.location.size() >= 1 && data.location.size() <= 120
+        && (!('labId' in data) || (data.labId is string && data.labId.matches('^[A-Za-z0-9_-]{1,64}$')))
         && data.createdAt is timestamp && data.updatedAt is timestamp
         && (data.archivedAt == null || data.archivedAt is timestamp);
     }
@@ -283,6 +284,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function scheduleLabAllowed(data) {
+      let course = get(/databases/$(database)/documents/classes/$(data.classId)).data.courseName;
+      let key = courseLabKey(course);
+      let lab = get(/databases/$(database)/documents/labLocations/$(data.labId)).data;
+      let settings = /databases/$(database)/documents/courseLabSettings/$(key);
+      return lab.get('archivedAt', null) == null && data.location == lab.name
+        && (exists(settings) ? data.labId in get(settings).data.labIds
+          : lab.get('catalogVersion', 1) == 1 && lab.get('courseName', '') in ['', course]);
+    }
+
     match /schedules/{scheduleId} {
       allow get: if isActiveAccount() && resource != null
         && (canOverseeClass(resource.data.classId) || isActiveParticipant(resource.data.classId));
@@ -290,12 +301,16 @@ service cloud.firestore {
         && (canOverseeClass(resource.data.classId) || isActiveParticipant(resource.data.classId));
       allow create: if isAssistant() && isValidSchedule(request.resource.data)
         && isAssignedAssistant(request.resource.data.classId)
+        && (!('labId' in request.resource.data) || scheduleLabAllowed(request.resource.data))
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time
         && request.resource.data.archivedAt == null;
       allow update: if isAssignedAssistant(resource.data.classId)
         && isValidSchedule(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'startAt', 'endAt', 'location', 'updatedAt', 'archivedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'startAt', 'endAt', 'location', 'labId', 'updatedAt', 'archivedAt'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['location', 'labId'])
+          || (!('labId' in resource.data) && !('labId' in request.resource.data))
+          || ('labId' in request.resource.data && scheduleLabAllowed(request.resource.data)))
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
@@ -593,14 +608,74 @@ service cloud.firestore {
         && request.resource.data.aiClassifiedAt == request.time;
     }
 
+    // Catalog: shared physical locations. Management and course policy live separately.
+    match /labCatalogRevisions/catalog {
+      allow get: if isAdmin();
+      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['updatedAt'])
+        && request.resource.data.updatedAt == request.time;
+      allow list, delete: if false;
+    }
+
+    function courseLabKey(courseName) {
+      return 'course-' + courseName.replace('%', '%25').replace('/', '%2F');
+    }
+
+    function validLabIds(ids, limit) {
+      return ids is list && ids.size() <= limit && ids.size() == ids.toSet().size()
+        && (ids.size() == 0 || ids.join(',').matches('([A-Za-z0-9_-]{1,64},)*[A-Za-z0-9_-]{1,64}'));
+    }
+
+    function validCourseLabSettings(data, key) {
+      return data.keys().hasOnly(['courseName', 'labIds', 'formerLabIds', 'graceMinutes', 'updatedAt'])
+        && data.courseName is string && data.courseName.size() >= 1 && data.courseName.size() <= 100
+        && key == courseLabKey(data.courseName)
+        && validLabIds(data.labIds, 200)
+        && validLabIds(data.get('formerLabIds', []), 1000)
+        && (data.graceMinutes == null
+          || (data.graceMinutes is int && data.graceMinutes >= 0 && data.graceMinutes <= 9007199254740991))
+        && hasCourseScope(data.courseName)
+        && data.updatedAt == request.time;
+    }
+
+    match /courseLabSettings/{key} {
+      allow get, list: if isActiveAccount();
+      allow create: if validCourseLabSettings(request.resource.data, key) && labCatalogUpdated();
+      allow update: if validCourseLabSettings(request.resource.data, key) && labCatalogUpdated()
+        && request.resource.data.get('formerLabIds', []).toSet().hasAll(resource.data.get('formerLabIds', []))
+        && request.resource.data.get('formerLabIds', []).toSet().hasAll(
+          resource.data.labIds.toSet().difference(request.resource.data.labIds.toSet()));
+      allow delete: if false;
+    }
+
+    match /labManagers/{labId} {
+      allow get, list: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['courseName'])
+        && hasCourseScope(request.resource.data.courseName)
+        && !exists(/databases/$(database)/documents/labLocations/$(labId))
+        && existsAfter(/databases/$(database)/documents/labLocations/$(labId));
+      allow update, delete: if false;
+    }
+
+    function labManagerPath(labId) {
+      return /databases/$(database)/documents/labManagers/$(labId);
+    }
+
+    function labCatalogUpdated() {
+      return getAfter(/databases/$(database)/documents/labCatalogRevisions/catalog).data.updatedAt == request.time;
+    }
+
     function validLabLocation(d) {
-      return d.keys().hasAll(['courseName', 'name', 'latitude', 'longitude', 'radiusMeters', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
-        && d.keys().hasOnly(['courseName', 'name', 'latitude', 'longitude', 'radiusMeters', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
-        && d.courseName is string && d.courseName.size() >= 1 && d.courseName.size() <= 100
+      return d.keys().hasAll(['name', 'latitude', 'longitude', 'radiusMeters', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
+        && d.keys().hasOnly(['courseName', 'name', 'latitude', 'longitude', 'radiusMeters', 'graceMinutes', 'catalogVersion', 'previousNames', 'archivedAt', 'building', 'floor', 'plusCode', 'pointType', 'roomCenterVerified', 'source', 'caution', 'createdAt', 'updatedAt', 'updatedBy'])
         && d.name is string && d.name.size() >= 2 && d.name.size() <= 100 && d.name == d.name.trim()
         && d.latitude is number && d.latitude >= -90 && d.latitude <= 90
         && d.longitude is number && d.longitude >= -180 && d.longitude <= 180
         && d.radiusMeters is number && d.radiusMeters >= 1 && d.radiusMeters <= 5000
+        && d.get('catalogVersion', 1) in [1, 2]
+        && d.get('graceMinutes', 0) is int && d.get('graceMinutes', 0) >= 0
+        && d.get('graceMinutes', 0) <= 9007199254740991
+        && d.get('previousNames', []) is list && d.get('previousNames', []).size() <= 30
+        && (d.get('archivedAt', null) == null || d.archivedAt is timestamp)
         && d.building is string && d.building.size() <= 120
         && (d.floor == null || d.floor is int)
         && d.plusCode is string && d.plusCode.size() <= 20
@@ -613,16 +688,29 @@ service cloud.firestore {
     }
 
     match /labLocations/{locationId} {
-      allow get, list: if userRole() in ['praktikan', 'asisten'] || hasCourseScope(resource.data.courseName);
-      allow create: if hasCourseScope(request.resource.data.courseName) && validLabLocation(request.resource.data)
+      allow get, list: if isActiveAccount();
+      allow create: if hasCourseScope(getAfter(labManagerPath(locationId)).data.courseName)
+        && labCatalogUpdated() && validLabLocation(request.resource.data)
+        && request.resource.data.catalogVersion == 2
+        && !request.resource.data.keys().hasAny(['courseName', 'graceMinutes'])
+        && request.resource.data.get('previousNames', []).size() == 0
+        && request.resource.data.get('archivedAt', null) == null
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
-      allow update: if hasCourseScope(resource.data.courseName)
-        && request.resource.data.courseName == resource.data.courseName
+      allow update: if isAdmin()
+        && (exists(labManagerPath(locationId))
+          ? hasCourseScope(get(labManagerPath(locationId)).data.courseName)
+          : hasCourseScope(resource.data.get('courseName', '')))
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['courseName', 'graceMinutes', 'catalogVersion'])
         && validLabLocation(request.resource.data)
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.updatedAt == request.time;
-      allow delete: if hasCourseScope(resource.data.courseName);
+        && request.resource.data.updatedAt == request.time
+        && resource.data.get('archivedAt', null) == null
+        && labCatalogUpdated()
+        && (request.resource.data.get('archivedAt', null) == null
+          || (request.resource.data.archivedAt == request.time
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['archivedAt', 'updatedAt', 'updatedBy'])));
+      allow delete: if false;
     }
 
     match /{document=**} { allow read, write: if false; }
