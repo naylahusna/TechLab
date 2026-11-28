@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import process from 'node:process';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, runTransaction, Timestamp } from 'firebase/firestore';
 
 process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8080';
 process.env.FIREBASE_AUTH_EMULATOR_HOST ||= '127.0.0.1:9099';
@@ -23,7 +23,7 @@ const password = 'TechLab123!';
 const adminEmail = 'admin.demo@techlab.test';
 const assistantEmail = 'asisten.demo@techlab.test';
 const studentEmails = [
-  ...Array.from({ length: 10 }, (_, index) => `praktikan${index + 1}.demo@techlab.test`),
+  ...Array.from({ length: 13 }, (_, index) => `praktikan${index + 1}.demo@techlab.test`),
 ];
 
 async function ensureAuthUser(email) {
@@ -51,12 +51,23 @@ async function ensureAuthUser(email) {
   );
 }
 
-const at = (iso) => Timestamp.fromDate(new Date(iso));
-const CLASS_A = 'class-if-a';
-const CLASS_B = 'class-if-b';
-const SCHEDULE_A1 = 'schedule-a-1';
-const SCHEDULE_A2 = 'schedule-a-2';
-const SCHEDULE_B1 = 'schedule-b-1';
+const originalReference = Date.parse('2026-11-23T08:00:00+07:00');
+let reference = originalReference;
+const at = (iso) => Timestamp.fromMillis(reference + Date.parse(iso) - originalReference);
+
+async function setDemoDoc(ref, data, rosterRef, userId) {
+  await runTransaction(ref.firestore, async (transaction) => {
+    if ((await transaction.get(ref)).exists()) return;
+    if (rosterRef && !(await transaction.get(rosterRef)).data()?.studentIds?.includes(userId)) return;
+    transaction.set(ref, data);
+  });
+}
+const CLASS_A = 's4-class-if-a';
+const CLASS_C = 's4-class-if-c';
+const CLASS_B = 's4-class-if-b';
+const SCHEDULE_A1 = 's4-schedule-a-1';
+const SCHEDULE_A2 = 's4-schedule-a-2';
+const SCHEDULE_B1 = 's4-schedule-b-1';
 
 const adminId = await ensureAuthUser(adminEmail);
 const assistantId = await ensureAuthUser(assistantEmail);
@@ -64,8 +75,8 @@ const studentIds = [];
 for (const email of studentEmails) studentIds.push(await ensureAuthUser(email));
 const studentNumbers = studentIds.map((_, index) => `240101${String(index + 1).padStart(3, '0')}`);
 const studentNames = studentIds.map((_, index) => `Praktikan Demo ${index + 1}`);
-const classAStudents = [...studentIds];
-const classBStudents = studentIds.length > 1 ? [...studentIds] : [];
+const classAStudents = studentIds.slice(0, 11);
+const classBStudents = studentIds.slice(0, 3);
 
 const env = await initializeTestEnvironment({
   projectId,
@@ -73,10 +84,8 @@ const env = await initializeTestEnvironment({
 });
 
 try {
-  await env.clearFirestore();
   await env.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
-    const now = Timestamp.now();
     const labLocations = [
       { id: 'lab-informatika-b', name: 'Lab Informatika B', building: 'Gedung E FSM UNDIP', floor: 2, latitude: -7.0482375, longitude: 110.440765625, plusCode: '6P4GXC2R+P82' },
       { id: 'lab-informatika-c', name: 'Lab Informatika C', building: 'Gedung E FSM UNDIP', floor: 2, latitude: -7.0482375, longitude: 110.440765625, plusCode: '6P4GXC2R+P82' },
@@ -95,9 +104,25 @@ try {
         role: 'praktikan',
       })),
     ];
+    for (const user of users) {
+      const profile = (await getDoc(doc(db, 'users', user.uid))).data();
+      if (profile && (profile.uid !== user.uid || profile.role !== user.role || profile.number !== user.number)) {
+        throw new Error(`Profil akun demo bentrok untuk ${user.number}. Gunakan basis uji terpisah.`);
+      }
+    }
+
+    const clock = doc(db, 'demoFixtures', 'sprint-4-basic');
+    reference = await runTransaction(db, async (transaction) => {
+      const old = (await transaction.get(clock)).data();
+      if (typeof old?.referenceMs === 'number' && Number.isFinite(old.referenceMs)) return old.referenceMs;
+      const referenceMs = Date.now() - 10 * 60 * 1000;
+      transaction.set(clock, { referenceMs });
+      return referenceMs;
+    });
+    const now = Timestamp.fromMillis(reference);
     await Promise.all(
       users.map((user) =>
-        setDoc(doc(db, 'users', user.uid), {
+        setDemoDoc(doc(db, 'users', user.uid), {
           ...user,
           createdAt: now,
           updatedAt: now,
@@ -105,7 +130,7 @@ try {
       ),
     );
 
-    await setDoc(doc(db, 'aslabScopes', adminId), {
+    await setDemoDoc(doc(db, 'aslabScopes', adminId), {
       courseNames: ['Pemrograman Perangkat Bergerak', 'Basis Data'],
     });
 
@@ -114,9 +139,9 @@ try {
       { courseName: 'Basis Data', labIds: ['lab-informatika-b', 'lab-informatika-d'], graceMinutes: 5 },
     ];
     await Promise.all(courseLabs.map((course) =>
-      setDoc(doc(db, 'courseLabSettings', 'course-' + course.courseName), { ...course, updatedAt: now }),
+      setDemoDoc(doc(db, 'courseLabSettings', 'course-' + course.courseName), { ...course, updatedAt: now }),
     ));
-    await Promise.all(labLocations.map((item) => setDoc(doc(db, 'labLocations', item.id), {
+    await Promise.all(labLocations.map((item) => setDemoDoc(doc(db, 'labLocations', item.id), {
       name: item.name,
       catalogVersion: 2,
       latitude: item.latitude,
@@ -134,35 +159,43 @@ try {
       updatedBy: assistantId,
     })));
 
-    await Promise.all(labLocations.map((item) => setDoc(doc(db, 'labManagers', item.id), {
+    await Promise.all(labLocations.map((item) => setDemoDoc(doc(db, 'labManagers', item.id), {
       courseName: ['lab-informatika-b', 'lab-informatika-c'].includes(item.id) ? 'Pemrograman Perangkat Bergerak' : 'Basis Data',
     })));
 
     await Promise.all(users.map((user) =>
-      setDoc(doc(db, 'userDirectory', user.uid), { ...user, updatedAt: now }),
+      setDemoDoc(doc(db, 'userDirectory', user.uid), { ...user, updatedAt: now }),
     ));
 
     const classes = [
       {
         id: CLASS_A,
-        className: 'Informatika A',
+        className: 'Informatika A Sprint 4',
+        labId: 'lab-informatika-b',
         courseName: 'Pemrograman Perangkat Bergerak',
         studentIds: classAStudents,
         createdAt: at('2026-11-01T00:00:00+07:00'),
       },
       {
         id: CLASS_B,
-        className: 'Informatika B',
+        className: 'Informatika B Sprint 4',
+        labId: 'lab-informatika-d',
         courseName: 'Basis Data',
         studentIds: classBStudents,
         createdAt: at('2026-11-02T00:00:00+07:00'),
       },
+      {
+        id: CLASS_C, className: 'Informatika C Sprint 4', courseName: 'Pemrograman Perangkat Bergerak',
+        labId: 'lab-informatika-c', studentIds: [], createdAt: at('2026-11-01T00:00:00+07:00'),
+      },
     ];
     await Promise.all(
       classes.map((item) =>
-        setDoc(doc(db, 'classes', item.id), {
+        setDemoDoc(doc(db, 'classes', item.id), {
           className: item.className,
           courseName: item.courseName,
+          courseId: 'course-' + item.courseName,
+          labId: item.labId,
           assistantIds: [assistantId],
           studentIds: item.studentIds,
           memberIds: [assistantId, ...item.studentIds],
@@ -177,16 +210,17 @@ try {
     const participantWrites = [];
     for (const classId of [CLASS_A, CLASS_B]) {
       const ids = classId === CLASS_A ? classAStudents : classBStudents;
-      ids.forEach((userId, index) => {
+      ids.forEach((userId) => {
+        const index = studentIds.indexOf(userId);
         participantWrites.push(
-          setDoc(doc(db, 'participants', `${classId}_${userId}`), {
+          setDemoDoc(doc(db, 'participants', `${classId}_${userId}`), {
             classId,
             userId,
             studentName: studentNames[index],
             studentNumber: studentNumbers[index],
             joinedAt,
             leftAt: null,
-          }),
+          }, doc(db, 'classes', classId), userId),
         );
       });
     }
@@ -199,7 +233,7 @@ try {
         title: 'Pertemuan 5 — UI dan Navigasi',
         startAt: at('2026-11-16T08:00:00+07:00'),
         endAt: at('2026-11-16T10:00:00+07:00'),
-        location: 'Lab Informatika B',
+        location: 'Lab Informatika B', labId: 'lab-informatika-b',
       },
       {
         id: SCHEDULE_A2,
@@ -207,25 +241,26 @@ try {
         title: 'Pertemuan 6 — State dan API',
         startAt: at('2026-11-23T08:00:00+07:00'),
         endAt: at('2026-11-23T10:00:00+07:00'),
-        location: 'Lab Informatika C',
+        location: 'Lab Informatika C', labId: 'lab-informatika-c',
       },
       {
         id: SCHEDULE_B1,
         classId: CLASS_B,
         title: 'Pertemuan 4 — Relasi Data',
-        startAt: at('2026-11-17T13:00:00+07:00'),
-        endAt: at('2026-11-17T15:00:00+07:00'),
-        location: 'Lab Informatika D',
+        startAt: at('2026-11-24T08:00:00+07:00'),
+        endAt: at('2026-11-24T10:00:00+07:00'),
+        location: 'Lab Informatika D', labId: 'lab-informatika-d',
       },
     ];
     await Promise.all(
       schedules.map((item) =>
-        setDoc(doc(db, 'schedules', item.id), {
+        setDemoDoc(doc(db, 'schedules', item.id), {
           classId: item.classId,
           title: item.title,
           startAt: item.startAt,
           endAt: item.endAt,
           location: item.location,
+          labId: item.labId,
           createdAt: joinedAt,
           updatedAt: joinedAt,
           archivedAt: null,
@@ -282,7 +317,7 @@ try {
     ];
     await Promise.all(
       sessions.map((item) =>
-        setDoc(doc(db, 'sessions', item.id), {
+        setDemoDoc(doc(db, 'sessions', item.id), {
           scheduleId: item.scheduleId,
           classId: item.classId,
           studentIds: item.studentIds,
@@ -303,7 +338,7 @@ try {
     );
 
     await Promise.all([
-      setDoc(doc(db, 'attendances', `${SCHEDULE_A1}_${studentIds[0]}`), {
+      setDemoDoc(doc(db, 'attendances', `${SCHEDULE_A1}_${studentIds[0]}`), {
         sessionId: SCHEDULE_A1,
         classId: CLASS_A,
         userId: studentIds[0],
@@ -317,7 +352,7 @@ try {
         locationValidated: true,
         labName: 'Lab Informatika B',
       }),
-      setDoc(doc(db, 'attendances', `${SCHEDULE_A2}_${studentIds[0]}`), {
+      setDemoDoc(doc(db, 'attendances', `${SCHEDULE_A2}_${studentIds[0]}`), {
         sessionId: SCHEDULE_A2,
         classId: CLASS_A,
         userId: studentIds[0],
@@ -352,7 +387,7 @@ try {
     const permissionWrites = [];
     if (studentIds[1]) {
       permissionWrites.push(
-        setDoc(doc(db, 'permissions', `${SCHEDULE_A1}_${studentIds[1]}`), {
+        setDemoDoc(doc(db, 'permissions', `${SCHEDULE_A1}_${studentIds[1]}`), {
           sessionId: SCHEDULE_A1,
           classId: CLASS_A,
           userId: studentIds[1],
@@ -364,7 +399,7 @@ try {
           createdAt: at('2026-11-15T18:30:00+07:00'),
           updatedAt: at('2026-11-15T19:00:00+07:00'),
         }),
-        setDoc(doc(db, 'permissions', `${SCHEDULE_A2}_${studentIds[1]}`), {
+        setDemoDoc(doc(db, 'permissions', `${SCHEDULE_A2}_${studentIds[1]}`), {
           sessionId: SCHEDULE_A2,
           classId: CLASS_A,
           userId: studentIds[1],
@@ -380,7 +415,7 @@ try {
     }
     if (studentIds[2]) {
       permissionWrites.push(
-        setDoc(doc(db, 'permissions', `${SCHEDULE_A1}_${studentIds[2]}`), {
+        setDemoDoc(doc(db, 'permissions', `${SCHEDULE_A1}_${studentIds[2]}`), {
           sessionId: SCHEDULE_A1,
           classId: CLASS_A,
           userId: studentIds[2],
@@ -397,9 +432,9 @@ try {
     // Extra praktikan provide independent identities for manual edge-case testing:
     // no attendance/permission, plus multiple permission states on each session status.
     const additionalPermissions = [
-      { student: 3, session: SCHEDULE_B1, classId: CLASS_B, scheduleIndex: 2, status: 'pending', aiConsent: true },
-      { student: 4, session: SCHEDULE_B1, classId: CLASS_B, scheduleIndex: 2, status: 'approved', aiConsent: false },
-      { student: 5, session: SCHEDULE_B1, classId: CLASS_B, scheduleIndex: 2, status: 'rejected', aiConsent: false },
+      { student: 0, session: SCHEDULE_B1, classId: CLASS_B, scheduleIndex: 2, status: 'pending', aiConsent: true },
+      { student: 1, session: SCHEDULE_B1, classId: CLASS_B, scheduleIndex: 2, status: 'approved', aiConsent: false },
+      { student: 2, session: SCHEDULE_B1, classId: CLASS_B, scheduleIndex: 2, status: 'rejected', aiConsent: false },
       { student: 6, session: SCHEDULE_A2, classId: CLASS_A, scheduleIndex: 1, status: 'pending', aiConsent: false },
       { student: 7, session: SCHEDULE_A2, classId: CLASS_A, scheduleIndex: 1, status: 'approved', aiConsent: true },
       { student: 8, session: SCHEDULE_A2, classId: CLASS_A, scheduleIndex: 1, status: 'rejected', aiConsent: true },
@@ -408,11 +443,11 @@ try {
     for (const item of additionalPermissions) {
       const decided = item.status !== 'pending';
       const created = at('2026-11-15T18:30:00+07:00');
-      permissionWrites.push(setDoc(doc(db, 'permissions', `${item.session}_${studentIds[item.student]}`), {
+      permissionWrites.push(setDemoDoc(doc(db, 'permissions', `${item.session}_${studentIds[item.student]}`), {
         sessionId: item.session,
         classId: item.classId,
         userId: studentIds[item.student],
-        reason: item.student === 3 ? 'Demam dan perlu beristirahat.' : 'Keperluan keluarga yang perlu ditangani.',
+        reason: item.session === SCHEDULE_B1 && item.student === 0 ? 'Demam dan perlu beristirahat.' : 'Keperluan keluarga yang perlu ditangani.',
         ...permissionFields(item.student, item.scheduleIndex),
         className: item.classId === CLASS_B ? 'Informatika B' : 'Informatika A',
         aiConsent: item.aiConsent,
@@ -427,11 +462,19 @@ try {
     }
     await Promise.all(permissionWrites);
 
+    const storedRoster = (await getDoc(doc(db, 'classes', CLASS_A))).data()?.studentIds ?? [];
+    const activePractitioners = classAStudents.filter((uid) => storedRoster.includes(uid)).length;
+    if (activePractitioners < classAStudents.length) {
+      console.warn('Roster yang sudah ada dipertahankan. Gunakan basis uji kosong untuk demo 11 Praktikan aktif.');
+    }
+
     console.log('Seed praktikum selesai:', {
       classIds: classes.map((item) => item.id),
       scheduleIds: schedules.map((item) => item.id),
       sessionIds: sessions.map((item) => item.id),
       labLocationIds: labLocations.map((item) => item.id),
+      activePractitioners,
+      lateJoinAccounts: studentEmails.slice(11),
     });
   });
 } finally {
