@@ -15,6 +15,7 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
   const [logoutError, setLogoutError] = useState('');
   const [confirmContinuation, setConfirmContinuation] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [reapplying, setReapplying] = useState(false);
   const waiting =
     (auth.provisioning && !!auth.account) ||
     auth.status === 'loading' ||
@@ -58,7 +59,15 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
     );
   if (auth.profile && isRestrictedRole(auth.profile.role)) {
     const reason = auth.profile.rejectionReason;
-    const canContinue = auth.profile.role === 'asprak_ditolak' && reason === 'no_practitioner_account';
+    const canContinue = auth.profile.role === 'asprak_ditolak' && reason === 'no_practitioner_account' && !auth.profile.reapplied;
+    const canReapply = auth.profile.role === 'asprak_dicabut' || (auth.profile.role === 'asprak_ditolak' && auth.profile.reapplied);
+    async function reapply() {
+      setReapplying(true);
+      setLogoutError('');
+      try { await auth.reapplyAsAssistant(); }
+      catch (error) { setLogoutError(authErrorMessage(error)); }
+      finally { setReapplying(false); }
+    }
     async function continueAccount() {
       setConfirmContinuation(false);
       setConverting(true);
@@ -76,13 +85,20 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
         <Text accessibilityRole="header" style={styles.message}>{applicationStatusLabels[auth.profile.role]}</Text>
         <Text style={styles.message}>
           {auth.profile.role === 'calon_asprak'
-            ? 'Aslab akan mencocokkan nama dan NIM dengan akun praktikan kamu sebelum menyetujui.'
+            ? 'Aslab akan meninjau identitas dan menentukan penugasan sebelum mengaktifkan akses Asprak.'
             : reason ? rejectionReasonLabels[reason] : 'Hubungi Aslab jika kamu perlu meninjau status akun asprak kamu.'}
         </Text>
         {auth.fromCache && (
           <Text style={styles.message}>Status tersimpan di perangkat. Sambungkan internet untuk mengecek keputusan terbaru.</Text>
         )}
-        <ActionButton secondary title="Perbarui status" disabled={converting} onPress={auth.retry} />
+        {canReapply && (
+          <>
+            <Text style={styles.message}>{auth.profile.name} · {auth.profile.number}{'\n'}{auth.account?.email}</Text>
+            <ActionButton title={reapplying ? 'Mengirim…' : 'Ajukan kembali sebagai Asprak'}
+              disabled={reapplying || auth.fromCache} onPress={() => void reapply()} />
+          </>
+        )}
+        <ActionButton secondary title="Perbarui status" disabled={converting || reapplying} onPress={auth.retry} />
         {canContinue && (
           <>
             <ActionButton title={converting ? 'Memproses…' : 'Lanjut sebagai Praktikan'}
@@ -97,7 +113,7 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
             />
           </>
         )}
-        <ActionButton secondary title="Keluar" disabled={converting} onPress={() => {
+        <ActionButton secondary title="Keluar" disabled={converting || reapplying} onPress={() => {
           void auth.logout().catch((error) => setLogoutError(authErrorMessage(error)));
         }} />
         {!!logoutError && <Text accessibilityRole="alert">{logoutError}</Text>}

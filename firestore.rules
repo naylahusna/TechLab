@@ -37,14 +37,16 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'name', 'number', 'role', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['uid', 'name', 'number', 'role', 'createdAt', 'updatedAt', 'practitionerUid', 'rejectionReason'])
+        && data.keys().hasOnly(['uid', 'name', 'number', 'role', 'createdAt', 'updatedAt', 'practitionerUid', 'rejectionReason', 'reappliedAt'])
         && data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128
         && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
         && data.name == data.name.trim()
         && data.number is string && data.number.size() > 0 && data.number.size() <= 32
         && data.number.matches('^[A-Za-z0-9.-]+$')
         && data.role in ['praktikan', 'asisten', 'admin', 'calon_asprak', 'asprak_ditolak', 'asprak_dicabut']
-        && (!('practitionerUid' in data) || (data.role in ['asisten', 'asprak_dicabut']
+        && (!('reappliedAt' in data) || data.reappliedAt is timestamp)
+        && (!('practitionerUid' in data) || ((data.role in ['asisten', 'asprak_dicabut']
+          || (data.role in ['calon_asprak', 'asprak_ditolak'] && 'reappliedAt' in data))
           && data.practitionerUid is string && data.practitionerUid.size() <= 128
           && data.practitionerUid.matches('^[^/]+$') && data.practitionerUid != data.uid))
         && validRejectionReason(data)
@@ -171,27 +173,24 @@ service cloud.firestore {
 
     function validAsprakTransition(uid) {
       return isAdmin() && request.auth.uid != uid && request.resource.data.updatedAt == request.time
-        && ((resource.data.role == 'calon_asprak' && request.resource.data.role in ['asisten', 'asprak_ditolak'])
-          || (resource.data.role == 'asisten' && request.resource.data.role == 'asprak_dicabut')
-          || (resource.data.role == 'asprak_ditolak' && request.resource.data.role == 'asprak_ditolak'
-            && !('rejectionReason' in resource.data)
+        && request.resource.data.role == 'asprak_ditolak'
+        && (resource.data.role == 'calon_asprak'
+          || (resource.data.role == 'asprak_ditolak' && !('rejectionReason' in resource.data)
             && request.resource.data.get('rejectionReason', '') == 'no_practitioner_account'));
     }
 
-    function matchesOriginalPractitioner(data) {
-      let practitioner = get(/databases/$(database)/documents/users/$(data.practitionerUid)).data;
-      return practitioner.uid == data.practitionerUid && practitioner.role == 'praktikan'
-        && practitioner.name == data.name && practitioner.number == data.number;
+    function validAsprakProfileUpdate(uid) {
+      return validAsprakTransition(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'updatedAt', 'rejectionReason']);
     }
 
-    function validAsprakProfileUpdate(uid) {
-      let fields = request.resource.data.diff(resource.data).affectedKeys();
-      return validAsprakTransition(uid)
-        && (request.resource.data.role == 'asisten'
-          ? (fields.hasOnly(['role', 'updatedAt', 'practitionerUid', 'rejectionReason'])
-            && fields.hasAll(['practitionerUid'])
-            && matchesOriginalPractitioner(request.resource.data))
-          : fields.hasOnly(['role', 'updatedAt', 'rejectionReason']));
+    function validAsprakReapplication() {
+      return (resource.data.role == 'asprak_dicabut'
+          || (resource.data.role == 'asprak_ditolak' && 'reappliedAt' in resource.data))
+        && request.resource.data.role == 'calon_asprak'
+        && request.resource.data.reappliedAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'reappliedAt', 'updatedAt', 'rejectionReason']);
     }
 
     function matchesDirectoryProfile(data, uid, profile) {
@@ -210,6 +209,7 @@ service cloud.firestore {
       allow create: if isOwner(userId) && uidUnchanged(userId)
         && isValidUser(request.resource.data)
         && request.resource.data.role in ['praktikan', 'calon_asprak']
+        && !request.resource.data.keys().hasAny(['practitionerUid', 'reappliedAt'])
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
       allow update: if isOwner(userId) && isActiveAccount() && uidNotModified()
@@ -228,6 +228,7 @@ service cloud.firestore {
       allow update: if isOwner(userId) && uidUnchanged(userId)
         && isValidUser(request.resource.data)
         && resource.data.role == 'asprak_ditolak'
+        && !('reappliedAt' in resource.data)
         && resource.data.get('rejectionReason', '') == 'no_practitioner_account'
         && request.resource.data.role == 'praktikan'
         && request.resource.data.updatedAt == request.time
@@ -237,7 +238,19 @@ service cloud.firestore {
           userId,
           request.resource.data
         );
+      allow update: if isOwner(userId) && uidUnchanged(userId)
+        && isValidUser(request.resource.data) && validAsprakReapplication()
+        && matchesDirectoryProfile(
+          getAfter(/databases/$(database)/documents/userDirectory/$(userId)).data,
+          userId,
+          request.resource.data
+        );
       allow delete: if false;
+    }
+
+    // Approval, revocation, and assignment audit are written atomically by the Asprak API.
+    match /asprakAssignmentHistory/{operationId} {
+      allow read, write: if false;
     }
 
     match /classes/{classId} {
@@ -246,6 +259,7 @@ service cloud.firestore {
         || hasCourseScope(resource.data.courseName);
       allow create: if hasCourseScope(request.resource.data.courseName) && isValidClass(request.resource.data)
         && request.resource.data.studentIds.size() == 0
+        && request.resource.data.assistantIds.size() == 0
         && request.resource.data.memberIds.size() == request.resource.data.assistantIds.size()
         && request.resource.data.memberIds.hasAll(request.resource.data.assistantIds)
         && request.resource.data.createdAt == request.time
@@ -256,7 +270,7 @@ service cloud.firestore {
         && request.resource.data.memberIds.toSet() ==
           request.resource.data.assistantIds.toSet().union(request.resource.data.studentIds.toSet())
         && isValidClass(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'updatedAt', 'archivedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['className', 'courseName', 'studentIds', 'memberIds', 'updatedAt', 'archivedAt'])
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }

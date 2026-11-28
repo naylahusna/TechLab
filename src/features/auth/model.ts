@@ -4,7 +4,7 @@ export type RegistrationRole = 'praktikan' | 'calon_asprak';
 
 export type ProfileFields = { name: string; number: string };
 export type RejectionReason = 'no_practitioner_account' | 'other';
-export type UserProfile = ProfileFields & { uid: string; role: Role; rejectionReason?: RejectionReason };
+export type UserProfile = ProfileFields & { uid: string; role: Role; rejectionReason?: RejectionReason; reapplied?: boolean };
 
 export const rejectionReasonLabels: Record<RejectionReason, string> = {
   no_practitioner_account: 'Belum ada akun Praktikan dengan nama dan NIM yang cocok.',
@@ -21,10 +21,15 @@ export function validateProfile(fields: ProfileFields) {
   return { name, number };
 }
 
-export function validateCredentials(email: string, password: string, registering = false) {
+export function normalizeLoginEmail(email: string) {
   const normalized = email.trim().toLowerCase();
   if (normalized.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized))
     throw new Error('Masukkan alamat email yang valid.');
+  return normalized;
+}
+
+export function validateCredentials(email: string, password: string, registering = false) {
+  const normalized = normalizeLoginEmail(email);
   if (!password || (registering && password.length < 6))
     throw new Error('Password harus terdiri dari minimal 6 karakter.');
   return normalized;
@@ -45,6 +50,7 @@ export function parseProfile(uid: string, data: Record<string, unknown>): UserPr
   return {
     uid, role: data.role, ...validateProfile({ name: data.name, number: data.number }),
     ...(rejectionReason ? { rejectionReason } : {}),
+    ...(data.reappliedAt != null ? { reapplied: true } : {}),
   };
 }
 
