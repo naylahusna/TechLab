@@ -144,7 +144,7 @@ service cloud.firestore {
         && data.keys().hasOnly(['scheduleId', 'classId', 'studentIds', 'startAt', 'endAt', 'status', 'openedAt', 'closedAt', 'cancelledAt', 'openedBy', 'closedBy', 'cancelledBy', 'createdBy', 'createdAt', 'updatedAt'])
         && data.scheduleId is string && data.scheduleId.size() >= 1 && data.scheduleId.size() <= 64
         && data.classId is string && data.classId.size() >= 1 && data.classId.size() <= 64
-        && data.studentIds is list && data.studentIds.size() <= 200
+        && data.studentIds is list && data.studentIds.size() <= (data.status == 'closed' ? 400 : 200)
         && data.startAt is timestamp && data.endAt is timestamp && data.startAt < data.endAt
         && data.status in ['scheduled', 'open', 'closed', 'cancelled']
         && (data.openedAt == null || data.openedAt is timestamp)
@@ -355,7 +355,9 @@ service cloud.firestore {
     function isSessionStatusTransition() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'studentIds', 'openedAt', 'closedAt', 'cancelledAt', 'openedBy', 'closedBy', 'cancelledBy', 'updatedAt'])
         && (request.resource.data.studentIds == resource.data.studentIds
-          || request.resource.data.studentIds == get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.studentIds)
+          || request.resource.data.studentIds == get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.studentIds
+          || (request.resource.data.status == 'closed' && request.resource.data.studentIds.toSet() ==
+            resource.data.studentIds.toSet().union(get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.studentIds.toSet())))
         && ((resource.data.status == 'scheduled' && request.resource.data.status in ['open', 'cancelled'])
           || (resource.data.status == 'open' && request.resource.data.status in ['closed', 'cancelled']))
         && (request.resource.data.status != 'open' || (request.resource.data.openedAt == request.time && request.resource.data.openedBy == request.auth.uid))
@@ -620,7 +622,8 @@ service cloud.firestore {
       let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       let schedule = get(/databases/$(database)/documents/schedules/$(s.scheduleId)).data;
       return s.classId == d.classId && s.status in ['scheduled', 'open', 'closed']
-        && request.auth.uid in s.studentIds && request.auth.uid in c.studentIds && c.archivedAt == null
+        && (s.status != 'closed' || request.auth.uid in s.studentIds)
+        && request.auth.uid in c.studentIds && c.archivedAt == null
         && get(/databases/$(database)/documents/participants/$(d.classId + '_' + request.auth.uid)).data.leftAt == null
         && !exists(/databases/$(database)/documents/attendances/$(d.sessionId + '_' + request.auth.uid))
         && d.studentName == p.name && d.studentNumber == p.number
