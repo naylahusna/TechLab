@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { watchLabLocations } from '../../assistant/lab-locations';
+import { resolveCourseLabs } from '../../assistant/lab-location-policy';
+import { type CourseLabSettings, type LabLocation, watchCourseLabSettings, watchLabLocations } from '../../assistant/lab-locations';
 
 import { ActionButton } from '../../../components/ActionButton';
 import { Text } from '../../../components/Text';
@@ -39,7 +40,9 @@ export function ScheduleFormScreen({
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
-  const [labOptions, setLabOptions] = useState<string[]>([]);
+  const [originalLocation, setOriginalLocation] = useState('');
+  const [originalLabId, setOriginalLabId] = useState<string>();
+  const [labOptions, setLabOptions] = useState<LabLocation[]>([]);
   const [labLoadError, setLabLoadError] = useState('');
   const [now, setNow] = useState(() => new Date());
   const [loading, setLoading] = useState(mode === 'edit');
@@ -55,13 +58,36 @@ export function ScheduleFormScreen({
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => watchLabLocations(
-    (items) => {
-      setLabOptions(items.map((item) => item.name));
-      setLabLoadError('');
-    },
-    () => setLabLoadError('Lokasi lab gagal dimuat. Periksa koneksi lalu coba lagi.'),
-  ), []);
+  useEffect(() => {
+    let active = true;
+    let stopLabs: (() => void) | undefined;
+    let stopSettings: (() => void) | undefined;
+    let failed = false;
+    const fail = () => {
+      if (!active) return;
+      failed = true;
+      setLabOptions([]);
+      setLabLoadError('Lokasi lab gagal dimuat. Periksa koneksi lalu coba lagi.');
+    };
+    void getPracticumRepository().getClass(classId).then((course) => {
+      if (!active) return;
+      if (!course) return fail();
+      let items: LabLocation[] | undefined;
+      let settings: CourseLabSettings | null | undefined;
+      const refresh = () => {
+        if (!active || failed || !items || settings === undefined) return;
+        setLabOptions(resolveCourseLabs(items, course.courseName, settings?.labIds));
+        setLabLoadError('');
+      };
+      stopSettings = watchCourseLabSettings(course.courseName, (value) => { settings = value; refresh(); }, fail);
+      stopLabs = watchLabLocations((value) => { items = value; refresh(); }, fail);
+    }).catch(fail);
+    return () => {
+      active = false;
+      stopLabs?.();
+      stopSettings?.();
+    };
+  }, [classId]);
 
   const minSelectableDate = getMinScheduleDate(now);
   const availableStartTimes = getAvailableStartTimes(date, now);
@@ -105,6 +131,8 @@ export function ScheduleFormScreen({
         setStartTime(formatTimeInput(item.startAt));
         setEndTime(formatTimeInput(item.endAt));
         setLocation(item.location);
+        setOriginalLocation(item.location);
+        setOriginalLabId(item.labId);
       })
       .catch((cause) => {
         if (!active) return;
@@ -133,6 +161,14 @@ export function ScheduleFormScreen({
 
   async function submit() {
     if (submitting) return;
+    const preservingLocation = mode === 'edit' && location && location === originalLocation;
+    const selectedLab = preservingLocation && originalLabId
+      ? labOptions.find((lab) => lab.id === originalLabId)
+      : labOptions.find((lab) => lab.name === location);
+    if (!selectedLab && !preservingLocation) {
+      setError('Pilih lab aktif untuk mata kuliah ini.');
+      return;
+    }
     const startAt = parseDateTime(date, startTime);
     const endAt = parseDateTime(date, endTime);
     if (!startAt || !endAt) {
@@ -148,6 +184,7 @@ export function ScheduleFormScreen({
         startAt,
         endAt,
         location,
+        labId: selectedLab?.id ?? (preservingLocation ? originalLabId : undefined),
       });
       validateScheduleNotInPast(clean.startAt, new Date());
       if (mode === 'create') {
@@ -236,7 +273,7 @@ export function ScheduleFormScreen({
             <OptionPickerField
               label="Lokasi"
               value={location}
-              options={labOptions}
+              options={labOptions.map((lab) => lab.name)}
               placeholder="Pilih lab"
               onChange={setLocation}
               disabled={submitting}

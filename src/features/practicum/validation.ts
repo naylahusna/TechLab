@@ -42,6 +42,8 @@ export function validateScheduleInput(input: PracticumScheduleInput) {
   const classId = input.classId.trim();
   const title = input.title.trim();
   const location = input.location.trim();
+  const labId = input.labId?.trim();
+  if (input.labId !== undefined && (!labId || !ID_PATTERN.test(labId))) throw new Error('ID lab tidak valid.');
   if (!ID_PATTERN.test(classId)) throw new Error('ID kelas tidak valid.');
   if (title.length < 1 || title.length > 120)
     throw new Error('Judul jadwal harus terdiri dari 1–120 karakter.');
@@ -53,7 +55,7 @@ export function validateScheduleInput(input: PracticumScheduleInput) {
     throw new Error('Waktu selesai tidak valid.');
   if (input.startAt.getTime() >= input.endAt.getTime())
     throw new Error('Waktu selesai harus setelah waktu mulai.');
-  return { classId, title, startAt: input.startAt, endAt: input.endAt, location };
+  return { classId, title, startAt: input.startAt, endAt: input.endAt, location, ...(labId ? { labId } : {}) };
 }
 
 export type SessionOpenWindowResult =

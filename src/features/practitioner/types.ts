@@ -19,6 +19,7 @@ export type SessionListItem = {
   meetingLabel: string;
   className: string;
   lab: string;
+  labId?: string;
   dateLabel: string;
   timeRangeLabel: string;
   startsAt?: string;

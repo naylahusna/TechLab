@@ -15,6 +15,7 @@ import { colors, fontWeights, radius, spacing, typography } from '../theme';
 import type { AttendanceActionResult, AttendanceLocationInput, PraktikanIdentity, SessionDetail } from '../types';
 import { validateAttendanceLocation } from '../lib/location-validation';
 import { useDeviceLocation } from '../lib/device-location';
+import { selectLabForCourse } from '../../assistant/lab-location-policy';
 import { watchLabLocations, type LabLocation } from '../../assistant/lab-locations';
 
 type AttendanceScreenProps = {
@@ -66,10 +67,7 @@ export function AttendanceScreen({
     session.endsAt,
     now,
   );
-  const normalizeLabName = (value: string) => value.trim().toLowerCase();
-  const labLocation = labLocations.find(
-    (item) => normalizeLabName(item.name) === normalizeLabName(session.lab),
-  ) ?? null;
+  const labLocation = selectLabForCourse(labLocations, session.practicalName, session.lab, session.labId) ?? null;
   const locationValidation = validateAttendanceLocation(
     location.state.coordinates,
     labLocation,
