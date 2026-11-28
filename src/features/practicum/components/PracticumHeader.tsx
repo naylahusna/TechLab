@@ -1,7 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { HeaderBack } from '../../../components/HeaderBack';
 import { Text } from '../../../components/Text';
 import { colors, fontWeights, lineHeights, spacing, typography } from '../theme';
 
@@ -20,14 +21,7 @@ export function PracticumHeader({ title, subtitle, eyebrow, onBack }: PracticumH
       <StatusBar style="light" />
       <View pointerEvents="none" style={styles.orb} />
       <View pointerEvents="none" style={styles.ring} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Kembali"
-        onPress={onBack}
-        style={({ pressed }) => [styles.back, pressed && styles.pressed]}
-      >
-        <Text style={styles.backLabel}>← Kembali</Text>
-      </Pressable>
+      <HeaderBack onPress={onBack} />
       {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
       <Text accessibilityRole="header" style={styles.title}>
         {title}
@@ -46,18 +40,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 28,
     overflow: 'hidden',
     gap: spacing.xs,
-  },
-  back: {
-    alignSelf: 'flex-start',
-    paddingVertical: spacing.xs,
-    paddingRight: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  pressed: { opacity: 0.7 },
-  backLabel: {
-    color: colors.white,
-    fontSize: typography.body,
-    fontWeight: fontWeights.semibold,
   },
   eyebrow: {
     color: colors.successSoft,

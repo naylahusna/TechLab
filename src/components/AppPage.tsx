@@ -6,24 +6,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { roleLabels } from '../core/roles';
 import { useRole } from '../core/role-context';
-import { colors } from '../theme/tokens';
+import { HeaderBack } from './HeaderBack';
+import { colors, spacing } from '../theme/tokens';
 import { Text } from './Text';
 
 export function AppPage({
   title,
   subtitle,
   children,
+  onBack,
 }: {
   title: string;
   subtitle: string;
   children: ReactNode;
+  onBack?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const { currentUser } = useRole();
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + spacing.lg }]}>
         <View style={[styles.hero, { paddingTop: insets.top + 22 }]}>
           <View
             pointerEvents="none"
@@ -42,6 +45,7 @@ export function AppPage({
             </View>
           </View>
           <View style={styles.headerInner}>
+            {onBack && <HeaderBack onPress={onBack} />}
             <View style={styles.topRow}>
               <View style={styles.brandRow}>
                 <Text style={styles.brand}>

@@ -68,7 +68,7 @@ export function createPermissionRepository(db: Firestore) {
           !classItem.exists() ||
           !member.exists() ||
           member.data().leftAt !== null ||
-          !s.studentIds.includes(actor.uid) ||
+          (s.status === 'closed' && !s.studentIds.includes(actor.uid)) ||
           !classItem.data().studentIds.includes(actor.uid)
         )
           throw new Error('Kamu bukan peserta aktif pada sesi ini.');

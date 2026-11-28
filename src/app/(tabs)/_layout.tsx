@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabIcon } from '../../components/TabIcon';
 import { navigationFor } from '../../core/navigation';
 import { useRole } from '../../core/role-context';
-import { colors, typography } from '../../theme/tokens';
+import { colors, radius, spacing, typography } from '../../theme/tokens';
 
 export const unstable_settings = { anchor: 'jadwal' };
 
@@ -34,12 +34,12 @@ export default function TabsLayout() {
         },
         tabBarStyle: {
           height: 76 + insets.bottom,
-          paddingBottom: Math.max(insets.bottom, 8),
-          paddingTop: 8,
+          paddingBottom: Math.max(insets.bottom, spacing.sm),
+          paddingTop: spacing.sm,
           backgroundColor: colors.white,
           borderTopColor: colors.line,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
+          borderTopLeftRadius: radius.xl,
+          borderTopRightRadius: radius.xl,
         },
         sceneStyle: { backgroundColor: colors.background },
       }}

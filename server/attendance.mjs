@@ -7,6 +7,7 @@ import express from 'express';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createAttendanceRouter, attendanceErrorHandler } from './attendance-api.mjs';
+import { createAsprakAssignmentRouter } from './asprak-assignments.mjs';
 
 export function createAttendanceApp({ db, auth, fieldValue = FieldValue, timestamp = Timestamp, publicAppUrl, allowedOrigins, qrGenerator }) {
   const app = express();
@@ -19,6 +20,7 @@ export function createAttendanceApp({ db, auth, fieldValue = FieldValue, timesta
   app.use(express.json({ limit: '16kb' }));
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
   app.use('/api/attendance', createAttendanceRouter({ db, auth, FieldValue: fieldValue, Timestamp: timestamp, publicAppUrl, qrGenerator }));
+  app.use('/api/asprak-assignments', createAsprakAssignmentRouter({ db, auth, FieldValue: fieldValue }));
   app.use(attendanceErrorHandler);
   return app;
 }

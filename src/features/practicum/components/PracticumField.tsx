@@ -1,5 +1,6 @@
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
+import { controls } from '../../../theme/tokens';
 import { Text } from '../../../components/Text';
 import { colors, fontWeights, radius, spacing, typography } from '../theme';
 
@@ -52,7 +53,7 @@ const styles = StyleSheet.create({
     fontWeight: fontWeights.bold,
   },
   input: {
-    minHeight: 50,
+    minHeight: controls.fieldHeight,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,

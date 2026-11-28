@@ -1,9 +1,11 @@
+import { courseLabKey } from '../assistant/lab-location-policy';
 import { getAuth } from 'firebase/auth';
 import {
   collection,
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   limit,
   onSnapshot,
   orderBy,
@@ -130,6 +132,8 @@ function toClass(snapshot: DocumentSnapshot<DocumentData>): PracticumClass {
     id: snapshot.id,
     className: asString(data.className),
     courseName: asString(data.courseName),
+    ...(typeof data.courseId === 'string' ? { courseId: data.courseId } : {}),
+    ...(typeof data.labId === 'string' ? { labId: data.labId } : {}),
     assistantIds: asStringList(data.assistantIds),
     studentIds: asStringList(data.studentIds),
     memberIds: asStringList(data.memberIds),
@@ -551,6 +555,10 @@ export function createPracticumRepository(db: Firestore) {
         patch.openedBy = actorId;
       }
       if (next === 'closed') {
+        const classSnapshot = await transaction.get(doc(classes, session.classId));
+        if (classSnapshot.exists()) {
+          patch.studentIds = [...new Set([...session.studentIds, ...toClass(classSnapshot).studentIds])];
+        }
         patch.closedAt = serverTimestamp();
         patch.closedBy = actorId;
       }
@@ -621,6 +629,20 @@ export function createPracticumRepository(db: Firestore) {
       });
     },
 
+    async setRosterLab(classId: string, labId: string): Promise<void> {
+      if (!/^[A-Za-z0-9_-]{1,64}$/.test(labId)) throw new PracticumError('INVALID_INPUT', 'ID lab tidak valid.');
+      const ref = doc(classes, classId);
+      await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(ref);
+        if (!snapshot.exists()) throw new PracticumError('NOT_FOUND', 'Kelas tidak ditemukan.');
+        const current = toClass(snapshot);
+        if (current.archivedAt || (current.labId && current.labId !== labId)) {
+          throw new PracticumError('INVALID_INPUT', 'Lab roster kelas ini sudah ditetapkan atau kelas telah diarsipkan.');
+        }
+        transaction.update(ref, { labId, courseId: courseLabKey(current.courseName), updatedAt: serverTimestamp() });
+      });
+    },
+
     async archiveClass(classId: string): Promise<void> {
       await updateDoc(doc(classes, classId), {
         archivedAt: serverTimestamp(),
@@ -676,7 +698,19 @@ export function createPracticumRepository(db: Firestore) {
       return Array.from(merged.values()).sort((left, right) => left.name.localeCompare(right.name));
     },
 
-    async addParticipant(input: PracticumParticipantInput): Promise<string> {
+    async resolvePractitionerByNumber(number: string): Promise<PracticumDirectoryUser> {
+      const matches = await getDocsFromServer(query(userDirectory,
+        where('number', '==', number), where('role', '==', 'praktikan'), limit(2)));
+      if (matches.size > 1) throw new PracticumError('INVALID_INPUT', 'NIM cocok dengan lebih dari satu akun Praktikan.');
+      if (matches.empty) {
+        const existing = await getDocsFromServer(query(userDirectory, where('number', '==', number), limit(1)));
+        throw new PracticumError('NOT_FOUND', existing.empty ? 'NIM tidak ditemukan. Periksa atau minta Praktikan mendaftar.'
+          : 'Akun dengan NIM tersebut tidak berperan Praktikan.');
+      }
+      return toDirectoryUser(matches.docs[0]);
+    },
+
+    async addParticipant(input: PracticumParticipantInput, allowExisting = false): Promise<string> {
       const clean = validateParticipantInput(input);
       const addedId = await runTransaction(db, async (transaction) => {
         const classRef = doc(classes, clean.classId);
@@ -691,13 +725,15 @@ export function createPracticumRepository(db: Firestore) {
         const existing = await transaction.get(ref);
         if (existing.exists()) {
           const participant = toParticipant(existing);
-          if (!participant.leftAt)
-            throw new PracticumError('DUPLICATE', 'Peserta sudah terdaftar pada kelas ini.');
-          transaction.update(ref, {
-            leftAt: null,
-            studentName: clean.studentName,
-            studentNumber: clean.studentNumber,
-          });
+          if (!participant.leftAt) {
+            if (!allowExisting) throw new PracticumError('DUPLICATE', 'Peserta sudah terdaftar pada kelas ini.');
+          } else {
+            transaction.update(ref, {
+              leftAt: null,
+              studentName: clean.studentName,
+              studentNumber: clean.studentNumber,
+            });
+          }
         } else {
           transaction.set(ref, {
             classId: clean.classId,
@@ -720,6 +756,50 @@ export function createPracticumRepository(db: Firestore) {
       });
       await syncActiveSessionStudents(clean.classId);
       return addedId;
+    },
+
+    async moveParticipant(fromId: string, toId: string, uid: string): Promise<void> {
+      if (fromId === toId) throw new PracticumError('INVALID_INPUT', 'Pilih kelas tujuan yang berbeda.');
+      await runTransaction(db, async (transaction) => {
+        const sourceClass = doc(classes, fromId);
+        const targetClass = doc(classes, toId);
+        const source = doc(participants, participantId(fromId, uid));
+        const target = doc(participants, participantId(toId, uid));
+        const [fromSnapshot, toSnapshot, oldMembership, newMembership, directoryUser] = await Promise.all([
+          transaction.get(sourceClass), transaction.get(targetClass), transaction.get(source),
+          transaction.get(target), transaction.get(doc(userDirectory, uid)),
+        ]);
+        if (!fromSnapshot.exists() || !toSnapshot.exists()) throw new PracticumError('NOT_FOUND', 'Kelas asal atau tujuan tidak ditemukan.');
+        const from = toClass(fromSnapshot);
+        const to = toClass(toSnapshot);
+        const old = oldMembership.data();
+        const existing = newMembership.data();
+        const person = directoryUser.data();
+        if (!from.labId || !to.labId || from.labId === to.labId || from.courseId !== to.courseId
+          || from.archivedAt || to.archivedAt) {
+          throw new PracticumError('INVALID_INPUT', 'Pilih dua lab aktif dalam mata kuliah yang sama.');
+        }
+        if (old?.leftAt != null && !from.studentIds.includes(uid) && existing?.leftAt === null && to.studentIds.includes(uid)) return;
+        if (!old || old.leftAt != null || !from.studentIds.includes(uid) || person?.role !== 'praktikan') {
+          throw new PracticumError('NOT_FOUND', 'Keanggotaan Praktikan di lab asal sudah berubah.');
+        }
+        if (existing?.leftAt === null || to.studentIds.includes(uid)) {
+          throw new PracticumError('DUPLICATE', 'Praktikan sudah aktif di lab tujuan.');
+        }
+        const now = serverTimestamp();
+        transaction.update(source, { leftAt: now });
+        const identity = { studentName: person.name, studentNumber: person.number, leftAt: null };
+        if (existing) transaction.update(target, identity);
+        else transaction.set(target, { ...identity, classId: toId, userId: uid, joinedAt: now });
+        for (const [ref, item, students] of [
+          [sourceClass, from, from.studentIds.filter((id) => id !== uid)],
+          [targetClass, to, [...to.studentIds, uid]],
+        ] as const) {
+          transaction.update(ref, {
+            studentIds: students, memberIds: [...new Set([...item.assistantIds, ...students])], updatedAt: now,
+          });
+        }
+      });
     },
 
     async removeParticipant(classId: string, userId: string): Promise<void> {
@@ -1279,6 +1359,7 @@ export function createPracticumRepository(db: Firestore) {
       let stopAttendance: (() => void) | undefined;
       let stopPermissions: (() => void) | undefined;
       let stopOverrides: (() => void) | undefined;
+      let stopRoster: (() => void) | undefined;
       let lastClassId: string | null = null;
       const cacheStates = new Map<string, boolean>();
       const emit = () => {
@@ -1294,6 +1375,9 @@ export function createPracticumRepository(db: Firestore) {
             stopAttendance?.();
             stopPermissions?.();
             stopOverrides?.();
+            stopRoster?.();
+            stopRoster = undefined;
+            cacheStates.delete('roster');
             stopAttendance = undefined;
             stopPermissions = undefined;
             stopOverrides = undefined;
@@ -1310,6 +1394,11 @@ export function createPracticumRepository(db: Firestore) {
             stopAttendance?.();
             stopPermissions?.();
             stopOverrides?.();
+            stopRoster?.();
+            stopRoster = subscribeToDocument(doc(classes, session.classId), (fromCache) => {
+              cacheStates.set('roster', fromCache);
+              emit();
+            }, onError);
             stopAttendance = subscribeToQuery(
               query(
                 attendances,
@@ -1353,6 +1442,7 @@ export function createPracticumRepository(db: Firestore) {
         stopAttendance?.();
         stopPermissions?.();
         stopOverrides?.();
+        stopRoster?.();
       };
     },
 
@@ -1361,12 +1451,18 @@ export function createPracticumRepository(db: Firestore) {
       if (!sessionSnapshot.exists())
         throw new PracticumError('NOT_FOUND', 'Sesi praktikum tidak ditemukan.');
       const session = toSession(sessionSnapshot);
-      const [participants, attendance, permissionsList, overrides] = await Promise.all([
-        participantsByIds(session.classId, session.studentIds),
+      const [activeClass, attendance, permissionsList, overrides] = await Promise.all([
+        session.status === 'scheduled' || session.status === 'open' ? getDoc(doc(classes, session.classId)) : undefined,
         listAttendanceForSession(session),
         listPermissionsForSession(session),
         getDocs(query(attendanceOverrides, where('sessionId', '==', session.id), where('classId', '==', session.classId))),
       ]);
+      const currentRoster = activeClass?.exists() ? toClass(activeClass).studentIds : session.studentIds;
+      const participantIds = [...new Set([
+        ...currentRoster, ...attendance.map((item) => item.userId),
+        ...permissionsList.map((item) => item.userId), ...overrides.docs.map((item) => toAttendanceOverride(item).userId),
+      ])];
+      const participants = await participantsByIds(session.classId, participantIds);
       const attendanceByUser = new Map(attendance.map((item) => [item.userId, item]));
       const permissionByUser = new Map(permissionsList.map((item) => [item.userId, item]));
       const overrideByUser = new Map(overrides.docs.map((snapshot) => {

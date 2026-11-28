@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { CsvImport } from '../../imports/CsvImport';
+import { watchLabLocations, watchCourseLabSettings, type CourseLabSettings, type LabLocation } from '../../assistant/lab-locations';
+import { resolveCourseLabs } from '../../assistant/lab-location-policy';
+import { practitionerCsvHeaders, parsePractitionerRow } from '../practitioner-csv';
 import { ActionButton } from '../../../components/ActionButton';
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import { Text } from '../../../components/Text';
@@ -14,12 +18,15 @@ import { SyncStatusBanner } from '../components/SyncStatusBanner';
 import { practicumErrorMessage } from '../errors';
 import { useParticipants, usePracticumClass } from '../hooks';
 import { colors, fontWeights, lineHeights, radius, spacing, typography } from '../theme';
-import type { PracticumDirectoryUser, PracticumParticipant } from '../types';
+import type { PracticumClass, PracticumDirectoryUser, PracticumParticipant } from '../types';
 
 export function ParticipantListScreen({ classId }: { classId: string }) {
   const router = useRouter();
   const classState = usePracticumClass(classId);
   const participants = useParticipants(classId);
+  const [labs, setLabs] = useState<LabLocation[]>([]);
+  const [settings, setSettings] = useState<CourseLabSettings | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
   const [term, setTerm] = useState('');
   const [results, setResults] = useState<PracticumDirectoryUser[]>([]);
   const [searching, setSearching] = useState(false);
@@ -27,7 +34,30 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
   const [pendingRemove, setPendingRemove] = useState<PracticumParticipant | null>(null);
+  const [moveDraft, setMoveDraft] = useState<{ participant: PracticumParticipant; classes: PracticumClass[] } | null>(null);
+  const [pendingMove, setPendingMove] = useState<{ participant: PracticumParticipant; target: PracticumClass } | null>(null);
   const searchSequence = useRef(0);
+
+  const courseName = classState.item?.courseName;
+  const labId = classState.item?.labId;
+  const courseLabs = courseName ? resolveCourseLabs(labs, courseName, settings?.courseName === courseName ? settings.labIds : undefined)
+    .filter((lab) => settings?.courseName === courseName || lab.legacyCourseName === courseName) : [];
+  const rosterLab = courseLabs.find((lab) => lab.id === labId);
+  useEffect(() => watchLabLocations(setLabs, (cause) => setActionError(practicumErrorMessage(cause))), []);
+  useEffect(() => {
+    if (courseName) return watchCourseLabSettings(courseName, setSettings, (cause) => setActionError(practicumErrorMessage(cause)));
+  }, [courseName]);
+
+  async function chooseRosterLab(id: string) {
+    if (busyId || importBusy) return;
+    setBusyId(id);
+    setActionError('');
+    try {
+      await getPracticumRepository().setRosterLab(classId, id);
+      await classState.reload();
+    } catch (cause) { setActionError(practicumErrorMessage(cause)); }
+    finally { setBusyId(null); }
+  }
 
   function goBack() {
     router.dismissTo(`/kelas/${classId}`);
@@ -64,7 +94,7 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
   }, [search, term]);
 
   async function add(user: PracticumDirectoryUser) {
-    if (busyId) return;
+    if (busyId || importBusy || !rosterLab) return;
     setBusyId(user.uid);
     setActionError('');
     try {
@@ -83,8 +113,34 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
     }
   }
 
+  async function prepareMove(participant: PracticumParticipant) {
+    if (busyId || importBusy || !courseName || !rosterLab) return;
+    setBusyId(participant.userId);
+    setActionError('');
+    try {
+      const available = await getPracticumRepository().listClassesForAslab([courseName]);
+      const targets = available.filter((item) => item.id !== classId && item.labId && item.labId !== labId
+        && courseLabs.some((lab) => lab.id === item.labId));
+      if (!targets.length) throw new Error('Belum ada kelas tujuan dengan lab aktif yang berbeda.');
+      setMoveDraft({ participant, classes: targets });
+    } catch (cause) { setActionError(practicumErrorMessage(cause)); }
+    finally { setBusyId(null); }
+  }
+
+  async function move() {
+    if (!pendingMove || busyId || importBusy) return;
+    setBusyId(pendingMove.participant.userId);
+    setActionError('');
+    try {
+      await getPracticumRepository().moveParticipant(classId, pendingMove.target.id, pendingMove.participant.userId);
+      setPendingMove(null);
+      await participants.reload();
+    } catch (cause) { setActionError(practicumErrorMessage(cause)); setPendingMove(null); }
+    finally { setBusyId(null); }
+  }
+
   async function remove() {
-    if (!pendingRemove || busyId) return;
+    if (!pendingRemove || busyId || importBusy) return;
     setBusyId(pendingRemove.userId);
     setActionError('');
     try {
@@ -141,7 +197,21 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Tambah Peserta</Text>
+            <Text style={styles.cardTitle}>Lab roster</Text>
+            {rosterLab ? <Text>{rosterLab.name} · {courseName}</Text> : labId ? (
+              <Text style={styles.note}>Lab roster tidak aktif pada mata kuliah ini. Periksa tautan lab.</Text>
+            ) : (
+              <>
+                <Text style={styles.note}>Tetapkan lab untuk roster kelas sebelum menambah Praktikan.</Text>
+                {courseLabs.map((lab) => <ActionButton key={lab.id} title={lab.name} secondary disabled={!!busyId}
+                  onPress={() => void chooseRosterLab(lab.id)} />)}
+                {courseLabs.length === 0 && <Text>Tautkan lab ke mata kuliah ini terlebih dahulu.</Text>}
+              </>
+            )}
+          </View>
+          {rosterLab && <>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Tambah Praktikan</Text>
             <Text style={styles.note}>
               Cari praktikan berdasarkan NIM atau nama, lalu tambahkan ke kelas.
             </Text>
@@ -180,7 +250,7 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
                     <InlineAction
                       label={busyId === user.uid ? 'Menambah…' : 'Tambah'}
                       variant="primary"
-                      disabled={busyId === user.uid}
+                      disabled={!!busyId || importBusy}
                       onPress={() => {
                         void add(user);
                       }}
@@ -194,6 +264,21 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
             ) : null}
           </View>
 
+          <View style={styles.card}>
+            <CsvImport title="Unggah Praktikan" filename="template-praktikan-techlab.csv"
+              headers={practitionerCsvHeaders} validate={parsePractitionerRow} identity={(number) => number}
+              onBusyChange={setImportBusy} check={async (number) => {
+                const user = await getPracticumRepository().resolvePractitionerByNumber(number);
+                return user.name + ' · ' + user.number;
+              }} save={async (number) => {
+                if (busyId) throw new Error('Tunggu perubahan peserta yang sedang berjalan.');
+                const repo = getPracticumRepository();
+                const user = await repo.resolvePractitionerByNumber(number);
+                await repo.addParticipant({ classId, userId: user.uid, studentName: user.name, studentNumber: user.number }, true);
+                return user.name + ' terdaftar di roster.';
+              }} />
+          </View>
+          </>}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Peserta Terdaftar</Text>
             {participants.items.length === 0 ? (
@@ -209,10 +294,12 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
                       <Text style={styles.name}>{participant.studentName}</Text>
                       <Text style={styles.meta}>{participant.studentNumber}</Text>
                     </View>
+                    {rosterLab && <InlineAction label="Pindah lab" variant="primary"
+                      disabled={!!busyId || importBusy} onPress={() => void prepareMove(participant)} />}
                     <InlineAction
                       label="Hapus"
                       variant="danger"
-                      disabled={busyId === participant.userId}
+                      disabled={!!busyId || importBusy}
                       onPress={() => setPendingRemove(participant)}
                     />
                   </View>
@@ -221,6 +308,13 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
             )}
           </View>
 
+          {moveDraft && <View style={styles.card}>
+            <Text style={styles.cardTitle}>Pilih lab tujuan · {moveDraft.participant.studentName}</Text>
+            {moveDraft.classes.map((item) => <ActionButton key={item.id}
+              title={item.className + ' · ' + (courseLabs.find((lab) => lab.id === item.labId)?.name ?? '')}
+              secondary onPress={() => { setPendingMove({ participant: moveDraft.participant, target: item }); setMoveDraft(null); }} />)}
+            <ActionButton title="Batalkan pemilihan" secondary onPress={() => setMoveDraft(null)} />
+          </View>}
           {actionError ? (
             <Text accessibilityRole="alert" style={styles.error}>
               {actionError}
@@ -229,6 +323,9 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
         </ScrollView>
       ) : null}
 
+      <ConfirmationModal visible={!!pendingMove} title="Pindahkan Praktikan?"
+        description={pendingMove ? `${pendingMove.participant.studentName} akan pindah ke ${pendingMove.target.className}. Jadwal dan catatan lama tetap tersimpan.` : ''}
+        confirmLabel="Pindahkan" busy={!!busyId} onConfirm={() => void move()} onCancel={() => setPendingMove(null)} />
       <ConfirmationModal
         visible={!!pendingRemove}
         eyebrow="KONFIRMASI PESERTA"

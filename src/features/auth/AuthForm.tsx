@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'rea
 import { SelectionLayout } from '../../components/SelectionLayout';
 import { Text } from '../../components/Text';
 import { ActionButton } from '../../components/ActionButton';
-import { colors } from '../../theme/tokens';
+import { colors, controls } from '../../theme/tokens';
 import { useAuth } from './AuthProvider';
 import { authErrorMessage, type RegistrationRole } from './model';
 
@@ -54,6 +54,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'register-aspr
   const [number, setNumber] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [completionRole, setCompletionRole] = useState<RegistrationRole>('praktikan');
   const register = mode === 'register' || mode === 'register-asprak';
   const role: RegistrationRole = mode === 'complete' ? completionRole
@@ -64,6 +65,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'register-aspr
     if (busy) return;
     setBusy(true);
     setError('');
+    setNotice('');
     try {
       if (register && password !== confirmation)
         throw new Error('Konfirmasi password tidak sesuai.');
@@ -76,6 +78,21 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'register-aspr
       setBusy(false);
     }
   }
+  async function resetPassword() {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await auth.resetPassword(email);
+      setNotice('Jika email terdaftar, tautan untuk mengatur ulang kata sandi akan dikirim.');
+    } catch (cause) {
+      setError(authErrorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <SelectionLayout
       title={
@@ -164,6 +181,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'register-aspr
               {error}
             </Text>
           )}
+          {!!notice && <Text accessibilityLiveRegion="polite" style={styles.copy}>{notice}</Text>}
           <ActionButton
             title={busy ? 'Memproses…' : complete ? 'Simpan profil' : register ? 'Daftar' : 'Masuk'}
             disabled={busy}
@@ -175,13 +193,19 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'register-aspr
             <ActionButton
               secondary
               disabled={busy}
-              title={register ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar'}
+              title={register ? 'Sudah punya akun TechLab? Masuk' : 'Belum punya akun? Daftar'}
               onPress={() => router.replace(register ? '/' : '/register')}
             />
           )}
+          {mode === 'register-asprak' && (
+            <Text style={styles.copy}>Pernah jadi Asprak? Masuk dengan akun lama untuk mengajukan kembali.</Text>
+          )}
           {mode === 'login' && (
-            <ActionButton title="Daftar sebagai Asprak" secondary disabled={busy}
-              onPress={() => router.replace('/register-asprak')} />
+            <>
+              <ActionButton title="Lupa kata sandi" secondary disabled={busy} onPress={() => void resetPassword()} />
+              <ActionButton title="Daftar sebagai Asprak" secondary disabled={busy}
+                onPress={() => router.replace('/register-asprak')} />
+            </>
           )}
           {complete && (
             <ActionButton secondary disabled={busy}
@@ -224,7 +248,7 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     borderRadius: 14,
     padding: 14,
-    minHeight: 50,
+    minHeight: controls.fieldHeight,
     fontSize: 16,
     color: colors.navy,
     backgroundColor: colors.background,

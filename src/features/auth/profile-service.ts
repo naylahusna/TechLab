@@ -9,6 +9,10 @@ export async function continueOwnAccountAsPractitioner(uid: string) {
   await createProfileRepository(getFirebaseFirestore()).continueAsPractitioner(uid);
 }
 
+export async function reapplyOwnAccountAsAssistant(uid: string) {
+  await createProfileRepository(getFirebaseFirestore()).reapplyAsAssistant(uid);
+}
+
 export async function updateOwnProfile(uid: string, fields: ProfileFields) {
   await createProfileRepository(getFirebaseFirestore()).update(uid, fields);
 }

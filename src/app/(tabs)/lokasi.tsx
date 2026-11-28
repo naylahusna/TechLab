@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../components/Text';
@@ -8,7 +9,9 @@ import {
   saveLabLocation, watchAslabCourses, watchCourseLabSettings, watchLabLocations, watchLabManagers,
 } from '../../features/assistant/lab-locations';
 import { ScreenHeader } from '../../features/practitioner/components/ScreenHeader';
-import { labHasName } from '../../features/assistant/lab-location-policy';
+import { CsvImport } from '../../features/imports/CsvImport';
+import { labCsvHeaders, parseLabRow } from '../../features/assistant/lab-csv';
+import { labHasName, normalizeLabName } from '../../features/assistant/lab-location-policy';
 import { getPracticumRepository } from '../../features/practicum/client';
 import { initialsFor } from '../../features/practicum/profile-view';
 import { colors } from '../../theme/tokens';
@@ -22,6 +25,7 @@ export default function LabLocationsRoute() {
 }
 
 function LabLocations({ uid, name: profileName }: { uid: string; name: string }) {
+  const router = useRouter();
   const [locations, setLocations] = useState<LabLocation[]>([]);
   const [courses, setCourses] = useState<string[]>([]);
   const [courseName, setCourseName] = useState('');
@@ -38,6 +42,7 @@ function LabLocations({ uid, name: profileName }: { uid: string; name: string })
   const [building, setBuilding] = useState('');
   const [floor, setFloor] = useState('');
   const [busy, setBusy] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
   const [error, setError] = useState('');
 
   const selectedCourse = courses.includes(courseName) ? courseName : courses[0] ?? '';
@@ -151,13 +156,16 @@ function LabLocations({ uid, name: profileName }: { uid: string; name: string })
         greeting={profileName}
         initials={initialsFor(profileName)}
       />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Pressable accessibilityRole="button" style={styles.secondary} onPress={() => router.push('/kelas')}>
+          <Text style={styles.secondaryText}>Kelola kelas</Text>
+        </Pressable>
         <View style={styles.card}>
           <Text style={styles.heading}>Mata kuliah</Text>
           <View style={styles.field}>
               {courses.length === 0 && <Text style={styles.muted}>Belum ada cakupan mata kuliah.</Text>}
               {courses.map((course) => (
-                <Pressable key={course} disabled={busy} onPress={() => changeCourse(course)}
+                <Pressable key={course} disabled={busy || importBusy} onPress={() => changeCourse(course)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: course === selectedCourse }}
                   style={course === selectedCourse ? styles.button : styles.secondary}>
@@ -196,6 +204,15 @@ function LabLocations({ uid, name: profileName }: { uid: string; name: string })
             )}
           </View>
         </View>
+        {selectedCourse && <View style={styles.card}>
+          <CsvImport key={selectedCourse} title={'Unggah Lab · ' + selectedCourse}
+            filename="template-lab-techlab.csv" headers={labCsvHeaders} onBusyChange={setImportBusy}
+            validate={parseLabRow} identity={(lab) => normalizeLabName(lab.name)}
+            save={async (lab) => {
+              await saveLabLocation(lab, selectedCourse, undefined, true);
+              return 'Lab tersimpan atau sudah tertaut ke mata kuliah ini.';
+            }} />
+        </View>}
         {locations.map((item) => {
           const linked = activeSettings ? activeSettings.labIds.includes(item.id) : item.legacyCourseName === selectedCourse;
           const canManage = courses.includes(managers[item.id] || item.legacyCourseName);

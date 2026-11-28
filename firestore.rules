@@ -37,14 +37,16 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'name', 'number', 'role', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['uid', 'name', 'number', 'role', 'createdAt', 'updatedAt', 'practitionerUid', 'rejectionReason'])
+        && data.keys().hasOnly(['uid', 'name', 'number', 'role', 'createdAt', 'updatedAt', 'practitionerUid', 'rejectionReason', 'reappliedAt'])
         && data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128
         && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
         && data.name == data.name.trim()
         && data.number is string && data.number.size() > 0 && data.number.size() <= 32
         && data.number.matches('^[A-Za-z0-9.-]+$')
         && data.role in ['praktikan', 'asisten', 'admin', 'calon_asprak', 'asprak_ditolak', 'asprak_dicabut']
-        && (!('practitionerUid' in data) || (data.role in ['asisten', 'asprak_dicabut']
+        && (!('reappliedAt' in data) || data.reappliedAt is timestamp)
+        && (!('practitionerUid' in data) || ((data.role in ['asisten', 'asprak_dicabut']
+          || (data.role in ['calon_asprak', 'asprak_ditolak'] && 'reappliedAt' in data))
           && data.practitionerUid is string && data.practitionerUid.size() <= 128
           && data.practitionerUid.matches('^[^/]+$') && data.practitionerUid != data.uid))
         && validRejectionReason(data)
@@ -101,9 +103,12 @@ service cloud.firestore {
 
     function isValidClass(data) {
       return data.keys().hasAll(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'createdAt', 'updatedAt', 'archivedAt'])
-        && data.keys().hasOnly(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'createdAt', 'updatedAt', 'archivedAt'])
+        && data.keys().hasOnly(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'createdAt', 'updatedAt', 'archivedAt', 'labId', 'courseId'])
         && data.className is string && data.className.size() >= 1 && data.className.size() <= 100
         && data.courseName is string && data.courseName.size() >= 1 && data.courseName.size() <= 100
+        && (('labId' in data) == ('courseId' in data))
+        && (!('labId' in data) || (data.labId is string && data.labId.matches('^[A-Za-z0-9_-]{1,64}$')
+          && data.courseId == courseLabKey(data.courseName)))
         && data.assistantIds is list && data.assistantIds.size() <= 20
         && data.studentIds is list && data.studentIds.size() <= 200
         && data.memberIds is list && data.memberIds.size() <= 220
@@ -139,7 +144,7 @@ service cloud.firestore {
         && data.keys().hasOnly(['scheduleId', 'classId', 'studentIds', 'startAt', 'endAt', 'status', 'openedAt', 'closedAt', 'cancelledAt', 'openedBy', 'closedBy', 'cancelledBy', 'createdBy', 'createdAt', 'updatedAt'])
         && data.scheduleId is string && data.scheduleId.size() >= 1 && data.scheduleId.size() <= 64
         && data.classId is string && data.classId.size() >= 1 && data.classId.size() <= 64
-        && data.studentIds is list && data.studentIds.size() <= 200
+        && data.studentIds is list && data.studentIds.size() <= (data.status == 'closed' ? 400 : 200)
         && data.startAt is timestamp && data.endAt is timestamp && data.startAt < data.endAt
         && data.status in ['scheduled', 'open', 'closed', 'cancelled']
         && (data.openedAt == null || data.openedAt is timestamp)
@@ -172,27 +177,24 @@ service cloud.firestore {
 
     function validAsprakTransition(uid) {
       return isAdmin() && request.auth.uid != uid && request.resource.data.updatedAt == request.time
-        && ((resource.data.role == 'calon_asprak' && request.resource.data.role in ['asisten', 'asprak_ditolak'])
-          || (resource.data.role == 'asisten' && request.resource.data.role == 'asprak_dicabut')
-          || (resource.data.role == 'asprak_ditolak' && request.resource.data.role == 'asprak_ditolak'
-            && !('rejectionReason' in resource.data)
+        && request.resource.data.role == 'asprak_ditolak'
+        && (resource.data.role == 'calon_asprak'
+          || (resource.data.role == 'asprak_ditolak' && !('rejectionReason' in resource.data)
             && request.resource.data.get('rejectionReason', '') == 'no_practitioner_account'));
     }
 
-    function matchesOriginalPractitioner(data) {
-      let practitioner = get(/databases/$(database)/documents/users/$(data.practitionerUid)).data;
-      return practitioner.uid == data.practitionerUid && practitioner.role == 'praktikan'
-        && practitioner.name == data.name && practitioner.number == data.number;
+    function validAsprakProfileUpdate(uid) {
+      return validAsprakTransition(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'updatedAt', 'rejectionReason']);
     }
 
-    function validAsprakProfileUpdate(uid) {
-      let fields = request.resource.data.diff(resource.data).affectedKeys();
-      return validAsprakTransition(uid)
-        && (request.resource.data.role == 'asisten'
-          ? (fields.hasOnly(['role', 'updatedAt', 'practitionerUid', 'rejectionReason'])
-            && fields.hasAll(['practitionerUid'])
-            && matchesOriginalPractitioner(request.resource.data))
-          : fields.hasOnly(['role', 'updatedAt', 'rejectionReason']));
+    function validAsprakReapplication() {
+      return (resource.data.role == 'asprak_dicabut'
+          || (resource.data.role == 'asprak_ditolak' && 'reappliedAt' in resource.data))
+        && request.resource.data.role == 'calon_asprak'
+        && request.resource.data.reappliedAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'reappliedAt', 'updatedAt', 'rejectionReason']);
     }
 
     function matchesDirectoryProfile(data, uid, profile) {
@@ -211,6 +213,7 @@ service cloud.firestore {
       allow create: if isOwner(userId) && uidUnchanged(userId)
         && isValidUser(request.resource.data)
         && request.resource.data.role in ['praktikan', 'calon_asprak']
+        && !request.resource.data.keys().hasAny(['practitionerUid', 'reappliedAt'])
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
       allow update: if isOwner(userId) && isActiveAccount() && uidNotModified()
@@ -229,6 +232,7 @@ service cloud.firestore {
       allow update: if isOwner(userId) && uidUnchanged(userId)
         && isValidUser(request.resource.data)
         && resource.data.role == 'asprak_ditolak'
+        && !('reappliedAt' in resource.data)
         && resource.data.get('rejectionReason', '') == 'no_practitioner_account'
         && request.resource.data.role == 'praktikan'
         && request.resource.data.updatedAt == request.time
@@ -238,7 +242,28 @@ service cloud.firestore {
           userId,
           request.resource.data
         );
+      allow update: if isOwner(userId) && uidUnchanged(userId)
+        && isValidUser(request.resource.data) && validAsprakReapplication()
+        && matchesDirectoryProfile(
+          getAfter(/databases/$(database)/documents/userDirectory/$(userId)).data,
+          userId,
+          request.resource.data
+        );
       allow delete: if false;
+    }
+
+    function rosterLabAllowed(data) {
+      let key = courseLabKey(data.courseName);
+      let lab = get(/databases/$(database)/documents/labLocations/$(data.labId)).data;
+      let settings = /databases/$(database)/documents/courseLabSettings/$(key);
+      return lab.get('archivedAt', null) == null
+        && (exists(settings) ? data.labId in get(settings).data.labIds
+          : lab.get('courseName', '') == data.courseName);
+    }
+
+    // Approval, revocation, and assignment audit are written atomically by the Asprak API.
+    match /asprakAssignmentHistory/{operationId} {
+      allow read, write: if false;
     }
 
     match /classes/{classId} {
@@ -246,7 +271,9 @@ service cloud.firestore {
         || (isPractitioner() && request.auth.uid in resource.data.studentIds)
         || hasCourseScope(resource.data.courseName);
       allow create: if hasCourseScope(request.resource.data.courseName) && isValidClass(request.resource.data)
+        && (!('labId' in request.resource.data) || rosterLabAllowed(request.resource.data))
         && request.resource.data.studentIds.size() == 0
+        && request.resource.data.assistantIds.size() == 0
         && request.resource.data.memberIds.size() == request.resource.data.assistantIds.size()
         && request.resource.data.memberIds.hasAll(request.resource.data.assistantIds)
         && request.resource.data.createdAt == request.time
@@ -257,9 +284,17 @@ service cloud.firestore {
         && request.resource.data.memberIds.toSet() ==
           request.resource.data.assistantIds.toSet().union(request.resource.data.studentIds.toSet())
         && isValidClass(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'updatedAt', 'archivedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['className', 'courseName', 'studentIds', 'memberIds', 'updatedAt', 'archivedAt', 'labId', 'courseId'])
+        && (('labId' in resource.data)
+          ? request.resource.data.labId == resource.data.labId && request.resource.data.courseId == resource.data.courseId
+          : !('labId' in request.resource.data) || (resource.data.archivedAt == null && rosterLabAllowed(request.resource.data)))
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
+    }
+
+    function rosterAcceptsParticipants(classId) {
+      let classData = get(/databases/$(database)/documents/classes/$(classId)).data;
+      return classData.archivedAt == null && (!('labId' in classData) || rosterLabAllowed(classData));
     }
 
     match /participants/{participantId} {
@@ -270,6 +305,7 @@ service cloud.firestore {
               || canOverseeClass(participantId.split('_')[0]))));
       allow list: if canOverseeClass(resource.data.classId);
       allow create: if managesClass(request.resource.data.classId)
+        && rosterAcceptsParticipants(request.resource.data.classId)
         && isValidParticipant(request.resource.data)
         && participantId == request.resource.data.classId + '_' + request.resource.data.userId
         && request.resource.data.joinedAt == request.time
@@ -280,7 +316,8 @@ service cloud.firestore {
       allow update: if managesClass(resource.data.classId)
         && isValidParticipant(request.resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leftAt', 'studentName', 'studentNumber'])
-        && (request.resource.data.leftAt == null || request.resource.data.leftAt == request.time);
+        && ((request.resource.data.leftAt == null && rosterAcceptsParticipants(resource.data.classId))
+          || request.resource.data.leftAt == request.time);
       allow delete: if false;
     }
 
@@ -318,7 +355,9 @@ service cloud.firestore {
     function isSessionStatusTransition() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'studentIds', 'openedAt', 'closedAt', 'cancelledAt', 'openedBy', 'closedBy', 'cancelledBy', 'updatedAt'])
         && (request.resource.data.studentIds == resource.data.studentIds
-          || request.resource.data.studentIds == get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.studentIds)
+          || request.resource.data.studentIds == get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.studentIds
+          || (request.resource.data.status == 'closed' && request.resource.data.studentIds.toSet() ==
+            resource.data.studentIds.toSet().union(get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.studentIds.toSet())))
         && ((resource.data.status == 'scheduled' && request.resource.data.status in ['open', 'cancelled'])
           || (resource.data.status == 'open' && request.resource.data.status in ['closed', 'cancelled']))
         && (request.resource.data.status != 'open' || (request.resource.data.openedAt == request.time && request.resource.data.openedBy == request.auth.uid))
@@ -583,7 +622,8 @@ service cloud.firestore {
       let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       let schedule = get(/databases/$(database)/documents/schedules/$(s.scheduleId)).data;
       return s.classId == d.classId && s.status in ['scheduled', 'open', 'closed']
-        && request.auth.uid in s.studentIds && request.auth.uid in c.studentIds && c.archivedAt == null
+        && (s.status != 'closed' || request.auth.uid in s.studentIds)
+        && request.auth.uid in c.studentIds && c.archivedAt == null
         && get(/databases/$(database)/documents/participants/$(d.classId + '_' + request.auth.uid)).data.leftAt == null
         && !exists(/databases/$(database)/documents/attendances/$(d.sessionId + '_' + request.auth.uid))
         && d.studentName == p.name && d.studentNumber == p.number

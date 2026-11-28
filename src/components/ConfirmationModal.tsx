@@ -10,6 +10,7 @@ type Props = {
   description: string;
   confirmLabel: string;
   confirmDanger?: boolean;
+  busy?: boolean;
   eyebrow?: string;
   confirmTestID?: string;
   cancelTestID?: string;
@@ -23,6 +24,7 @@ export function ConfirmationModal({
   description,
   confirmLabel,
   confirmDanger = false,
+  busy = false,
   eyebrow = 'KONFIRMASI PENGGUNA',
   confirmTestID = 'confirm-switch',
   cancelTestID = 'cancel-switch',
@@ -34,7 +36,7 @@ export function ConfirmationModal({
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onCancel}
+      onRequestClose={() => { if (!busy) onCancel(); }}
       statusBarTranslucent
     >
       <View style={styles.overlay}>
@@ -45,8 +47,8 @@ export function ConfirmationModal({
               {title}
             </Text>
             <Text style={styles.description}>{description}</Text>
-            <ActionButton title={confirmLabel} danger={confirmDanger} onPress={onConfirm} testID={confirmTestID} />
-            <ActionButton title="Batal" secondary onPress={onCancel} testID={cancelTestID} />
+            <ActionButton title={confirmLabel} danger={confirmDanger} busy={busy} onPress={onConfirm} testID={confirmTestID} />
+            <ActionButton title="Batal" secondary disabled={busy} onPress={onCancel} testID={cancelTestID} />
           </ScrollView>
         </View>
       </View>
