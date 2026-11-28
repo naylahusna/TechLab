@@ -37,7 +37,7 @@ export async function listAssignmentClasses(user: UserProfile, nextRole: 'asiste
   return nextRole === 'asisten' ? classes : classes.filter((item) => item.assistantIds.includes(user.uid));
 }
 
-async function changeAssignment(user: UserProfile, nextRole: 'asisten' | 'asprak_dicabut', classId?: string) {
+async function sendAssignment(uid: string, action: 'approve' | 'revoke' | 'assign', classId?: string) {
   if (!classId) throw new Error('Pilih penugasan kelas terlebih dahulu.');
   const account = getFirebaseAuth().currentUser;
   if (!account) throw new Error('Silakan masuk kembali.');
@@ -56,7 +56,7 @@ async function changeAssignment(user: UserProfile, nextRole: 'asisten' | 'asprak
     const response = await fetch(url.toString(), {
       method: 'POST', signal: controller.signal, redirect: 'error',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: nextRole === 'asisten' ? 'approve' : 'revoke', uid: user.uid, classId }),
+      body: JSON.stringify({ action, uid, classId }),
     });
     const data = await response.json().catch(() => null);
     if (!response.ok) throw new Error(typeof data?.message === 'string' ? data.message : 'Penugasan gagal diproses.');
@@ -69,9 +69,24 @@ async function changeAssignment(user: UserProfile, nextRole: 'asisten' | 'asprak
   }
 }
 
+export async function resolveActiveAsprakByNumber(number: string) {
+  const directory = collection(getFirebaseFirestore(), 'userDirectory');
+  const matches = await getDocsFromServer(query(directory, where('number', '==', number), where('role', '==', 'asisten')));
+  if (matches.size > 1) throw new Error('NIM cocok dengan beberapa akun Asprak.');
+  if (matches.empty) {
+    const known = await getDocsFromServer(query(directory, where('number', '==', number)));
+    throw new Error(known.empty ? 'NIM tidak ditemukan.' : 'Akun Asprak aktif tidak ditemukan. Periksa status pengajuan.');
+  }
+  return parseProfile(matches.docs[0].id, matches.docs[0].data());
+}
+
+export function assignActiveAsprak(uid: string, classId: string) {
+  return sendAssignment(uid, 'assign', classId);
+}
+
 export async function changeUserRole({ user, nextRole, rejectionReason, classId }: RoleChange) {
   if (nextRole === 'asisten' || nextRole === 'asprak_dicabut') {
-    return changeAssignment(user, nextRole, classId);
+    return sendAssignment(user.uid, nextRole === 'asisten' ? 'approve' : 'revoke', classId);
   }
   const db = getFirebaseFirestore();
   const profile = doc(db, 'users', user.uid);

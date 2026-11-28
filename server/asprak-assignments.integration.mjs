@@ -38,10 +38,13 @@ test('SRS-02 revokes one or the last assignment and approves a reapplication wit
     initial.set(db.doc('users/assistant'), { ...profile, practitionerUid: 'student', createdAt: stamp, updatedAt: stamp });
     initial.set(db.doc('userDirectory/assistant'), { ...profile, updatedAt: stamp });
     initial.set(db.doc('users/student'), student);
+    initial.set(db.doc('labLocations/lab-b'), { name: 'Lab B', catalogVersion: 2 });
+    initial.set(db.doc('courseLabSettings/course-Basis Data'), { courseName: 'Basis Data', labIds: ['lab-b'] });
     for (const [id, courseName] of [['class-a', 'PPK'], ['class-b', 'Basis Data']]) {
       initial.set(db.doc(`classes/${id}`), {
         courseName, className: id, assistantIds: ['assistant'], studentIds: ['student'],
         memberIds: ['assistant', 'student'], archivedAt: null,
+        ...(id === 'class-b' ? { labId: 'lab-b', courseId: 'course-Basis Data' } : {}),
       });
       initial.set(db.doc(`sessions/${id}`), { classId: id, status: 'open' });
       initial.set(db.doc(`permissions/${id}_student`), { classId: id, userId: 'student', status: 'pending' });
@@ -96,12 +99,18 @@ test('SRS-02 revokes one or the last assignment and approves a reapplication wit
     assert.deepEqual((await db.doc('classes/class-b').get()).data().memberIds, ['student']);
     assert.equal((await db.collection('asprakAssignmentHistory').get()).size, 3);
 
-    await db.doc('classes/class-b').update({ assistantIds: ['assistant'], memberIds: ['assistant', 'student'] });
+    assert.equal((await request('admin-a', 'assign', 'class-b')).status, 403);
+    assert.deepEqual(await request('admin-b', 'assign', 'class-b'), { status: 200, data: { role: 'asisten' } });
+    assert.deepEqual(await request('admin-b', 'assign', 'class-b'), { status: 200, data: { role: 'asisten' } });
+    assert.deepEqual((await db.doc('classes/class-b').get()).data().assistantIds, ['assistant']);
+    assert.equal((await db.collection('asprakAssignmentHistory').get()).size, 4);
+    await exerciseReads(assertSucceeds, 'class-b');
     const concurrent = await Promise.all([request('admin-a', 'revoke', 'class-a'), request('admin-b', 'revoke', 'class-b')]);
     assert.deepEqual(concurrent.map((result) => result.status), [200, 200]);
     assert.equal((await db.doc('users/assistant').get()).data().role, 'asprak_dicabut');
     await exerciseReads(assertFails, 'class-a');
     await exerciseReads(assertFails, 'class-b');
+    assert.equal((await request('admin-b', 'assign', 'class-b')).status, 409);
   } finally {
     await new Promise((resolve) => server.close(resolve));
     await env.cleanup();

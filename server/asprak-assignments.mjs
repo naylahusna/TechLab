@@ -14,7 +14,7 @@ function documentId(value) {
 export async function changeAsprakAssignment({ db, FieldValue }, actorUid, { action, uid, classId }) {
   const targetUid = documentId(uid);
   const targetClassId = documentId(classId);
-  if (!['approve', 'revoke'].includes(action)) reject(400, 'invalid-argument', 'Tindakan penugasan tidak valid.');
+  if (!['approve', 'revoke', 'assign'].includes(action)) reject(400, 'invalid-argument', 'Tindakan penugasan tidak valid.');
   if (actorUid === targetUid) reject(403, 'permission-denied', 'Aslab tidak dapat mengubah penugasannya sendiri.');
 
   const profileRef = db.doc(`users/${targetUid}`);
@@ -42,6 +42,29 @@ export async function changeAsprakAssignment({ db, FieldValue }, actorUid, { act
     }
     if (action === 'approve' ? current.role !== 'calon_asprak' : current.role !== 'asisten') {
       reject(409, 'assignment-not-eligible', 'Status pengajuan atau penugasan sudah berubah.');
+    }
+    if (action === 'assign') {
+      const rosterLab = selected.labId;
+      if (typeof rosterLab !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(rosterLab)) {
+        reject(409, 'assignment-lab-required', 'Tetapkan lab roster kelas terlebih dahulu.');
+      }
+      const key = 'course-' + selected.courseName.replace(/%/g, '%25').replace(/\//g, '%2F');
+      const [lab, settings] = await Promise.all([
+        tx.get(db.doc(`labLocations/${rosterLab}`)), tx.get(db.doc(`courseLabSettings/${key}`)),
+      ]);
+      if (!lab.exists || lab.data().archivedAt != null || selected.courseId !== key
+        || !(settings.exists ? settings.data().labIds?.includes(rosterLab) : lab.data().courseName === selected.courseName)) {
+        reject(409, 'assignment-lab-required', 'Lab roster tidak aktif untuk mata kuliah ini.');
+      }
+      if (selected.assistantIds.includes(targetUid)) return { role: 'asisten' };
+      if (selected.assistantIds.length >= 20) reject(409, 'assignment-limit', 'Kelas sudah memiliki 20 Asprak.');
+      const stamp = FieldValue.serverTimestamp();
+      const assistantIds = [...selected.assistantIds, targetUid];
+      tx.update(classRef, { assistantIds, memberIds: [...new Set([...assistantIds, ...selected.studentIds])], updatedAt: stamp });
+      tx.update(profileRef, { updatedAt: stamp });
+      tx.update(directoryRef, { updatedAt: stamp });
+      tx.create(historyRef, { action, uid: targetUid, actorUid, classId: targetClassId, removedClassIds: [], role: 'asisten', createdAt: stamp });
+      return { role: 'asisten' };
     }
     if (action === 'revoke' && !selected.assistantIds?.includes(targetUid)) {
       reject(409, 'assignment-not-eligible', 'Asprak sudah tidak ditugaskan pada kelas tersebut.');

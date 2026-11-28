@@ -127,6 +127,8 @@ export function ClassDetailScreen({ classId }: { classId: string }) {
                 {isAslab ? 'Atur peserta kelas praktikum ini.' : 'Lihat dan kelola jadwal kelas penugasanmu.'}
               </Text>
               <View style={styles.linkRow}>
+                {isAslab && <InlineAction label="Kelola Asprak" variant="primary" large
+                  onPress={() => router.push(`/kelas/${classId}/asprak`)} />}
                 {isAslab ? <InlineAction
                   label="Kelola peserta"
                   variant="lime"
