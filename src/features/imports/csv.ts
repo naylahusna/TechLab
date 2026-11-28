@@ -55,6 +55,7 @@ export type CsvRow = {
   values: Record<string, string>;
   selected: boolean;
   result?: { ok: boolean; message: string };
+  checked?: { ok: boolean; message: string };
 };
 
 export function parseImportCsv(text: string, headers: readonly string[]): CsvRow[] {

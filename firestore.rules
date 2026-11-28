@@ -101,9 +101,12 @@ service cloud.firestore {
 
     function isValidClass(data) {
       return data.keys().hasAll(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'createdAt', 'updatedAt', 'archivedAt'])
-        && data.keys().hasOnly(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'createdAt', 'updatedAt', 'archivedAt'])
+        && data.keys().hasOnly(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'createdAt', 'updatedAt', 'archivedAt', 'labId', 'courseId'])
         && data.className is string && data.className.size() >= 1 && data.className.size() <= 100
         && data.courseName is string && data.courseName.size() >= 1 && data.courseName.size() <= 100
+        && (('labId' in data) == ('courseId' in data))
+        && (!('labId' in data) || (data.labId is string && data.labId.matches('^[A-Za-z0-9_-]{1,64}$')
+          && data.courseId == courseLabKey(data.courseName)))
         && data.assistantIds is list && data.assistantIds.size() <= 20
         && data.studentIds is list && data.studentIds.size() <= 200
         && data.memberIds is list && data.memberIds.size() <= 220
@@ -241,11 +244,21 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function rosterLabAllowed(data) {
+      let key = courseLabKey(data.courseName);
+      let lab = get(/databases/$(database)/documents/labLocations/$(data.labId)).data;
+      let settings = /databases/$(database)/documents/courseLabSettings/$(key);
+      return lab.get('archivedAt', null) == null
+        && (exists(settings) ? data.labId in get(settings).data.labIds
+          : lab.get('courseName', '') == data.courseName);
+    }
+
     match /classes/{classId} {
       allow get, list: if (userRole() == 'asisten' && request.auth.uid in resource.data.assistantIds)
         || (isPractitioner() && request.auth.uid in resource.data.studentIds)
         || hasCourseScope(resource.data.courseName);
       allow create: if hasCourseScope(request.resource.data.courseName) && isValidClass(request.resource.data)
+        && (!('labId' in request.resource.data) || rosterLabAllowed(request.resource.data))
         && request.resource.data.studentIds.size() == 0
         && request.resource.data.memberIds.size() == request.resource.data.assistantIds.size()
         && request.resource.data.memberIds.hasAll(request.resource.data.assistantIds)
@@ -257,9 +270,17 @@ service cloud.firestore {
         && request.resource.data.memberIds.toSet() ==
           request.resource.data.assistantIds.toSet().union(request.resource.data.studentIds.toSet())
         && isValidClass(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'updatedAt', 'archivedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['className', 'courseName', 'assistantIds', 'studentIds', 'memberIds', 'updatedAt', 'archivedAt', 'labId', 'courseId'])
+        && (('labId' in resource.data)
+          ? request.resource.data.labId == resource.data.labId && request.resource.data.courseId == resource.data.courseId
+          : !('labId' in request.resource.data) || (resource.data.archivedAt == null && rosterLabAllowed(request.resource.data)))
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
+    }
+
+    function rosterAcceptsParticipants(classId) {
+      let classData = get(/databases/$(database)/documents/classes/$(classId)).data;
+      return classData.archivedAt == null && (!('labId' in classData) || rosterLabAllowed(classData));
     }
 
     match /participants/{participantId} {
@@ -270,6 +291,7 @@ service cloud.firestore {
               || canOverseeClass(participantId.split('_')[0]))));
       allow list: if canOverseeClass(resource.data.classId);
       allow create: if managesClass(request.resource.data.classId)
+        && rosterAcceptsParticipants(request.resource.data.classId)
         && isValidParticipant(request.resource.data)
         && participantId == request.resource.data.classId + '_' + request.resource.data.userId
         && request.resource.data.joinedAt == request.time
@@ -280,7 +302,8 @@ service cloud.firestore {
       allow update: if managesClass(resource.data.classId)
         && isValidParticipant(request.resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leftAt', 'studentName', 'studentNumber'])
-        && (request.resource.data.leftAt == null || request.resource.data.leftAt == request.time);
+        && ((request.resource.data.leftAt == null && rosterAcceptsParticipants(resource.data.classId))
+          || request.resource.data.leftAt == request.time);
       allow delete: if false;
     }
 

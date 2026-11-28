@@ -7,6 +7,8 @@ export type PracticumClass = Readonly<{
   id: string;
   className: string;
   courseName: string;
+  courseId?: string;
+  labId?: string;
   assistantIds: readonly string[];
   /** Daftar UID peserta aktif; diperbarui saat participant ditambah/dihapus. */
   studentIds: readonly string[];
