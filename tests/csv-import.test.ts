@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseImportCsv, previewCsvRows } from '../src/features/imports/csv';
 import { labCsvHeaders, parseLabRow } from '../src/features/assistant/lab-csv';
+import { parsePractitionerRow, practitionerCsvHeaders } from '../src/features/practicum/practitioner-csv';
 import { normalizeLabName } from '../src/features/assistant/lab-location-policy';
 
 const header = labCsvHeaders.join(',');
@@ -18,6 +19,14 @@ test('CSV preview repairs incomplete rows and keeps skipped rows out of the dupl
   rows[1].values.latitude = '-7,1';
   assert.equal(preview()[1].value?.latitude, -7.1);
   assert.equal(preview()[2].error, undefined);
+});
+
+test('Praktikan has its own CSV header and retains leading zeros in NIM', () => {
+  const rows = parseImportCsv('nim_praktikan\n001234\n001234', practitionerCsvHeaders);
+  const preview = previewCsvRows(rows, parsePractitionerRow, (number) => number);
+  assert.equal(preview[0].value, '001234');
+  assert.match(preview[1].error ?? '', /Duplikat/);
+  assert.throws(() => parseImportCsv(header + '\n' + row, practitionerCsvHeaders), /Header/);
 });
 
 test('CSV rejects an empty file, wrong or duplicate headers and malformed quoted data', () => {

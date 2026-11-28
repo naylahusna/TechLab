@@ -1,9 +1,11 @@
+import { courseLabKey } from '../assistant/lab-location-policy';
 import { getAuth } from 'firebase/auth';
 import {
   collection,
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   limit,
   onSnapshot,
   orderBy,
@@ -130,6 +132,8 @@ function toClass(snapshot: DocumentSnapshot<DocumentData>): PracticumClass {
     id: snapshot.id,
     className: asString(data.className),
     courseName: asString(data.courseName),
+    ...(typeof data.courseId === 'string' ? { courseId: data.courseId } : {}),
+    ...(typeof data.labId === 'string' ? { labId: data.labId } : {}),
     assistantIds: asStringList(data.assistantIds),
     studentIds: asStringList(data.studentIds),
     memberIds: asStringList(data.memberIds),
@@ -621,6 +625,20 @@ export function createPracticumRepository(db: Firestore) {
       });
     },
 
+    async setRosterLab(classId: string, labId: string): Promise<void> {
+      if (!/^[A-Za-z0-9_-]{1,64}$/.test(labId)) throw new PracticumError('INVALID_INPUT', 'ID lab tidak valid.');
+      const ref = doc(classes, classId);
+      await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(ref);
+        if (!snapshot.exists()) throw new PracticumError('NOT_FOUND', 'Kelas tidak ditemukan.');
+        const current = toClass(snapshot);
+        if (current.archivedAt || (current.labId && current.labId !== labId)) {
+          throw new PracticumError('INVALID_INPUT', 'Lab roster kelas ini sudah ditetapkan atau kelas telah diarsipkan.');
+        }
+        transaction.update(ref, { labId, courseId: courseLabKey(current.courseName), updatedAt: serverTimestamp() });
+      });
+    },
+
     async archiveClass(classId: string): Promise<void> {
       await updateDoc(doc(classes, classId), {
         archivedAt: serverTimestamp(),
@@ -676,7 +694,19 @@ export function createPracticumRepository(db: Firestore) {
       return Array.from(merged.values()).sort((left, right) => left.name.localeCompare(right.name));
     },
 
-    async addParticipant(input: PracticumParticipantInput): Promise<string> {
+    async resolvePractitionerByNumber(number: string): Promise<PracticumDirectoryUser> {
+      const matches = await getDocsFromServer(query(userDirectory,
+        where('number', '==', number), where('role', '==', 'praktikan'), limit(2)));
+      if (matches.size > 1) throw new PracticumError('INVALID_INPUT', 'NIM cocok dengan lebih dari satu akun Praktikan.');
+      if (matches.empty) {
+        const existing = await getDocsFromServer(query(userDirectory, where('number', '==', number), limit(1)));
+        throw new PracticumError('NOT_FOUND', existing.empty ? 'NIM tidak ditemukan. Periksa atau minta Praktikan mendaftar.'
+          : 'Akun dengan NIM tersebut tidak berperan Praktikan.');
+      }
+      return toDirectoryUser(matches.docs[0]);
+    },
+
+    async addParticipant(input: PracticumParticipantInput, allowExisting = false): Promise<string> {
       const clean = validateParticipantInput(input);
       const addedId = await runTransaction(db, async (transaction) => {
         const classRef = doc(classes, clean.classId);
@@ -691,13 +721,15 @@ export function createPracticumRepository(db: Firestore) {
         const existing = await transaction.get(ref);
         if (existing.exists()) {
           const participant = toParticipant(existing);
-          if (!participant.leftAt)
-            throw new PracticumError('DUPLICATE', 'Peserta sudah terdaftar pada kelas ini.');
-          transaction.update(ref, {
-            leftAt: null,
-            studentName: clean.studentName,
-            studentNumber: clean.studentNumber,
-          });
+          if (!participant.leftAt) {
+            if (!allowExisting) throw new PracticumError('DUPLICATE', 'Peserta sudah terdaftar pada kelas ini.');
+          } else {
+            transaction.update(ref, {
+              leftAt: null,
+              studentName: clean.studentName,
+              studentNumber: clean.studentNumber,
+            });
+          }
         } else {
           transaction.set(ref, {
             classId: clean.classId,

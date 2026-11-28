@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { CsvImport } from '../../imports/CsvImport';
+import { watchLabLocations, watchCourseLabSettings, type CourseLabSettings, type LabLocation } from '../../assistant/lab-locations';
+import { resolveCourseLabs } from '../../assistant/lab-location-policy';
+import { practitionerCsvHeaders, parsePractitionerRow } from '../practitioner-csv';
 import { ActionButton } from '../../../components/ActionButton';
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import { Text } from '../../../components/Text';
@@ -20,6 +24,9 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
   const router = useRouter();
   const classState = usePracticumClass(classId);
   const participants = useParticipants(classId);
+  const [labs, setLabs] = useState<LabLocation[]>([]);
+  const [settings, setSettings] = useState<CourseLabSettings | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
   const [term, setTerm] = useState('');
   const [results, setResults] = useState<PracticumDirectoryUser[]>([]);
   const [searching, setSearching] = useState(false);
@@ -28,6 +35,27 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
   const [actionError, setActionError] = useState('');
   const [pendingRemove, setPendingRemove] = useState<PracticumParticipant | null>(null);
   const searchSequence = useRef(0);
+
+  const courseName = classState.item?.courseName;
+  const labId = classState.item?.labId;
+  const courseLabs = courseName ? resolveCourseLabs(labs, courseName, settings?.courseName === courseName ? settings.labIds : undefined)
+    .filter((lab) => settings?.courseName === courseName || lab.legacyCourseName === courseName) : [];
+  const rosterLab = courseLabs.find((lab) => lab.id === labId);
+  useEffect(() => watchLabLocations(setLabs, (cause) => setActionError(practicumErrorMessage(cause))), []);
+  useEffect(() => {
+    if (courseName) return watchCourseLabSettings(courseName, setSettings, (cause) => setActionError(practicumErrorMessage(cause)));
+  }, [courseName]);
+
+  async function chooseRosterLab(id: string) {
+    if (busyId || importBusy) return;
+    setBusyId(id);
+    setActionError('');
+    try {
+      await getPracticumRepository().setRosterLab(classId, id);
+      await classState.reload();
+    } catch (cause) { setActionError(practicumErrorMessage(cause)); }
+    finally { setBusyId(null); }
+  }
 
   function goBack() {
     router.dismissTo(`/kelas/${classId}`);
@@ -64,7 +92,7 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
   }, [search, term]);
 
   async function add(user: PracticumDirectoryUser) {
-    if (busyId) return;
+    if (busyId || importBusy || !rosterLab) return;
     setBusyId(user.uid);
     setActionError('');
     try {
@@ -84,7 +112,7 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
   }
 
   async function remove() {
-    if (!pendingRemove || busyId) return;
+    if (!pendingRemove || busyId || importBusy) return;
     setBusyId(pendingRemove.userId);
     setActionError('');
     try {
@@ -141,7 +169,21 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Tambah Peserta</Text>
+            <Text style={styles.cardTitle}>Lab roster</Text>
+            {rosterLab ? <Text>{rosterLab.name} · {courseName}</Text> : labId ? (
+              <Text style={styles.note}>Lab roster tidak aktif pada mata kuliah ini. Periksa tautan lab.</Text>
+            ) : (
+              <>
+                <Text style={styles.note}>Tetapkan lab untuk roster kelas sebelum menambah Praktikan.</Text>
+                {courseLabs.map((lab) => <ActionButton key={lab.id} title={lab.name} secondary disabled={!!busyId}
+                  onPress={() => void chooseRosterLab(lab.id)} />)}
+                {courseLabs.length === 0 && <Text>Tautkan lab ke mata kuliah ini terlebih dahulu.</Text>}
+              </>
+            )}
+          </View>
+          {rosterLab && <>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Tambah Praktikan</Text>
             <Text style={styles.note}>
               Cari praktikan berdasarkan NIM atau nama, lalu tambahkan ke kelas.
             </Text>
@@ -180,7 +222,7 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
                     <InlineAction
                       label={busyId === user.uid ? 'Menambah…' : 'Tambah'}
                       variant="primary"
-                      disabled={busyId === user.uid}
+                      disabled={!!busyId || importBusy}
                       onPress={() => {
                         void add(user);
                       }}
@@ -194,6 +236,21 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
             ) : null}
           </View>
 
+          <View style={styles.card}>
+            <CsvImport title="Unggah Praktikan" filename="template-praktikan-techlab.csv"
+              headers={practitionerCsvHeaders} validate={parsePractitionerRow} identity={(number) => number}
+              onBusyChange={setImportBusy} check={async (number) => {
+                const user = await getPracticumRepository().resolvePractitionerByNumber(number);
+                return user.name + ' · ' + user.number;
+              }} save={async (number) => {
+                if (busyId) throw new Error('Tunggu perubahan peserta yang sedang berjalan.');
+                const repo = getPracticumRepository();
+                const user = await repo.resolvePractitionerByNumber(number);
+                await repo.addParticipant({ classId, userId: user.uid, studentName: user.name, studentNumber: user.number }, true);
+                return user.name + ' terdaftar di roster.';
+              }} />
+          </View>
+          </>}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Peserta Terdaftar</Text>
             {participants.items.length === 0 ? (
@@ -212,7 +269,7 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
                     <InlineAction
                       label="Hapus"
                       variant="danger"
-                      disabled={busyId === participant.userId}
+                      disabled={!!busyId || importBusy}
                       onPress={() => setPendingRemove(participant)}
                     />
                   </View>

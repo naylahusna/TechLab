@@ -278,6 +278,26 @@ test('course and roster changes apply to an existing authenticated context', asy
   await assertSucceeds(getDoc(doc(assistant, 'classes', 'other')));
 });
 
+test('roster lab can be assigned once and must be linked to the class course', async () => {
+  await seedAslab('admin-1', ['Basis Data']);
+  await seedClass('class-roster', 'asisten-1', [], 'Basis Data');
+  await env.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await setDoc(doc(db, 'labLocations', 'linked-lab'), { name: 'Lab A', catalogVersion: 2 });
+    await setDoc(doc(db, 'labLocations', 'other-lab'), { name: 'Lab B', catalogVersion: 2 });
+    await setDoc(doc(db, 'courseLabSettings', 'course-Basis Data'), { labIds: ['linked-lab'] });
+  });
+  const admin = env.authenticatedContext('admin-1').firestore();
+  const ref = doc(admin, 'classes', 'class-roster');
+  const bind = (labId, courseId = 'course-Basis Data') =>
+    updateDoc(ref, { labId, courseId, updatedAt: serverTimestamp() });
+  await assertFails(bind('other-lab'));
+  await assertFails(bind('linked-lab', 'course-lain'));
+  await assertSucceeds(bind('linked-lab'));
+  await assertFails(bind('other-lab'));
+  assert.equal((await getDoc(ref)).data().labId, 'linked-lab');
+});
+
 test('practitioner reads only classes, schedules, and sessions of their enrollment', async () => {
   await seedUser('asisten-1', 'asisten');
   await seedUser('praktikan-1');
