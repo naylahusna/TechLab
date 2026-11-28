@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
 import { useAuth } from '../auth/AuthProvider';
+import { watchAslabCourses } from '../assistant/lab-locations';
 import { usePermissions } from '../permission/hooks';
 import type { SessionWithSummary } from '../assistant/types';
 import type { RiwayatItem } from '../practitioner/types';
@@ -34,6 +35,8 @@ type ClassState = {
 export function useAssistantClasses() {
   const auth = useAuth();
   const assistantId = auth.profile?.uid;
+  const isAslab = auth.profile?.role === 'admin';
+  const [aslabCourses, setAslabCourses] = useState<string[]>([]);
   const [state, setState] = useState<ClassesState>({
     status: 'loading',
     classes: [],
@@ -56,7 +59,9 @@ export function useAssistantClasses() {
       refreshing: previous.classes.length > 0,
     }));
     try {
-      const classes = await getPracticumRepository().listClassesForAssistant(assistantId);
+      const repo = getPracticumRepository();
+      const classes = isAslab ? await repo.listClassesForAslab(aslabCourses)
+        : await repo.listClassesForAssistant(assistantId);
       setState({ status: 'ready', classes, error: null, refreshing: false });
     } catch (error) {
       setState({
@@ -66,7 +71,14 @@ export function useAssistantClasses() {
         refreshing: false,
       });
     }
-  }, [assistantId]);
+  }, [assistantId, isAslab, aslabCourses]);
+
+  useEffect(() => {
+    if (isAslab && assistantId) return watchAslabCourses(assistantId, setAslabCourses, (error) => {
+      setAslabCourses([]);
+      setSyncError(practicumErrorMessage(error));
+    });
+  }, [isAslab, assistantId, subscriptionEpoch]);
 
   useFocusEffect(
     useCallback(() => {
@@ -75,7 +87,7 @@ export function useAssistantClasses() {
   );
 
   useEffect(() => {
-    if (!assistantId) return;
+    if (!assistantId || isAslab) return;
     return getPracticumRepository().subscribeToClassesForAssistant(
       assistantId,
       (isFromCache) => {
@@ -87,7 +99,7 @@ export function useAssistantClasses() {
         setSyncError(practicumErrorMessage(error));
       },
     );
-  }, [assistantId, load, subscriptionEpoch]);
+  }, [assistantId, isAslab, load, subscriptionEpoch]);
 
   const retrySync = useCallback(() => {
     setSyncError(null);
@@ -318,8 +330,9 @@ export function useScheduleOverview() {
       (error) => {
         setSyncError(practicumErrorMessage(error));
       },
+      role === 'asisten',
     );
-  }, [userId, load, subscriptionEpoch]);
+  }, [userId, load, role, subscriptionEpoch]);
 
   const retrySync = useCallback(() => {
     setSyncError(null);
@@ -514,6 +527,7 @@ export function usePractitionerHistory() {
           error: practicumErrorMessage(error),
           refreshing: false,
         }),
+      false,
     );
   }, [userId, load]);
 

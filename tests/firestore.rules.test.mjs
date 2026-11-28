@@ -159,11 +159,19 @@ test('operator-provisioned assistant can edit own profile but cannot change own 
     updateDoc(own('assistant'), { role: 'praktikan', updatedAt: serverTimestamp() }),
   );
 });
+async function seedLabScope(uid) {
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'aslabScopes', uid), { courseNames: ['Basis Data', 'Praktikum'] });
+  });
+}
+
 test('Aslab can create and edit lab locations with the required location schema', async () => {
   await seed('admin', 'admin');
   const db = env.authenticatedContext('admin').firestore();
+  await seedLabScope('admin');
   const ref = doc(db, 'labLocations', 'lab-b');
   const location = {
+    courseName: 'Basis Data',
     name: 'Lab Informatika B',
     latitude: -7.0482375,
     longitude: 110.440765625,
@@ -180,6 +188,7 @@ test('Aslab can create and edit lab locations with the required location schema'
     updatedBy: 'admin',
   };
   await assertSucceeds(setDoc(ref, location));
+  await assertFails(setDoc(doc(db, 'labLocations', 'outside'), { ...location, courseName: 'Jaringan' }));
   await assertSucceeds(updateDoc(ref, { name: 'Lab Informatika B Baru', updatedAt: serverTimestamp() }));
   await seed('assistant', 'asisten');
   const assistantDb = env.authenticatedContext('assistant').firestore();
@@ -202,9 +211,10 @@ test('practitioners cannot create, update, or delete lab locations', async () =>
   await seed('admin', 'admin');
   const adminDb = env.authenticatedContext('admin').firestore();
   const studentDb = env.authenticatedContext('student').firestore();
+  await seedLabScope('admin');
   const existing = doc(adminDb, 'labLocations', 'lab-b');
   await setDoc(existing, {
-    name: 'Lab Informatika B', latitude: -7.0482375, longitude: 110.440765625,
+    courseName: 'Basis Data', name: 'Lab Informatika B', latitude: -7.0482375, longitude: 110.440765625,
     radiusMeters: 100, building: 'Gedung E FSM UNDIP', floor: 2, plusCode: '',
     pointType: 'building_map_reference', roomCenterVerified: false,
     source: 'Google Maps listing', caution: 'Building reference',
@@ -325,8 +335,9 @@ test('Aslab approves a separate candidate only with a matching practitioner, the
   await assertFails(updateDoc(doc(adminDb, 'users', 'admin'), { role: 'praktikan', updatedAt: serverTimestamp() }));
 });
 
-test('Aslab can reject a candidate and use assistant permissions for an assigned class', async () => {
+test('Aslab can reject a candidate and manage a class in their course scope', async () => {
   await seed('admin', 'admin');
+  await seedLabScope('admin');
   await seed('rejected', 'calon_asprak');
   await env.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), 'userDirectory', 'rejected'), {

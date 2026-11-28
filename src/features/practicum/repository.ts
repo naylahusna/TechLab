@@ -284,7 +284,7 @@ export function createPracticumRepository(db: Firestore) {
 
   async function classesForAssistant(assistantId: string): Promise<PracticumClass[]> {
     const snapshot = await getDocs(
-      query(classes, where('memberIds', 'array-contains', assistantId)),
+      query(classes, where('assistantIds', 'array-contains', assistantId)),
     );
     return snapshot.docs
       .map(toClass)
@@ -293,7 +293,7 @@ export function createPracticumRepository(db: Firestore) {
   }
 
   async function classesForPractitioner(userId: string): Promise<PracticumClass[]> {
-    const snapshot = await getDocs(query(classes, where('memberIds', 'array-contains', userId)));
+    const snapshot = await getDocs(query(classes, where('studentIds', 'array-contains', userId)));
     return snapshot.docs
       .map(toClass)
       .filter((item) => !item.archivedAt)
@@ -382,11 +382,12 @@ export function createPracticumRepository(db: Firestore) {
 
   function subscribeToMemberClasses(
     memberId: string,
+    membershipField: 'assistantIds' | 'studentIds',
     onChange: SubscriptionListener,
     onError?: SubscriptionErrorHandler,
   ) {
     return subscribeToQuery(
-      query(classes, where('memberIds', 'array-contains', memberId)),
+      query(classes, where(membershipField, 'array-contains', memberId)),
       onChange,
       onError,
     );
@@ -571,13 +572,20 @@ export function createPracticumRepository(db: Firestore) {
       return classesForAssistant(assistantId);
     },
 
+    async listClassesForAslab(courseNames: string[]): Promise<PracticumClass[]> {
+      if (courseNames.length === 0) return [];
+      const result = await getDocs(query(classes, where('courseName', 'in', courseNames)));
+      return result.docs.map(toClass).filter((item) => !item.archivedAt)
+        .sort((left, right) => left.className.localeCompare(right.className));
+    },
+
     async listClassesForPractitioner(userId: string): Promise<PracticumClass[]> {
       return classesForPractitioner(userId);
     },
 
-    async createClass(input: PracticumClassInput, assistantId: string): Promise<string> {
+    async createClass(input: PracticumClassInput, assistantId?: string): Promise<string> {
       const clean = validateClassInput(input);
-      const assistantIds = Array.from(new Set([...(clean.assistantIds ?? []), assistantId]));
+      const assistantIds = Array.from(new Set([...(clean.assistantIds ?? []), ...(assistantId ? [assistantId] : [])]));
       const ref = doc(classes);
       await setDoc(ref, {
         className: clean.className,
@@ -703,7 +711,7 @@ export function createPracticumRepository(db: Firestore) {
         if (!classItem.studentIds.includes(clean.userId)) {
           transaction.update(classRef, {
             studentIds: [...classItem.studentIds, clean.userId],
-            memberIds: [...classItem.memberIds, clean.userId],
+            memberIds: Array.from(new Set([...classItem.assistantIds, ...classItem.studentIds, clean.userId])),
             updatedAt: serverTimestamp(),
           });
         }
@@ -728,7 +736,7 @@ export function createPracticumRepository(db: Firestore) {
         const classItem = toClass(classSnapshot);
         transaction.update(classRef, {
           studentIds: classItem.studentIds.filter((id) => id !== userId),
-          memberIds: classItem.memberIds.filter((id) => id !== userId),
+          memberIds: Array.from(new Set([...classItem.assistantIds, ...classItem.studentIds.filter((id) => id !== userId)])),
           updatedAt: serverTimestamp(),
         });
       });
@@ -1015,7 +1023,7 @@ export function createPracticumRepository(db: Firestore) {
       onChange: SubscriptionListener,
       onError?: SubscriptionErrorHandler,
     ) {
-      return subscribeToMemberClasses(assistantId, onChange, onError);
+      return subscribeToMemberClasses(assistantId, 'assistantIds', onChange, onError);
     },
 
     subscribeToClassesForMember(
@@ -1023,7 +1031,7 @@ export function createPracticumRepository(db: Firestore) {
       onChange: SubscriptionListener,
       onError?: SubscriptionErrorHandler,
     ) {
-      return subscribeToMemberClasses(memberId, onChange, onError);
+      return subscribeToMemberClasses(memberId, 'studentIds', onChange, onError);
     },
 
     subscribeToMapActivity(
@@ -1064,7 +1072,7 @@ export function createPracticumRepository(db: Firestore) {
       }
 
       const stopClasses = onSnapshot(
-        query(classes, where('memberIds', 'array-contains', uid)),
+        query(classes, where(asAssistant ? 'assistantIds' : 'studentIds', 'array-contains', uid)),
         { includeMetadataChanges: true },
         (snapshot) => {
           if (!active || failed) return;
@@ -1121,6 +1129,7 @@ export function createPracticumRepository(db: Firestore) {
       memberId: string,
       onChange: SubscriptionListener,
       onError?: SubscriptionErrorHandler,
+      asAssistant = true,
     ) {
       let stopClassQueries: (() => void)[] = [];
       let activeClassKey: string | null = null;
@@ -1139,7 +1148,7 @@ export function createPracticumRepository(db: Firestore) {
         );
 
       const stopClasses = onSnapshot(
-        query(classes, where('memberIds', 'array-contains', memberId)),
+        query(classes, where(asAssistant ? 'assistantIds' : 'studentIds', 'array-contains', memberId)),
         { includeMetadataChanges: true },
         (snapshot) => {
           cacheStates.set('classes', snapshot.metadata.fromCache);

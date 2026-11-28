@@ -73,6 +73,18 @@ async function setup({ enrolled = true, stubQr = true } = {}) {
 
 async function closeServer(server) { await new Promise((resolve) => server.close(resolve)); }
 
+test('QR management stays with assigned Asprak and a live login cannot retain revoked access', async () => {
+  const ctx = await setup();
+  try {
+    ctx.db.values.set('users/asst', { role: 'admin' });
+    assert.equal((await ctx.request('qr', 'assistant-token', { sessionId: 's1' })).status, 403);
+    ctx.db.values.set('users/asst', { role: 'asisten' });
+    assert.equal((await ctx.request('qr', 'assistant-token', { sessionId: 's1' })).status, 200);
+    ctx.db.values.set('users/asst', { role: 'asprak_dicabut' });
+    assert.equal((await ctx.request('qr', 'assistant-token', { sessionId: 's1' })).status, 403);
+  } finally { await closeServer(ctx.server); }
+});
+
 test('assistant creates a QR image with an expiring random token', async () => {
   const ctx = await setup();
   try {

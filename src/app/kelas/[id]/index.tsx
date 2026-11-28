@@ -6,7 +6,7 @@ export default function ClassDetailRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   if (typeof id !== 'string' || !id) return <Redirect href="/kelas" />;
   return (
-    <AssistantRoute>
+    <AssistantRoute access="staff">
       <ClassDetailScreen classId={id} />
     </AssistantRoute>
   );

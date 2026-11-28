@@ -78,7 +78,7 @@ export function ClassFormScreen({ mode, classId }: ClassFormScreenProps) {
     try {
       const clean = validateClassInput({ className, courseName });
       if (mode === 'create') {
-        await getPracticumRepository().createClass(clean, auth.profile.uid);
+        await getPracticumRepository().createClass(clean);
         router.dismissTo('/kelas');
       } else if (classId) {
         await getPracticumRepository().updateClass(classId, clean);
@@ -96,13 +96,13 @@ export function ClassFormScreen({ mode, classId }: ClassFormScreenProps) {
   const title = mode === 'create' ? 'Tambah Kelas' : 'Edit Kelas';
   const subtitle =
     mode === 'create'
-      ? 'Buat kelas praktikum baru. Kamu otomatis menjadi asisten kelas ini.'
+      ? 'Buat kelas praktikum baru dalam cakupan mata kuliahmu.'
       : 'Perbarui informasi kelas praktikum.';
 
   return (
     <View style={styles.screen}>
       <PracticumHeader
-        eyebrow="Asisten"
+        eyebrow="Aslab"
         title={title}
         subtitle={subtitle}
         onBack={goBack}
@@ -137,8 +137,7 @@ export function ClassFormScreen({ mode, classId }: ClassFormScreenProps) {
               maxLength={120}
             />
             <Text style={styles.note}>
-              Kamu otomatis menjadi asisten kelas ini. Penambahan asisten lain dapat
-              dilakukan pada tahap berikutnya.
+              Gunakan nama mata kuliah sesuai cakupan penugasan Aslab.
             </Text>
             {error ? (
               <Text accessibilityRole="alert" style={styles.error}>

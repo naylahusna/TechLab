@@ -107,7 +107,7 @@ export function ParticipantListScreen({ classId }: { classId: string }) {
   return (
     <View style={styles.screen}>
       <PracticumHeader
-        eyebrow="Asisten"
+        eyebrow="Aslab"
         title="Kelola Peserta"
         subtitle={classState.item?.className ?? 'Peserta praktikum kelas.'}
         onBack={goBack}

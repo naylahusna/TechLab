@@ -6,7 +6,7 @@ export default function EditClassRoute() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   if (typeof id !== 'string' || !id) return <Redirect href="/kelas" />;
   return (
-    <AssistantRoute>
+    <AssistantRoute access="aslab">
       <ClassFormScreen mode="edit" classId={id} />
     </AssistantRoute>
   );

@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ActionButton } from '../../../components/ActionButton';
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import { Text } from '../../../components/Text';
+import { useAuth } from '../../auth/AuthProvider';
 import { Badge } from '../../practitioner/components/Badge';
 import { getPracticumRepository } from '../client';
 import { InlineAction } from '../components/InlineAction';
@@ -17,6 +18,7 @@ import { colors, fontWeights, lineHeights, radius, spacing, typography } from '.
 
 export function ClassDetailScreen({ classId }: { classId: string }) {
   const router = useRouter();
+  const isAslab = useAuth().profile?.role === 'admin';
   const { status, item, error, reload, syncError, fromCache, retrySync } =
     usePracticumClass(classId);
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -58,7 +60,7 @@ export function ClassDetailScreen({ classId }: { classId: string }) {
   return (
     <View style={styles.screen}>
       <PracticumHeader
-        eyebrow="Asisten"
+        eyebrow={isAslab ? 'Aslab' : 'Asprak'}
         title="Detail Kelas"
         subtitle="Informasi kelas praktikum dan tindakan pengelolaan."
         onBack={goBack}
@@ -122,26 +124,25 @@ export function ClassDetailScreen({ classId }: { classId: string }) {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Kelola kelas</Text>
               <Text style={styles.cardDescription}>
-                Atur peserta dan jadwal untuk kelas praktikum ini.
+                {isAslab ? 'Atur peserta kelas praktikum ini.' : 'Lihat dan kelola jadwal kelas penugasanmu.'}
               </Text>
               <View style={styles.linkRow}>
-                <InlineAction
+                {isAslab ? <InlineAction
                   label="Kelola peserta"
                   variant="lime"
                   large
                   onPress={goParticipants}
-                />
-                <InlineAction
+                /> : <InlineAction
                   label="Kelola jadwal"
                   variant="primary"
                   large
                   onPress={goSchedules}
-                />
+                />}
               </View>
             </View>
           ) : null}
 
-          <View style={styles.card}>
+          {isAslab ? <View style={styles.card}>
             <Text style={styles.cardTitle}>Tindakan</Text>
             <ActionButton title="Edit Kelas" secondary onPress={goEdit} />
             {item.archivedAt ? (
@@ -174,7 +175,7 @@ export function ClassDetailScreen({ classId }: { classId: string }) {
                 {archiveError}
               </Text>
             ) : null}
-          </View>
+          </View> : null}
         </ScrollView>
       ) : null}
 
