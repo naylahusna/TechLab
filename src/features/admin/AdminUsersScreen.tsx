@@ -11,7 +11,7 @@ import { colors } from '../../theme/tokens';
 import { FormField } from '../auth/AuthForm';
 import { useAuth } from '../auth/AuthProvider';
 import { authErrorMessage, rejectionReasonLabels, type UserProfile } from '../auth/model';
-import { changeUserRole, watchUsers, type RoleChange } from './users';
+import { changeUserRole, listAssignmentClasses, watchUsers, type RoleChange } from './users';
 
 const filters = [
   { value: 'semua', label: 'Semua' },
@@ -30,7 +30,7 @@ function availableActions({ role, rejectionReason }: UserProfile) {
   if (role === 'asprak_ditolak' && !rejectionReason) {
     return [{ label: 'Catat belum punya akun Praktikan', nextRole: 'asprak_ditolak', rejectionReason: 'no_practitioner_account' }] as const;
   }
-  if (role === 'asisten') return [{ label: 'Cabut akses asprak', nextRole: 'asprak_dicabut' }] as const;
+  if (role === 'asisten') return [{ label: 'Cabut penugasan Asprak', nextRole: 'asprak_dicabut' }] as const;
   return [];
 }
 
@@ -47,6 +47,10 @@ function UserDirectory() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('semua');
   const [pending, setPending] = useState<RoleChange | null>(null);
+  const [assignment, setAssignment] = useState<{
+    change: RoleChange;
+    classes: { id: string; label: string }[];
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const writing = useRef(false);
   const [loadError, setLoadError] = useState('');
@@ -72,6 +76,33 @@ function UserDirectory() {
   });
   const currentTarget = users?.find(({ uid }) => uid === pending?.user.uid);
 
+  async function prepare(change: RoleChange) {
+    if (writing.current || fromCache) return;
+    if (change.nextRole === 'asprak_ditolak') {
+      setPending(change);
+      return;
+    }
+    writing.current = true;
+    setBusy(true);
+    setAssignment(null);
+    try {
+      const classes = await listAssignmentClasses(change.user, change.nextRole);
+      if (!classes.length) {
+        throw new Error(change.nextRole === 'asisten' ? 'Belum ada kelas aktif dalam cakupanmu.'
+          : 'Asprak ini tidak memiliki penugasan kelas aktif dalam cakupanmu.');
+      }
+      setAssignment({
+        change,
+        classes: classes.map((item) => ({ id: item.id, label: `${item.courseName} · ${item.className}` })),
+      });
+    } catch (error) {
+      setFeedback((previous) => ({ ...previous, [change.user.uid]: { message: authErrorMessage(error), error: true } }));
+    } finally {
+      writing.current = false;
+      setBusy(false);
+    }
+  }
+
   async function confirm() {
     if (!pending || writing.current || fromCache || currentTarget?.role !== pending.user.role) return;
     writing.current = true;
@@ -79,8 +110,12 @@ function UserDirectory() {
     setPending(null);
     setFeedback((previous) => ({ ...previous, [pending.user.uid]: { message: 'Memproses perubahan…', error: false } }));
     try {
-      await changeUserRole(pending);
-      setFeedback((previous) => ({ ...previous, [pending.user.uid]: { message: 'Status akun diperbarui.', error: false } }));
+      const role = await changeUserRole(pending);
+      const message = pending.nextRole === 'asprak_dicabut' && role === 'asisten'
+        ? 'Penugasan ini dicabut. Penugasan di kelas lain tetap aktif.'
+        : role === 'asprak_dicabut' ? 'Penugasan terakhir dan akses Asprak sudah dicabut.'
+          : role === 'asisten' ? 'Pengajuan disetujui dan penugasan aktif.' : 'Status pengajuan diperbarui.';
+      setFeedback((previous) => ({ ...previous, [pending.user.uid]: { message, error: false } }));
     } catch (error) {
       setFeedback((previous) => ({ ...previous, [pending.user.uid]: { message: authErrorMessage(error), error: true } }));
     } finally {
@@ -130,15 +165,29 @@ function UserDirectory() {
           )}
           {availableActions(user).map((action) => (
             <ActionButton key={action.label} title={action.label} secondary disabled={busy || fromCache}
-              onPress={() => setPending({ user, nextRole: action.nextRole,
+              onPress={() => void prepare({ user, nextRole: action.nextRole,
                 rejectionReason: 'rejectionReason' in action ? action.rejectionReason : undefined })} />
           ))}
+          {assignment?.change.user.uid === user.uid && assignment.change.user.role === user.role && (
+            <>
+              <Text style={styles.detail}>{assignment.change.nextRole === 'asisten'
+                ? 'Pilih kelas untuk penugasan baru.' : 'Pilih kelas yang penugasannya akan dicabut.'}</Text>
+              {assignment.classes.map(({ id, label }) => (
+                <ActionButton key={id} title={label} secondary disabled={busy || fromCache}
+                  onPress={() => {
+                    setPending({ ...assignment.change, classId: id, classLabel: label });
+                    setAssignment(null);
+                  }} />
+              ))}
+              <ActionButton title="Batal pilih kelas" secondary onPress={() => setAssignment(null)} />
+            </>
+          )}
         </View>
       ))}
       <ConfirmationModal
         visible={pending !== null && !fromCache && currentTarget?.role === pending.user.role}
         title="Konfirmasi perubahan akses"
-        description={pending ? `${pending.user.name} (${pending.user.number}) · ${roleLabels[pending.nextRole]}. ${pending.nextRole === 'asisten' ? 'Pastikan pengajuan ini milik pemilik akun praktikan dengan nama dan NIM yang sama.' : pending.rejectionReason ? rejectionReasonLabels[pending.rejectionReason] : ''}` : ''}
+        description={pending ? `${pending.user.name} (${pending.user.number}) · ${pending.classLabel ?? roleLabels[pending.nextRole]}. ${pending.nextRole === 'asisten' ? 'Akses kelas aktif setelah pengajuan disetujui.' : pending.nextRole === 'asprak_dicabut' ? 'Akses pada kelas ini akan dicabut.' : pending.rejectionReason ? rejectionReasonLabels[pending.rejectionReason] : ''}` : ''}
         eyebrow="KONFIRMASI PERAN"
         confirmLabel="Konfirmasi"
         confirmTestID="confirm-role-change"

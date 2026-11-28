@@ -36,13 +36,32 @@ export function createProfileRepository(db: Firestore) {
         });
       });
     },
+    async reapplyAsAssistant(uid: string) {
+      const profile = doc(db, 'users', uid);
+      const directory = doc(db, 'userDirectory', uid);
+      await runTransaction(db, async (transaction) => {
+        const existing = (await transaction.get(profile)).data();
+        if (existing?.role === 'calon_asprak' && existing.reappliedAt != null) return;
+        if (!existing || (existing.role !== 'asprak_dicabut'
+          && !(existing.role === 'asprak_ditolak' && existing.reappliedAt != null))) {
+          throw new Error('Pengajuan ulang tersedia untuk akun Asprak yang aksesnya sudah dicabut.');
+        }
+        transaction.update(profile, {
+          role: 'calon_asprak', reappliedAt: serverTimestamp(),
+          rejectionReason: deleteField(), updatedAt: serverTimestamp(),
+        });
+        transaction.set(directory, {
+          uid, name: existing.name, number: existing.number, role: 'calon_asprak', updatedAt: serverTimestamp(),
+        });
+      });
+    },
     async continueAsPractitioner(uid: string) {
       const profile = doc(db, 'users', uid);
       const directory = doc(db, 'userDirectory', uid);
       await runTransaction(db, async (transaction) => {
         const existing = (await transaction.get(profile)).data();
         if (existing?.role === 'praktikan') return;
-        if (existing?.role !== 'asprak_ditolak' || existing.rejectionReason !== 'no_practitioner_account') {
+        if (existing?.role !== 'asprak_ditolak' || existing.rejectionReason !== 'no_practitioner_account' || existing.reappliedAt != null) {
           throw new Error('Akun ini belum bisa dilanjutkan sebagai Praktikan. Hubungi Aslab.');
         }
         const update = { role: 'praktikan', rejectionReason: deleteField(), updatedAt: serverTimestamp() };

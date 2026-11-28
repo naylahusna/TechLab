@@ -1,4 +1,4 @@
-function isLocalHost(host: string) {
+export function isLocalHost(host: string) {
   if (['localhost', '127.0.0.1', '[::1]'].includes(host)) return true;
   const parts = host.split('.').map(Number);
   return /^\d+\.\d+\.\d+\.\d+$/.test(host) && parts.every((n) => n >= 0 && n <= 255) &&

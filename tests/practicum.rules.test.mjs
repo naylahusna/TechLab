@@ -166,7 +166,7 @@ test('schedule overview queries work for both roles and deny unrelated schedules
   }
 });
 
-test('only a scoped Aslab can create a class and change its distribution', async () => {
+test('only a scoped Aslab can create a class and clients cannot assign assistants', async () => {
   await seedUser('asisten-1', 'asisten');
   await seedUser('asisten-2', 'asisten');
   await seedUser('praktikan-1');
@@ -177,15 +177,18 @@ test('only a scoped Aslab can create a class and change its distribution', async
     setDoc(doc(admin, 'classes', 'class-1'), {
       className: 'Informatika A',
       courseName: 'Pemrograman Perangkat Bergerak',
-      assistantIds: ['asisten-1'],
+      assistantIds: [],
       studentIds: [],
-      memberIds: ['asisten-1'],
+      memberIds: [],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       archivedAt: null,
     }),
   );
 
+  await assertFails(updateDoc(doc(admin, 'classes', 'class-1'), {
+    assistantIds: ['asisten-1'], memberIds: ['asisten-1'], updatedAt: serverTimestamp(),
+  }));
   const otherAssistant = env.authenticatedContext('asisten-2').firestore();
   await assertFails(
     updateDoc(doc(otherAssistant, 'classes', 'class-1'), {
@@ -271,8 +274,13 @@ test('course and roster changes apply to an existing authenticated context', asy
   await assertFails(getDoc(doc(guest, 'sessions', 'schedule-1')));
 
   await assertSucceeds(updateDoc(doc(admin, 'classes', 'allowed'), {
-    assistantIds: [], studentIds: [], memberIds: [], updatedAt: serverTimestamp(),
+    studentIds: [], memberIds: ['asisten-1'], updatedAt: serverTimestamp(),
   }));
+  await env.withSecurityRulesDisabled(async (context) => {
+    await updateDoc(doc(context.firestore(), 'classes', 'allowed'), {
+      assistantIds: [], memberIds: [], updatedAt: serverTimestamp(),
+    });
+  });
   await assertFails(getDoc(doc(assistant, 'sessions', 'schedule-1')));
   await assertFails(getDoc(doc(student, 'sessions', 'schedule-1')));
   await assertSucceeds(getDoc(doc(assistant, 'classes', 'other')));
